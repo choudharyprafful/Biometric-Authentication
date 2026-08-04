@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "SecureAI — Biometric Security Demo"
+description = "A security proof-of-concept AI platform demonstrating biometric face MFA authentication, secure session management, access control, audit logging, and simulated payments. Users register with email/password then enroll their face via webcam; subsequent logins require both factors. Includes an admin dashboard, security audit log, threat assessment, and Stripe-style payment simulation — all using dummy data per the project brief."
+version = "1.0.0"
+id = "artifacts/secureai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24381
+
+[services.development]
+run = "pnpm --filter @workspace/secureai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/secureai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/secureai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24381"
+BASE_PATH = "/"

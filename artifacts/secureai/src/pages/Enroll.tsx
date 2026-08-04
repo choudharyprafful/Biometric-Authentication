@@ -1,0 +1,132 @@
+import React, { useState } from 'react';
+import { useLocation } from 'wouter';
+import { useAuth } from '../contexts/AuthContext';
+import { useEnrollFace } from '@workspace/api-client-react';
+import { Card, Button } from '../components/ui';
+import { ScanFace, CheckCircle2, ChevronRight } from 'lucide-react';
+import { FaceCamera } from '../components/FaceCamera';
+
+export default function Enroll() {
+  const { user, refetchUser } = useAuth();
+  const [, setLocation] = useLocation();
+  const enrollMutation = useEnrollFace();
+  
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [descriptor, setDescriptor] = useState<number[] | null>(null);
+  const [error, setError] = useState('');
+
+  if (!user) return null;
+
+  const handleCapture = (capturedDescriptor: number[]) => {
+    setDescriptor(capturedDescriptor);
+    setStep(3);
+  };
+
+  const handleConfirm = async () => {
+    if (!descriptor) return;
+    setError('');
+    
+    try {
+      await enrollMutation.mutateAsync({ id: user.id, data: { descriptor } });
+      await refetchUser();
+      setLocation('/dashboard');
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to save biometric profile.');
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto py-12">
+      <div className="mb-8">
+        <h1 className="font-mono text-3xl font-bold uppercase tracking-widest text-foreground flex items-center gap-4">
+          <ScanFace className="w-8 h-8 text-primary" />
+          Biometric Enrollment
+        </h1>
+        <p className="font-mono text-sm text-muted-foreground mt-2 uppercase tracking-wider">
+          Multi-factor security protocol setup for operator {user.name}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between mb-8 px-8">
+        <div className={`flex flex-col items-center ${step >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 1 ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>1</div>
+          <span className="text-xs font-mono uppercase tracking-widest">Protocol</span>
+        </div>
+        <div className={`flex-1 h-px ${step >= 2 ? 'bg-primary' : 'bg-muted-foreground'} mx-4 opacity-30`} />
+        <div className={`flex flex-col items-center ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 2 ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>2</div>
+          <span className="text-xs font-mono uppercase tracking-widest">Capture</span>
+        </div>
+        <div className={`flex-1 h-px ${step >= 3 ? 'bg-primary' : 'bg-muted-foreground'} mx-4 opacity-30`} />
+        <div className={`flex flex-col items-center ${step >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 3 ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>3</div>
+          <span className="text-xs font-mono uppercase tracking-widest">Confirm</span>
+        </div>
+      </div>
+
+      <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm">
+        {step === 1 && (
+          <div className="space-y-6 text-center py-8">
+            <ScanFace className="w-16 h-16 text-primary mx-auto mb-4 opacity-80" />
+            <h2 className="text-xl font-mono uppercase tracking-widest">Enhanced Security Required</h2>
+            <p className="text-muted-foreground font-mono max-w-lg mx-auto">
+              SecureAI requires facial biometrics for multi-factor authentication. 
+              The system will capture a mathematical map of your face.
+              No visual image is stored.
+            </p>
+            
+            <div className="bg-primary/5 border border-primary/20 p-4 inline-block text-left mt-4">
+              <ul className="text-sm font-mono text-muted-foreground space-y-2 list-disc pl-4">
+                <li>Ensure good lighting</li>
+                <li>Face the camera directly</li>
+                <li>Remove sunglasses or masks</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-center gap-4 mt-8">
+              <Button variant="ghost" onClick={() => setLocation('/dashboard')}>
+                Skip Protocol
+              </Button>
+              <Button onClick={() => setStep(2)}>
+                Initialize Camera <ChevronRight className="ml-2 w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6 py-4">
+            <FaceCamera 
+              onCapture={handleCapture}
+              buttonLabel="Capture Biometric Map"
+            />
+            <div className="flex justify-center mt-4">
+               <Button variant="ghost" size="sm" onClick={() => setStep(1)}>Abort</Button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-6 text-center py-8">
+            <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
+            <h2 className="text-xl font-mono uppercase tracking-widest text-green-400">Signature Acquired</h2>
+            <p className="text-muted-foreground font-mono max-w-lg mx-auto">
+              Facial map generated successfully. Proceed to bind this signature to your operator profile.
+            </p>
+            
+            {error && <p className="text-destructive font-mono text-sm">{error}</p>}
+
+            <div className="flex justify-center gap-4 mt-8">
+              <Button variant="outline" onClick={() => setStep(2)} disabled={enrollMutation.isPending}>
+                Recapture
+              </Button>
+              <Button onClick={handleConfirm} isLoading={enrollMutation.isPending}>
+                Commit Signature
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
