@@ -1,0 +1,1 @@
+- [PostgreSQL sessions](postgresql-sessions.md) — Provision the connect-pg-simple session table through Drizzle, not its runtime auto-create option.

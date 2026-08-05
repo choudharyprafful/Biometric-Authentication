@@ -22,6 +22,18 @@ function getClientIp(req: Request): string {
   return req.socket?.remoteAddress ?? "unknown";
 }
 
+function saveSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.save((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 function mapUser(user: typeof usersTable.$inferSelect) {
   return {
     id: user.id,
@@ -79,6 +91,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   req.session.userId = user.id;
+  try {
+    await saveSession(req);
+  } catch {
+    res.status(500).json({ error: "Could not establish an authenticated session" });
+    return;
+  }
 
   await logEvent({
     eventType: "REGISTER",
@@ -125,6 +143,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     req.session.pendingUserId = user.id;
     req.session.tempToken = tempToken;
     delete req.session.userId;
+    try {
+      await saveSession(req);
+    } catch {
+      res.status(500).json({ error: "Could not begin biometric verification" });
+      return;
+    }
 
     await logEvent({ eventType: "LOGIN_SUCCESS", details: `Password verified for ${email}; awaiting face MFA`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
@@ -138,6 +162,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     req.session.userId = user.id;
     delete req.session.pendingUserId;
     delete req.session.tempToken;
+    try {
+      await saveSession(req);
+    } catch {
+      res.status(500).json({ error: "Could not establish an authenticated session" });
+      return;
+    }
 
     await logEvent({ eventType: "LOGIN_SUCCESS", details: `Login successful for ${email} (no face MFA)`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
@@ -185,6 +215,12 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
   req.session.userId = user.id;
   delete req.session.pendingUserId;
   delete req.session.tempToken;
+  try {
+    await saveSession(req);
+  } catch {
+    res.status(500).json({ error: "Could not establish an authenticated session" });
+    return;
+  }
 
   await logEvent({ eventType: "LOGIN_FACE_SUCCESS", details: `Biometric MFA passed for ${user.email}`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
