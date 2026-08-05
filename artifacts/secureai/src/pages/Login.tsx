@@ -10,6 +10,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [scanAttempt, setScanAttempt] = useState(0);
   
   const { requiresFaceVerification, tempToken, setTempToken, setRequiresFaceVerification, refetchUser } = useAuth();
   const [, setLocation] = useLocation();
@@ -27,6 +28,7 @@ export default function Login() {
       if (res.requiresFaceVerification && res.tempToken) {
         setTempToken(res.tempToken);
         setRequiresFaceVerification(true);
+        setScanAttempt(0);
       } else {
         await refetchUser();
         setLocation('/dashboard');
@@ -48,6 +50,9 @@ export default function Login() {
       setLocation('/dashboard');
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Biometric verification failed.');
+      // Mount a fresh scanner after a failed comparison so the operator can
+      // deliberately position their face and try again.
+      setScanAttempt((attempt) => attempt + 1);
     }
   };
 
@@ -96,6 +101,13 @@ export default function Login() {
                 />
               </div>
             </div>
+
+            <div className="border border-primary/20 bg-primary/5 p-3">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Biometric MFA</p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                Enrolled operators continue to a live face scan after password verification.
+              </p>
+            </div>
             
             {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
             
@@ -128,9 +140,13 @@ export default function Login() {
               <Fingerprint className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
               <h2 className="font-mono text-lg uppercase tracking-widest text-primary">Biometric Step Required</h2>
               <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                Camera permission is required. The scan starts automatically once your face is detected.
+              </p>
             </div>
             
             <FaceCamera 
+              key={scanAttempt}
               onCapture={handleFaceScan} 
               autoCapture={true} 
               isVerifying={true}
@@ -138,6 +154,20 @@ export default function Login() {
             
             {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
             {faceVerifyMutation.isPending && <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">Verifying biometric signature...</p>}
+
+            {error && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setError('');
+                  setScanAttempt((attempt) => attempt + 1);
+                }}
+                disabled={faceVerifyMutation.isPending}
+              >
+                Try face scan again
+              </Button>
+            )}
             
             <Button 
               variant="ghost" 
