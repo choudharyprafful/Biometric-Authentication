@@ -50,6 +50,17 @@ app.use(cors({
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Session-scoped API responses must never be stored or revalidated by the
+// browser. A 304 response for /api/auth/me after a hard reload has no JSON
+// body for a new React Query cache, which can make a valid signed-in session
+// appear anonymous until another request completes.
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
+
 app.use(
   session({
     store: new PgSession({
