@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { useLogoutUser, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Shield, LayoutDashboard, Users, Activity, AlertTriangle, CreditCard, LogOut } from 'lucide-react';
+import { Shield, LayoutDashboard, Users, Activity, AlertTriangle, CreditCard, LogOut, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/security-logs', label: 'Audit Logs', icon: Activity },
   { href: '/threats', label: 'Threat Intel', icon: AlertTriangle },
   { href: '/payments', label: 'Payments', icon: CreditCard },
+  { href: '/account', label: 'Account Security', icon: Settings },
 ];
 
 export function Sidebar() {

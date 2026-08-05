@@ -17,12 +17,14 @@ import {
   useDeletePasskey,
 } from '@workspace/api-client-react';
 import { Button, Input, Label } from './ui';
+import { OpenInBrowserTab } from './OpenInBrowserTab';
 
 export function PasskeyManager() {
   const [label, setLabel] = useState('');
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [needsTopLevelTab, setNeedsTopLevelTab] = useState(false);
 
   const { data: passkeys, refetch, isLoading } = useListPasskeys();
   const registerOptionsMutation = useWebauthnRegisterOptions();
@@ -32,6 +34,7 @@ export function PasskeyManager() {
   const handleRegister = async () => {
     setError('');
     setSuccess('');
+    setNeedsTopLevelTab(false);
     setRegistering(true);
     try {
       // Step 1 — get creation options (challenge, rp info, user info)
@@ -48,6 +51,7 @@ export function PasskeyManager() {
           setError('Passkey prompt dismissed. Make sure you allow the browser to use biometrics.');
         } else if (browserErr?.name === 'SecurityError') {
           setError('Passkeys require a top-level browser tab — open the app outside of an embedded preview.');
+          setNeedsTopLevelTab(true);
         } else if (browserErr?.name === 'InvalidStateError') {
           setError('A passkey for this account already exists on this device.');
         } else {
@@ -178,7 +182,10 @@ export function PasskeyManager() {
         {error && (
           <div className="flex items-start gap-2 text-destructive">
             <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-            <p className="font-mono text-xs">{error}</p>
+            <div className="space-y-2">
+              <p className="font-mono text-xs">{error}</p>
+              {needsTopLevelTab && <OpenInBrowserTab />}
+            </div>
           </div>
         )}
         {success && (
