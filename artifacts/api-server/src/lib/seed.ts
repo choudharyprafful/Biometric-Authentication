@@ -23,7 +23,7 @@ export async function seedIfEmpty(): Promise<void> {
     email: "admin@prafful.com",
     name: "Alice Chen",
     passwordHash,
-    role: "user",
+    role: "admin",
     faceEnrolled: false,
   }).returning();
 
