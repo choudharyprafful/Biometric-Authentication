@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
-import { useLogoutUser } from '@workspace/api-client-react';
+import { useLogoutUser, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Shield, LayoutDashboard, Users, Activity, AlertTriangle, CreditCard, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -14,15 +15,23 @@ const navItems = [
 ];
 
 export function Sidebar() {
-  const [location] = useLocation();
-  const { user, refetchUser } = useAuth();
+  const [location, setLocation] = useLocation();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const logout = useLogoutUser();
 
   if (!user) return null;
 
   const handleLogout = async () => {
-    await logout.mutateAsync();
-    refetchUser();
+    try {
+      await logout.mutateAsync();
+    } finally {
+      // Clear the cached identity immediately so protected screens unmount
+      // even if the session check is delayed by a network cache.
+      queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
+      queryClient.removeQueries({ queryKey: getGetCurrentUserQueryKey() });
+      setLocation('/');
+    }
   };
 
   return (
