@@ -13,6 +13,10 @@ declare module "express-session" {
     userId?: number;
     pendingUserId?: number;
     tempToken?: string;
+    /** Epoch ms when the MFA challenge was issued — used for expiry. */
+    mfaIssuedAt?: number;
+    /** Failed face-verification attempts for the current challenge. */
+    mfaAttempts?: number;
   }
 }
 
