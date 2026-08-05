@@ -13,6 +13,9 @@ declare module "express-session" {
     userId?: number;
     pendingUserId?: number;
     tempToken?: string;
+    // WebAuthn passkey flows
+    webauthnChallenge?: string;  // Current challenge being verified
+    webauthnUserId?: number;     // User being authenticated (authenticate flow)
   }
 }
 

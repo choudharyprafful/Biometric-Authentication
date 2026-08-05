@@ -391,6 +391,136 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/webauthn/register-options:
+    post:
+      operationId: webauthnRegisterOptions
+      tags: [auth]
+      summary: Generate passkey registration options (step 1)
+      responses:
+        "200":
+          description: Registration options for the browser
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnOptions"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/webauthn/register-verify:
+    post:
+      operationId: webauthnRegisterVerify
+      tags: [auth]
+      summary: Verify passkey registration and save credential (step 2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebAuthnRegisterVerifyInput"
+      responses:
+        "200":
+          description: Registration verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnRegisterResult"
+        "400":
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/webauthn/authenticate-options:
+    post:
+      operationId: webauthnAuthenticateOptions
+      tags: [auth]
+      summary: Generate passkey authentication options (step 1)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebAuthnAuthOptionsInput"
+      responses:
+        "200":
+          description: Authentication options for the browser
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnOptions"
+
+  /auth/webauthn/authenticate-verify:
+    post:
+      operationId: webauthnAuthenticateVerify
+      tags: [auth]
+      summary: Verify passkey assertion and establish session (step 2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebAuthnAuthVerifyInput"
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/webauthn/credentials:
+    get:
+      operationId: listPasskeys
+      tags: [auth]
+      summary: List registered passkeys for current user
+      responses:
+        "200":
+          description: List of passkeys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PasskeyInfo"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/webauthn/credentials/{id}:
+    delete:
+      operationId: deletePasskey
+      tags: [auth]
+      summary: Remove a registered passkey
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Passkey removed
+        "404":
+          description: Passkey not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /payments/{id}:
     get:
       operationId: getPayment
@@ -610,6 +740,69 @@ components:
           type: string
         createdAt:
           type: string
+
+    WebAuthnOptions:
+      type: object
+      description: >
+        PublicKeyCredentialCreationOptionsJSON or PublicKeyCredentialRequestOptionsJSON
+        returned by SimpleWebAuthn. Pass this directly to startRegistration() or
+        startAuthentication() in @simplewebauthn/browser.
+      additionalProperties: true
+      required: [challenge]
+      properties:
+        challenge:
+          type: string
+
+    WebAuthnRegisterVerifyInput:
+      type: object
+      required: [response]
+      properties:
+        response:
+          type: object
+          description: RegistrationResponseJSON from startRegistration()
+          additionalProperties: true
+        label:
+          type: string
+          description: Human-readable name for this passkey (e.g. "MacBook Touch ID")
+
+    WebAuthnRegisterResult:
+      type: object
+      required: [verified, credentialId]
+      properties:
+        verified:
+          type: boolean
+        credentialId:
+          type: string
+
+    WebAuthnAuthOptionsInput:
+      type: object
+      properties:
+        email:
+          type: string
+
+    WebAuthnAuthVerifyInput:
+      type: object
+      required: [response]
+      properties:
+        response:
+          type: object
+          description: AuthenticationResponseJSON from startAuthentication()
+          additionalProperties: true
+
+    PasskeyInfo:
+      type: object
+      required: [id, label, credentialId, createdAt]
+      properties:
+        id:
+          type: number
+        label:
+          type: string
+        credentialId:
+          type: string
+        createdAt:
+          type: string
+        lastUsedAt:
+          type: ["string", "null"]
 
     PaymentInput:
       type: object

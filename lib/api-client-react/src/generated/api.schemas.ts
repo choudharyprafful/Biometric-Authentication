@@ -158,6 +158,54 @@ export interface Payment {
   createdAt: string;
 }
 
+/**
+ * PublicKeyCredentialCreationOptionsJSON or PublicKeyCredentialRequestOptionsJSON returned by SimpleWebAuthn. Pass this directly to startRegistration() or startAuthentication() in @simplewebauthn/browser.
+ */
+export interface WebAuthnOptions {
+  challenge: string;
+  [key: string]: unknown;
+ }
+
+/**
+ * RegistrationResponseJSON from startRegistration()
+ */
+export type WebAuthnRegisterVerifyInputResponse = { [key: string]: unknown };
+
+export interface WebAuthnRegisterVerifyInput {
+  /** RegistrationResponseJSON from startRegistration() */
+  response: WebAuthnRegisterVerifyInputResponse;
+  /** Human-readable name for this passkey (e.g. "MacBook Touch ID") */
+  label?: string;
+}
+
+export interface WebAuthnRegisterResult {
+  verified: boolean;
+  credentialId: string;
+}
+
+export interface WebAuthnAuthOptionsInput {
+  email?: string;
+}
+
+/**
+ * AuthenticationResponseJSON from startAuthentication()
+ */
+export type WebAuthnAuthVerifyInputResponse = { [key: string]: unknown };
+
+export interface WebAuthnAuthVerifyInput {
+  /** AuthenticationResponseJSON from startAuthentication() */
+  response: WebAuthnAuthVerifyInputResponse;
+}
+
+export interface PasskeyInfo {
+  id: number;
+  label: string;
+  credentialId: string;
+  createdAt: string;
+  /** @nullable */
+  lastUsedAt?: string | null;
+}
+
 export interface PaymentInput {
   /** @minimum 0.01 */
   amount: number;

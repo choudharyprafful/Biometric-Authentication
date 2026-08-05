@@ -14,7 +14,11 @@ export type AuditEventType =
   | "PAYMENT_CREATED"
   | "PAYMENT_FAILED"
   | "UNAUTHORIZED_ACCESS"
-  | "RATE_LIMIT_HIT";
+  | "RATE_LIMIT_HIT"
+  | "PASSKEY_REGISTERED"
+  | "PASSKEY_REMOVED"
+  | "PASSKEY_AUTH_SUCCESS"
+  | "PASSKEY_AUTH_FAILED";
 
 export async function logEvent(params: {
   eventType: AuditEventType;
