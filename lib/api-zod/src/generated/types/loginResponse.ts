@@ -8,7 +8,12 @@
 import type { User } from './user';
 
 export interface LoginResponse {
+  /** True when a second verification step (face or passkey) is required */
   requiresFaceVerification: boolean;
+  /** True when the user can complete MFA with a face scan */
+  faceAvailable: boolean;
+  /** True when the user can complete MFA with a device passkey */
+  passkeyAvailable: boolean;
   /** @nullable */
   tempToken?: string | null;
   user: User;

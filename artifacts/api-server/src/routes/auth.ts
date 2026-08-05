@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, passkeysTable } from "@workspace/db";
 import {
   RegisterUserBody,
   RegisterUserResponse,
@@ -188,8 +188,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  if (user.faceEnrolled) {
-    // Step 1 complete — face verification required
+  const userPasskeys = await db
+    .select({ id: passkeysTable.id })
+    .from(passkeysTable)
+    .where(eq(passkeysTable.userId, user.id));
+  const hasPasskey = userPasskeys.length > 0;
+
+  if (user.faceEnrolled || hasPasskey) {
+    // Step 1 complete — a second factor (face scan and/or passkey) is required
     const tempToken = crypto.randomUUID();
     try {
       await regenerateSession(req);
@@ -204,10 +210,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       return;
     }
 
-    await logEvent({ eventType: "LOGIN_SUCCESS", details: `Password verified for ${email}; awaiting face MFA`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({ eventType: "LOGIN_SUCCESS", details: `Password verified for ${email}; awaiting MFA (${[user.faceEnrolled ? "face" : null, hasPasskey ? "passkey" : null].filter(Boolean).join(", ")})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
     res.json(LoginUserResponse.parse({
       requiresFaceVerification: true,
+      faceAvailable: user.faceEnrolled,
+      passkeyAvailable: hasPasskey,
       tempToken,
       user: mapUser(user),
     }));
@@ -228,6 +236,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
     res.json(LoginUserResponse.parse({
       requiresFaceVerification: false,
+      faceAvailable: false,
+      passkeyAvailable: false,
       tempToken: null,
       user: mapUser(user),
     }));
@@ -283,6 +293,15 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
 
   if (!user || !user.faceEnrolled || !user.faceDescriptor) {
+    // Face MFA cannot complete — but the challenge may still be completable
+    // with a passkey, so only destroy the session when no passkey exists.
+    const userPasskeys = user
+      ? await db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id))
+      : [];
+    if (userPasskeys.length > 0) {
+      res.status(400).json({ error: "Face not enrolled — use your device passkey instead" });
+      return;
+    }
     // This challenge can never complete — invalidate it
     await destroySession(req).catch(() => {});
     res.status(401).json({ error: "User face not enrolled" });

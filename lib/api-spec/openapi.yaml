@@ -476,9 +476,16 @@ components:
 
     LoginResponse:
       type: object
-      required: [requiresFaceVerification, user]
+      required: [requiresFaceVerification, faceAvailable, passkeyAvailable, user]
       properties:
         requiresFaceVerification:
+          description: True when a second verification step (face or passkey) is required
+          type: boolean
+        faceAvailable:
+          description: True when the user can complete MFA with a face scan
+          type: boolean
+        passkeyAvailable:
+          description: True when the user can complete MFA with a device passkey
           type: boolean
         tempToken:
           type: ["string", "null"]

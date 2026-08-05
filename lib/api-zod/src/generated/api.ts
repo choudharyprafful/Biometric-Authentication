@@ -54,7 +54,9 @@ export const LoginUserBody = zod.object({
 })
 
 export const LoginUserResponse = zod.object({
-  "requiresFaceVerification": zod.boolean(),
+  "requiresFaceVerification": zod.boolean().describe('True when a second verification step (face or passkey) is required'),
+  "faceAvailable": zod.boolean().describe('True when the user can complete MFA with a face scan'),
+  "passkeyAvailable": zod.boolean().describe('True when the user can complete MFA with a device passkey'),
   "tempToken": zod.string().nullish(),
   "user": zod.object({
   "id": zod.number(),

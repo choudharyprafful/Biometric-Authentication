@@ -6,7 +6,7 @@ import { Card, Input, Label, Button } from '../components/ui';
 import { Shield, Fingerprint } from 'lucide-react';
 import { FaceCamera } from '../components/FaceCamera';
 import { KeyRound } from 'lucide-react';
-import { loginWithPasskey, passkeyLoginAvailable } from '../lib/passkey';
+import { loginWithPasskey } from '../lib/passkey';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -14,6 +14,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [scanAttempt, setScanAttempt] = useState(0);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [faceAvailable, setFaceAvailable] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   
   const { requiresFaceVerification, tempToken, setTempToken, setRequiresFaceVerification, refetchUser } = useAuth();
@@ -31,6 +32,8 @@ export default function Login() {
       
       if (res.requiresFaceVerification && res.tempToken) {
         setTempToken(res.tempToken);
+        setFaceAvailable(res.faceAvailable);
+        setPasskeyAvailable(res.passkeyAvailable);
         setRequiresFaceVerification(true);
         setScanAttempt(0);
       } else {
@@ -43,10 +46,9 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if (requiresFaceVerification) {
-      passkeyLoginAvailable().then(setPasskeyAvailable).catch(() => setPasskeyAvailable(false));
-    } else {
+    if (!requiresFaceVerification) {
       setPasskeyAvailable(false);
+      setFaceAvailable(false);
     }
   }, [requiresFaceVerification]);
 
@@ -176,19 +178,31 @@ export default function Login() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="text-center space-y-2">
               <Fingerprint className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
-              <h2 className="font-mono text-lg uppercase tracking-widest text-primary">Biometric Step Required</h2>
-              <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
-              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                Camera permission is required. The scan starts automatically once your face is detected.
-              </p>
+              <h2 className="font-mono text-lg uppercase tracking-widest text-primary">
+                {faceAvailable ? 'Biometric Step Required' : 'Passkey Step Required'}
+              </h2>
+              {faceAvailable ? (
+                <>
+                  <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                    Camera permission is required. The scan starts automatically once your face is detected.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs font-mono text-muted-foreground">
+                  Confirm your identity with your device passkey to continue.
+                </p>
+              )}
             </div>
             
-            <FaceCamera 
-              key={scanAttempt}
-              onCapture={handleFaceScan} 
-              autoCapture={true} 
-              isVerifying={true}
-            />
+            {faceAvailable && (
+              <FaceCamera 
+                key={scanAttempt}
+                onCapture={handleFaceScan} 
+                autoCapture={true} 
+                isVerifying={true}
+              />
+            )}
             
             {passkeyAvailable && (
               <Button
@@ -199,14 +213,14 @@ export default function Login() {
                 data-testid="button-passkey-login"
               >
                 <KeyRound className="w-4 h-4 mr-2" />
-                Use device passkey instead
+                {faceAvailable ? 'Use device passkey instead' : 'Verify with device passkey'}
               </Button>
             )}
 
             {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
             {faceVerifyMutation.isPending && <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">Verifying biometric signature...</p>}
 
-            {error && (
+            {error && faceAvailable && (
               <Button
                 variant="outline"
                 className="w-full"
