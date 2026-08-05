@@ -1,0 +1,19 @@
+kind = "design-system"
+previewPath = "/secureai-ds/"
+title = "SecureAI Design System"
+description = "Design system extracted from SecureAI — Biometric Security Demo. Dark cyberpunk cockpit aesthetic: electric-cyan primary on deep navy, zero-radius sharp corners, JetBrains Mono for technical labels and Inter for UI copy."
+version = "1.0.0"
+id = "artifacts/secureai-ds"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/secureai-ds/" ]
+localPort = 18343
+
+[services.development]
+run = "pnpm --filter @workspace/secureai-ds run dev"
+
+[services.env]
+PORT = "18343"
+BASE_PATH = "/secureai-ds/"
