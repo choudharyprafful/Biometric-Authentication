@@ -27,6 +27,12 @@ if (!basePath) {
   );
 }
 
+// Replit's preview reaches Vite through a secure reverse proxy. Without an
+// explicit HMR client configuration, Vite tries to reconnect to the internal
+// development port after each page update, producing a persistent
+// "[vite] connecting..." loop in the preview.
+const devDomain = process.env.REPLIT_DEV_DOMAIN;
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -69,6 +75,13 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    hmr: devDomain
+      ? {
+          protocol: 'wss',
+          host: devDomain,
+          clientPort: 443,
+        }
+      : undefined,
     fs: {
       strict: true,
     },
