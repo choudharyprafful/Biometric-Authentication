@@ -84,7 +84,7 @@ export default function Login() {
                   required 
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@secureai.demo"
+                  placeholder="admin_user@prafful.com"
                   data-testid="input-email"
                 />
               </div>
@@ -122,7 +122,7 @@ export default function Login() {
             
             <div className="pt-4 text-center border-t border-border">
               <p className="text-xs font-mono text-muted-foreground">
-                Demo access: <span className="text-primary cursor-pointer" onClick={() => { setEmail('admin@secureai.demo'); setPassword('Password123!'); }}>admin@secureai.demo</span> / Password123!
+                Demo access: <span className="text-primary cursor-pointer" onClick={() => { setEmail('admin_user@prafful.com'); setPassword('Password123!'); }}>admin_user@prafful.com</span> / Password123!
               </p>
             </div>
             
