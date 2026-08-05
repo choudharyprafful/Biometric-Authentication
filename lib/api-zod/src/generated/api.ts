@@ -97,9 +97,10 @@ export const LogoutUserResponse = zod.void()
 
 
 /**
- * @summary Get current authenticated user
+ * @summary Get current authenticated user (user is null when not signed in)
  */
 export const GetCurrentUserResponse = zod.object({
+  "user": zod.union([zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
@@ -107,6 +108,7 @@ export const GetCurrentUserResponse = zod.object({
   "faceEnrolled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
+}),zod.null()])
 })
 
 

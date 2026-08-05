@@ -21,6 +21,7 @@ import type {
 
 import type {
   AuthResponse,
+  CurrentSession,
   ErrorResponse,
   FaceEnrollment,
   FaceVerifyInput,
@@ -442,11 +443,11 @@ export const getGetCurrentUserUrl = () => {
 }
 
 /**
- * @summary Get current authenticated user
+ * @summary Get current authenticated user (user is null when not signed in)
  */
-export const getCurrentUser = async ( options?: Parameters<typeof customFetch>[1]): Promise<User> => {
+export const getCurrentUser = async ( options?: Parameters<typeof customFetch>[1]): Promise<CurrentSession> => {
 
-  return customFetch<User>(getGetCurrentUserUrl(),
+  return customFetch<CurrentSession>(getGetCurrentUserUrl(),
   {
     ...options,
     method: 'GET'
@@ -466,7 +467,7 @@ export const getGetCurrentUserQueryKey = () => {
     }
 
 
-export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -485,14 +486,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCurrentUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
-export type GetCurrentUserQueryError = ErrorType<ErrorResponse>
+export type GetCurrentUserQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get current authenticated user
+ * @summary Get current authenticated user (user is null when not signed in)
  */
 
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<ErrorResponse>>(
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {

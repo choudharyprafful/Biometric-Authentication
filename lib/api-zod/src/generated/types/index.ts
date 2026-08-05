@@ -7,6 +7,7 @@
  */
 
 export * from './authResponse';
+export * from './currentSession';
 export * from './errorResponse';
 export * from './faceEnrollment';
 export * from './faceVerifyInput';

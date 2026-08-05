@@ -15,13 +15,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: user, isLoading, refetch } = useGetCurrentUser({
+  const { data, isLoading, refetch } = useGetCurrentUser({
     query: {
       queryKey: getGetCurrentUserQueryKey(),
       retry: false,
       refetchOnWindowFocus: false,
     }
   });
+  const user = data?.user ?? null;
 
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [requiresFaceVerification, setRequiresFaceVerification] = useState(false);

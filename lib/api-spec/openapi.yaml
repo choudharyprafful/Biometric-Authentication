@@ -127,20 +127,14 @@ paths:
     get:
       operationId: getCurrentUser
       tags: [auth]
-      summary: Get current authenticated user
+      summary: Get current authenticated user (user is null when not signed in)
       responses:
         "200":
-          description: Current user
+          description: Current session state; user is null when not authenticated
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/CurrentSession"
 
   /users:
     get:
@@ -561,6 +555,15 @@ components:
       properties:
         error:
           type: string
+
+    CurrentSession:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
 
     User:
       type: object

@@ -32,6 +32,10 @@ export interface User {
   updatedAt?: string | null;
 }
 
+export interface CurrentSession {
+  user: User | null;
+}
+
 export interface UserRegistration {
   email: string;
   /** @minLength 1 */
