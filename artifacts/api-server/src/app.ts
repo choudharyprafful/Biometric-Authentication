@@ -17,6 +17,8 @@ declare module "express-session" {
     mfaIssuedAt?: number;
     /** Failed face-verification attempts for the current challenge. */
     mfaAttempts?: number;
+    /** Pending WebAuthn challenge (registration or authentication). */
+    webauthnChallenge?: string;
   }
 }
 

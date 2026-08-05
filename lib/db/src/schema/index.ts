@@ -3,3 +3,4 @@ export * from "./securityLogs";
 export * from "./threats";
 export * from "./payments";
 export * from "./sessions";
+export * from "./passkeys";

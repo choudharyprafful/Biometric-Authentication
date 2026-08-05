@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { useLoginUser, useFaceVerify } from '@workspace/api-client-react';
 import { Card, Input, Label, Button } from '../components/ui';
 import { Shield, Fingerprint } from 'lucide-react';
 import { FaceCamera } from '../components/FaceCamera';
+import { KeyRound } from 'lucide-react';
+import { loginWithPasskey, passkeyLoginAvailable } from '../lib/passkey';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [scanAttempt, setScanAttempt] = useState(0);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   
   const { requiresFaceVerification, tempToken, setTempToken, setRequiresFaceVerification, refetchUser } = useAuth();
   const [, setLocation] = useLocation();
@@ -35,6 +39,30 @@ export default function Login() {
       }
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Authentication failed. Unauthorized access attempt logged.');
+    }
+  };
+
+  useEffect(() => {
+    if (requiresFaceVerification) {
+      passkeyLoginAvailable().then(setPasskeyAvailable).catch(() => setPasskeyAvailable(false));
+    } else {
+      setPasskeyAvailable(false);
+    }
+  }, [requiresFaceVerification]);
+
+  const handlePasskeyLogin = async () => {
+    setError('');
+    setPasskeyBusy(true);
+    try {
+      await loginWithPasskey();
+      setTempToken(null);
+      setRequiresFaceVerification(false);
+      await refetchUser();
+      setLocation('/dashboard');
+    } catch (err: any) {
+      setError(err?.message || 'Passkey verification failed.');
+    } finally {
+      setPasskeyBusy(false);
     }
   };
 
@@ -152,6 +180,19 @@ export default function Login() {
               isVerifying={true}
             />
             
+            {passkeyAvailable && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handlePasskeyLogin}
+                isLoading={passkeyBusy}
+                data-testid="button-passkey-login"
+              >
+                <KeyRound className="w-4 h-4 mr-2" />
+                Use device passkey instead
+              </Button>
+            )}
+
             {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
             {faceVerifyMutation.isPending && <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">Verifying biometric signature...</p>}
 

@@ -17,7 +17,7 @@ import { isFaceMatch } from "../lib/faceUtils";
 const router: IRouter = Router();
 
 // Face MFA hardening: challenges expire and allow a limited number of attempts.
-const MFA_CHALLENGE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+export const MFA_CHALLENGE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 const MFA_MAX_ATTEMPTS = 3;
 const FACE_DESCRIPTOR_LENGTH = 128;
 

@@ -1,10 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { useEnrollFace } from '@workspace/api-client-react';
 import { Card, Button } from '../components/ui';
-import { ScanFace, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ScanFace, CheckCircle2, ChevronRight, KeyRound, Trash2 } from 'lucide-react';
 import { FaceCamera } from '../components/FaceCamera';
+import { enrollPasskey, listPasskeys, deletePasskey, type PasskeyInfo } from '../lib/passkey';
+
+function PasskeySection() {
+  const [passkeys, setPasskeys] = useState<PasskeyInfo[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(() => {
+    listPasskeys().then(setPasskeys).catch(() => setPasskeys([]));
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const handleAdd = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      await enrollPasskey();
+      refresh();
+    } catch (err: any) {
+      if (err?.name !== 'NotAllowedError') {
+        setError(err?.message || 'Passkey enrollment failed.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deletePasskey(id);
+      refresh();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to remove passkey.');
+    }
+  };
+
+  return (
+    <Card className="mt-8 border-t-4 border-t-primary bg-card/50 backdrop-blur-sm">
+      <div className="space-y-4">
+        <h2 className="text-lg font-mono uppercase tracking-widest flex items-center gap-3">
+          <KeyRound className="w-5 h-5 text-primary" />
+          Device Passkeys (WebAuthn)
+        </h2>
+        <p className="text-sm font-mono text-muted-foreground">
+          Gold-standard MFA: your device biometric (Face ID / fingerprint / PIN) unlocks a
+          secret key that never leaves the device. The key signs a one-time challenge from
+          the server — the signature is the second factor, so a hacked client cannot fake it.
+        </p>
+
+        {passkeys.length > 0 && (
+          <ul className="space-y-2">
+            {passkeys.map((pk) => (
+              <li key={pk.id} className="flex items-center justify-between border border-primary/20 bg-primary/5 px-3 py-2">
+                <span className="font-mono text-xs text-muted-foreground">
+                  {pk.deviceName || 'Passkey'} · added {new Date(pk.createdAt).toLocaleDateString()}
+                  {pk.lastUsedAt ? ` · last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : ''}
+                </span>
+                <button
+                  className="text-destructive/70 hover:text-destructive"
+                  onClick={() => handleDelete(pk.id)}
+                  title="Remove passkey"
+                  data-testid={`button-delete-passkey-${pk.id}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
+
+        <Button onClick={handleAdd} isLoading={busy} variant="outline" data-testid="button-add-passkey">
+          <KeyRound className="w-4 h-4 mr-2" />
+          {passkeys.length > 0 ? 'Add another passkey' : 'Register this device'}
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 export default function Enroll() {
   const { user, refetchUser } = useAuth();
@@ -127,6 +208,8 @@ export default function Enroll() {
           </div>
         )}
       </Card>
+
+      <PasskeySection />
     </div>
   );
 }
