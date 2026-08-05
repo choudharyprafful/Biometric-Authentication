@@ -21,7 +21,7 @@ export function Sidebar() {
   if (!user) return null;
 
   const handleLogout = async () => {
-    await logout.mutateAsync({});
+    await logout.mutateAsync();
     refetchUser();
   };
 

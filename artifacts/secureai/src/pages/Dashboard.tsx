@@ -3,9 +3,13 @@ import { useGetSecurityDashboard } from '@workspace/api-client-react';
 import { Card, Badge } from '../components/ui';
 import { Users, Fingerprint, Activity, AlertTriangle, Loader2, Shield } from 'lucide-react';
 import { format } from 'date-fns';
+import { useLocation } from 'wouter';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Dashboard() {
   const { data: dashboard, isLoading, error } = useGetSecurityDashboard();
+  const [, setLocation] = useLocation();
+  const { user } = useAuth();
 
   if (isLoading) {
     return (
@@ -24,10 +28,38 @@ export default function Dashboard() {
   }
 
   const statCards = [
-    { label: 'Active Operators', value: dashboard.totalUsers, icon: Users, color: 'text-blue-400' },
-    { label: 'Biometric Enrolled', value: dashboard.faceEnrolledUsers, icon: Fingerprint, color: 'text-primary' },
-    { label: 'Failed Access (24h)', value: dashboard.failedLogins24h, icon: Activity, color: dashboard.failedLogins24h > 10 ? 'text-destructive' : 'text-yellow-400' },
-    { label: 'Active Threats', value: dashboard.threatsDetected, icon: AlertTriangle, color: dashboard.threatsDetected > 0 ? 'text-destructive' : 'text-green-400' },
+    {
+      label: 'Active Operators',
+      value: dashboard.totalUsers,
+      icon: Users,
+      color: 'text-blue-400',
+      href: user?.role === 'admin' ? '/users' : '/security-logs',
+      action: user?.role === 'admin' ? 'Open user registry' : 'View audit trail',
+    },
+    {
+      label: 'Biometric Enrolled',
+      value: dashboard.faceEnrolledUsers,
+      icon: Fingerprint,
+      color: 'text-primary',
+      href: '/enroll',
+      action: user?.faceEnrolled ? 'Review biometric status' : 'Enroll your face',
+    },
+    {
+      label: 'Failed Access (24h)',
+      value: dashboard.failedLogins24h,
+      icon: Activity,
+      color: dashboard.failedLogins24h > 10 ? 'text-destructive' : 'text-yellow-400',
+      href: '/security-logs',
+      action: 'Review access events',
+    },
+    {
+      label: 'Active Threats',
+      value: dashboard.threatsDetected,
+      icon: AlertTriangle,
+      color: dashboard.threatsDetected > 0 ? 'text-destructive' : 'text-green-400',
+      href: '/threats',
+      action: 'Open threat intelligence',
+    },
   ];
 
   return (
@@ -44,16 +76,27 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat, i) => (
-          <Card key={i} className="relative overflow-hidden border-t-2" style={{ borderTopColor: 'currentColor' }}>
+        {statCards.map((stat) => (
+          <button
+            key={stat.label}
+            type="button"
+            onClick={() => setLocation(stat.href)}
+            className="group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-label={`${stat.action}: ${stat.label}`}
+          >
+          <Card className="relative h-full overflow-hidden border-t-2 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/60 group-hover:shadow-[0_0_20px_rgba(0,229,255,0.12)]" style={{ borderTopColor: 'currentColor' }}>
             <div className={`absolute top-0 right-0 p-4 opacity-20 ${stat.color}`}>
               <stat.icon className="w-16 h-16" />
             </div>
             <div className="relative z-10">
               <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest mb-1">{stat.label}</p>
               <p className={`text-4xl font-mono font-bold ${stat.color}`}>{stat.value}</p>
+              <p className="mt-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground transition-colors group-hover:text-primary">
+                {stat.action} →
+              </p>
             </div>
           </Card>
+          </button>
         ))}
       </div>
 

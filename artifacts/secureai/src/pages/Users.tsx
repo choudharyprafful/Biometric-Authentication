@@ -12,7 +12,12 @@ export default function Users() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   
-  const { data: users, isLoading } = useListUsers({ query: { enabled: user?.role === 'admin' } });
+  const { data: users, isLoading } = useListUsers({
+    query: {
+      queryKey: getListUsersQueryKey(),
+      enabled: user?.role === 'admin',
+    },
+  });
   const deleteMutation = useDeleteUser();
   const updateMutation = useUpdateUser();
 
