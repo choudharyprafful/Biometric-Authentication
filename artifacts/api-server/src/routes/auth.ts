@@ -22,6 +22,19 @@ function getClientIp(req: Request): string {
   return req.socket?.remoteAddress ?? "unknown";
 }
 
+// Regenerate the session ID to prevent session fixation when privileges change.
+function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 function saveSession(req: Request): Promise<void> {
   return new Promise((resolve, reject) => {
     req.session.save((error) => {
@@ -90,8 +103,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  req.session.userId = user.id;
   try {
+    await regenerateSession(req);
+    req.session.userId = user.id;
     await saveSession(req);
   } catch {
     res.status(500).json({ error: "Could not establish an authenticated session" });
@@ -140,10 +154,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   if (user.faceEnrolled) {
     // Step 1 complete — face verification required
     const tempToken = crypto.randomUUID();
-    req.session.pendingUserId = user.id;
-    req.session.tempToken = tempToken;
-    delete req.session.userId;
     try {
+      await regenerateSession(req);
+      req.session.pendingUserId = user.id;
+      req.session.tempToken = tempToken;
+      delete req.session.userId;
       await saveSession(req);
     } catch {
       res.status(500).json({ error: "Could not begin biometric verification" });
@@ -159,10 +174,11 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     }));
   } else {
     // No face enrolled — full session immediately
-    req.session.userId = user.id;
-    delete req.session.pendingUserId;
-    delete req.session.tempToken;
     try {
+      await regenerateSession(req);
+      req.session.userId = user.id;
+      delete req.session.pendingUserId;
+      delete req.session.tempToken;
       await saveSession(req);
     } catch {
       res.status(500).json({ error: "Could not establish an authenticated session" });
@@ -212,10 +228,11 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
     return;
   }
 
-  req.session.userId = user.id;
-  delete req.session.pendingUserId;
-  delete req.session.tempToken;
   try {
+    await regenerateSession(req);
+    req.session.userId = user.id;
+    delete req.session.pendingUserId;
+    delete req.session.tempToken;
     await saveSession(req);
   } catch {
     res.status(500).json({ error: "Could not establish an authenticated session" });

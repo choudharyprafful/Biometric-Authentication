@@ -105,6 +105,12 @@ router.patch("/users/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Users can only update themselves, admins can update anyone
+  if (!isAdmin && sessionUserId !== params.data.id) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
   if (body.data.role && !isAdmin) {
     res.status(403).json({ error: "Only admins can change roles" });
     return;

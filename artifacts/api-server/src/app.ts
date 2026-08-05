@@ -51,7 +51,10 @@ app.use(
   session({
     store: new PgSession({
       pool,
-      createTableIfMissing: true,
+      // The "session" table is provisioned via Drizzle (lib/db/src/schema/sessions.ts).
+      // createTableIfMissing is disabled because connect-pg-simple's bundled
+      // table.sql uses obsolete syntax that fails on this Postgres.
+      createTableIfMissing: false,
     }),
     secret: process.env["SESSION_SECRET"] || "fallback-dev-secret-change-in-prod",
     resave: false,
