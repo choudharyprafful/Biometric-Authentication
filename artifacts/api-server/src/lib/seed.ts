@@ -12,7 +12,7 @@ export async function seedIfEmpty(): Promise<void> {
   const passwordHash = await bcrypt.hash("Password123!", 12);
 
   const [admin] = await db.insert(usersTable).values({
-    email: "admin@secureai.demo",
+    email: "admin_user@prafful.com",
     name: "Admin User",
     passwordHash,
     role: "admin",
@@ -20,7 +20,7 @@ export async function seedIfEmpty(): Promise<void> {
   }).returning();
 
   const [alice] = await db.insert(usersTable).values({
-    email: "alice@secureai.demo",
+    email: "admin@prafful.com",
     name: "Alice Chen",
     passwordHash,
     role: "user",
@@ -28,7 +28,7 @@ export async function seedIfEmpty(): Promise<void> {
   }).returning();
 
   const [bob] = await db.insert(usersTable).values({
-    email: "bob@secureai.demo",
+    email: "bob@prafful.com",
     name: "Bob Martinez",
     passwordHash,
     role: "user",
@@ -38,16 +38,16 @@ export async function seedIfEmpty(): Promise<void> {
   // Seed security logs
   const now = new Date();
   const events = [
-    { eventType: "REGISTER", details: "New user registered: admin@secureai.demo", userId: admin?.id, userEmail: admin?.email, ipAddress: "192.168.1.1" },
-    { eventType: "REGISTER", details: "New user registered: alice@secureai.demo", userId: alice?.id, userEmail: alice?.email, ipAddress: "10.0.0.42" },
-    { eventType: "LOGIN_SUCCESS", details: "Login successful for alice@secureai.demo", userId: alice?.id, userEmail: alice?.email, ipAddress: "10.0.0.42" },
+    { eventType: "REGISTER", details: "New user registered: admin_user@prafful.com", userId: admin?.id, userEmail: admin?.email, ipAddress: "192.168.1.1" },
+    { eventType: "REGISTER", details: "New user registered: admin@prafful.com", userId: alice?.id, userEmail: alice?.email, ipAddress: "10.0.0.42" },
+    { eventType: "LOGIN_SUCCESS", details: "Login successful for admin@prafful.com", userId: alice?.id, userEmail: alice?.email, ipAddress: "10.0.0.42" },
     { eventType: "LOGIN_FAILED", details: "Failed login attempt for unknown@example.com — user not found", ipAddress: "185.220.101.47" },
-    { eventType: "REGISTER", details: "New user registered: bob@secureai.demo", userId: bob?.id, userEmail: bob?.email, ipAddress: "172.16.0.10" },
-    { eventType: "LOGIN_SUCCESS", details: "Login successful for bob@secureai.demo", userId: bob?.id, userEmail: bob?.email, ipAddress: "172.16.0.10" },
-    { eventType: "LOGIN_FAILED", details: "Failed login for alice@secureai.demo — wrong password", userId: alice?.id, userEmail: alice?.email, ipAddress: "45.33.32.156" },
-    { eventType: "LOGIN_FAILED", details: "Failed login for alice@secureai.demo — wrong password", userId: alice?.id, userEmail: alice?.email, ipAddress: "45.33.32.156" },
+    { eventType: "REGISTER", details: "New user registered: bob@prafful.com", userId: bob?.id, userEmail: bob?.email, ipAddress: "172.16.0.10" },
+    { eventType: "LOGIN_SUCCESS", details: "Login successful for bob@prafful.com", userId: bob?.id, userEmail: bob?.email, ipAddress: "172.16.0.10" },
+    { eventType: "LOGIN_FAILED", details: "Failed login for admin@prafful.com — wrong password", userId: alice?.id, userEmail: alice?.email, ipAddress: "45.33.32.156" },
+    { eventType: "LOGIN_FAILED", details: "Failed login for admin@prafful.com — wrong password", userId: alice?.id, userEmail: alice?.email, ipAddress: "45.33.32.156" },
     { eventType: "UNAUTHORIZED_ACCESS", details: "Unauthenticated request to /api/users", ipAddress: "104.16.0.0" },
-    { eventType: "LOGIN_SUCCESS", details: "Login successful for admin@secureai.demo", userId: admin?.id, userEmail: admin?.email, ipAddress: "192.168.1.1" },
+    { eventType: "LOGIN_SUCCESS", details: "Login successful for admin_user@prafful.com", userId: admin?.id, userEmail: admin?.email, ipAddress: "192.168.1.1" },
   ];
 
   for (let i = 0; i < events.length; i++) {
@@ -74,7 +74,7 @@ export async function seedIfEmpty(): Promise<void> {
     {
       type: "Brute Force",
       severity: "medium",
-      description: "Repeated password attempts on alice@secureai.demo account from a single IP address.",
+      description: "Repeated password attempts on admin@prafful.com account from a single IP address.",
       status: "mitigated",
       affectedUsers: 1,
     },
@@ -134,5 +134,5 @@ export async function seedIfEmpty(): Promise<void> {
     ]);
   }
 
-  logger.info("Demo seed complete. Login: admin@secureai.demo / alice@secureai.demo / bob@secureai.demo — all with password: Password123!");
+  logger.info("Demo seed complete. Login: admin_user@prafful.com / admin@prafful.com / bob@prafful.com — all with password: Password123!");
 }
