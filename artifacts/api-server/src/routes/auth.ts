@@ -9,6 +9,7 @@ import {
   LoginUserResponse,
   FaceVerifyBody,
   FaceVerifyResponse,
+  GetCurrentUserResponse,
 } from "@workspace/api-zod";
 import { logEvent } from "../lib/auditLog";
 import { isFaceMatch } from "../lib/faceUtils";
@@ -49,16 +50,16 @@ function mapUser(user: typeof usersTable.$inferSelect) {
 router.get("/auth/me", async (req, res): Promise<void> => {
   const userId = req.session.userId;
   if (!userId) {
-    res.json({ user: null });
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     req.session.destroy(() => {});
-    res.json({ user: null });
+    res.status(401).json({ error: "Session invalid" });
     return;
   }
-  res.json({ user: mapUser(user) });
+  res.json(GetCurrentUserResponse.parse(mapUser(user)));
 });
 
 // POST /auth/register

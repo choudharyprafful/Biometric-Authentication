@@ -7,7 +7,6 @@
  */
 
 export * from './authResponse';
-export * from './currentSession';
 export * from './errorResponse';
 export * from './faceEnrollment';
 export * from './faceVerifyInput';
@@ -15,7 +14,6 @@ export * from './healthStatus';
 export * from './listSecurityLogsParams';
 export * from './loginCredentials';
 export * from './loginResponse';
-export * from './passkeyInfo';
 export * from './payment';
 export * from './paymentInput';
 export * from './paymentStatus';
@@ -29,10 +27,3 @@ export * from './userRegistration';
 export * from './userRole';
 export * from './userUpdate';
 export * from './userUpdateRole';
-export * from './webAuthnAuthOptionsInput';
-export * from './webAuthnAuthVerifyInput';
-export * from './webAuthnAuthVerifyInputResponse';
-export * from './webAuthnOptions';
-export * from './webAuthnRegisterResult';
-export * from './webAuthnRegisterVerifyInput';
-export * from './webAuthnRegisterVerifyInputResponse';

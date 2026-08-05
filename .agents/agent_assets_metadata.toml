@@ -1,9 +1,0 @@
-uploads = []
-generated = []
-
-[[outputs]]
-id = "FQqv3VZVDd9ujib0SPt1q"
-uri = "file://secureai-source.zip"
-type = "unspecified"
-title = "SecureAI — Full Source Code"
-description = "Complete project source (all packages, no node_modules or build output). Unzip and run `pnpm install` to restore dependencies."

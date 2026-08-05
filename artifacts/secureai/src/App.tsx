@@ -11,7 +11,6 @@ import Users from './pages/Users';
 import SecurityLogs from './pages/SecurityLogs';
 import Threats from './pages/Threats';
 import Payments from './pages/Payments';
-import Account from './pages/Account';
 
 const queryClient = new QueryClient();
 
@@ -38,9 +37,6 @@ function Router() {
       </Route>
       <Route path="/enroll">
         <Layout><Enroll /></Layout>
-      </Route>
-      <Route path="/account">
-        <Layout><Account /></Layout>
       </Route>
       
       <Route component={NotFound} />

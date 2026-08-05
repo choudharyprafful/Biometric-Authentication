@@ -75,7 +75,6 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@simplewebauthn/browser": "^13.3.0",
     "face-api.js": "^0.22.2"
   }
 }

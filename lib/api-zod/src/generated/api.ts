@@ -97,10 +97,9 @@ export const LogoutUserResponse = zod.void()
 
 
 /**
- * @summary Get current authenticated user (user is null when not signed in)
+ * @summary Get current authenticated user
  */
 export const GetCurrentUserResponse = zod.object({
-  "user": zod.union([zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
@@ -108,7 +107,6 @@ export const GetCurrentUserResponse = zod.object({
   "faceEnrolled": zod.boolean(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
-}),zod.null()])
 })
 
 
@@ -329,84 +327,6 @@ export const CreatePaymentResponse = zod.object({
   "providerToken": zod.string(),
   "createdAt": zod.string()
 })
-
-
-/**
- * @summary Generate passkey registration options (step 1)
- */
-export const WebauthnRegisterOptionsResponse = zod.object({
-  "challenge": zod.string()
-}).describe('PublicKeyCredentialCreationOptionsJSON or PublicKeyCredentialRequestOptionsJSON returned by SimpleWebAuthn. Pass this directly to startRegistration() or startAuthentication() in @simplewebauthn\/browser.\n')
-
-
-/**
- * @summary Verify passkey registration and save credential (step 2)
- */
-export const WebauthnRegisterVerifyBody = zod.object({
-  "response": zod.record(zod.string(), zod.unknown()).describe('RegistrationResponseJSON from startRegistration()'),
-  "label": zod.string().optional().describe('Human-readable name for this passkey (e.g. \"MacBook Touch ID\")')
-})
-
-export const WebauthnRegisterVerifyResponse = zod.object({
-  "verified": zod.boolean(),
-  "credentialId": zod.string()
-})
-
-
-/**
- * @summary Generate passkey authentication options (step 1)
- */
-export const WebauthnAuthenticateOptionsBody = zod.object({
-  "email": zod.string().optional()
-})
-
-export const WebauthnAuthenticateOptionsResponse = zod.object({
-  "challenge": zod.string()
-}).describe('PublicKeyCredentialCreationOptionsJSON or PublicKeyCredentialRequestOptionsJSON returned by SimpleWebAuthn. Pass this directly to startRegistration() or startAuthentication() in @simplewebauthn\/browser.\n')
-
-
-/**
- * @summary Verify passkey assertion and establish session (step 2)
- */
-export const WebauthnAuthenticateVerifyBody = zod.object({
-  "response": zod.record(zod.string(), zod.unknown()).describe('AuthenticationResponseJSON from startAuthentication()')
-})
-
-export const WebauthnAuthenticateVerifyResponse = zod.object({
-  "user": zod.object({
-  "id": zod.number(),
-  "email": zod.string(),
-  "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
-  "faceEnrolled": zod.boolean(),
-  "createdAt": zod.string(),
-  "updatedAt": zod.string().nullish()
-}),
-  "token": zod.string()
-})
-
-
-/**
- * @summary List registered passkeys for current user
- */
-export const ListPasskeysResponseItem = zod.object({
-  "id": zod.number(),
-  "label": zod.string(),
-  "credentialId": zod.string(),
-  "createdAt": zod.string(),
-  "lastUsedAt": zod.string().nullish()
-})
-export const ListPasskeysResponse = zod.array(ListPasskeysResponseItem)
-
-
-/**
- * @summary Remove a registered passkey
- */
-export const DeletePasskeyParams = zod.object({
-  "id": zod.coerce.number()
-})
-
-export const DeletePasskeyResponse = zod.void()
 
 
 /**

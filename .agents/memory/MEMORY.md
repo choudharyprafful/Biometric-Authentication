@@ -1,2 +1,1 @@
 - [PostgreSQL sessions](postgresql-sessions.md) — Provision the connect-pg-simple session table through Drizzle, not its runtime auto-create option.
-- [WebAuthn / Passkeys](webauthn-passkeys.md) — RPID = REPLIT_DEV_DOMAIN; public key stored as base64url; does not work in embedded iframes without allow="publickey-credentials-*".
