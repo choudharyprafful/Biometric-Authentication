@@ -60,7 +60,17 @@ export default function Login() {
       await refetchUser();
       setLocation('/dashboard');
     } catch (err: any) {
-      setError(err?.message || 'Passkey verification failed.');
+      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+        let inIframe = true;
+        try { inIframe = window.self !== window.top; } catch { /* cross-origin parent */ }
+        setError(
+          inIframe
+            ? 'The browser blocked the passkey prompt inside the embedded preview. Open the app in its own tab and try again.'
+            : 'Passkey prompt was cancelled or timed out. Please try again.',
+        );
+      } else {
+        setError(err?.message || 'Passkey verification failed.');
+      }
     } finally {
       setPasskeyBusy(false);
     }

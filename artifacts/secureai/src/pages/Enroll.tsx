@@ -18,6 +18,14 @@ function PasskeySection() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  const inIframe = (() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  })();
+
   const handleAdd = async () => {
     setError('');
     setBusy(true);
@@ -25,7 +33,13 @@ function PasskeySection() {
       await enrollPasskey();
       refresh();
     } catch (err: any) {
-      if (err?.name !== 'NotAllowedError') {
+      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+        setError(
+          inIframe
+            ? 'The browser blocked passkey creation inside the embedded preview. Open the app in its own tab and try again.'
+            : 'Passkey prompt was cancelled or timed out. Please try again.',
+        );
+      } else {
         setError(err?.message || 'Passkey enrollment failed.');
       }
     } finally {
@@ -74,6 +88,24 @@ function PasskeySection() {
               </li>
             ))}
           </ul>
+        )}
+
+        {inIframe && (
+          <div className="border border-yellow-500/30 bg-yellow-500/5 p-3">
+            <p className="font-mono text-xs text-yellow-500/90">
+              You appear to be in the embedded preview. Browsers block passkey creation inside
+              embedded frames —{' '}
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-yellow-400"
+              >
+                open the app in a new tab
+              </a>{' '}
+              to register this device.
+            </p>
+          </div>
         )}
 
         {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
