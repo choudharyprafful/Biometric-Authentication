@@ -47,3 +47,13 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# AI-assistant tooling directories — not part of the project deliverable
+.agents/
+.config/
+
+# Secrets — never commit real credentials (DATABASE_URL, SESSION_SECRET,
+# FILE_ENCRYPTION_KEY, WEBHOOK_SECRET all live here for local dev)
+.env
+.env.local
+.env.*.local
