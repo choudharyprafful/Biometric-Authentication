@@ -1,0 +1,92 @@
+name: CI
+
+# Not yet run through an actual Actions runner in this environment — each
+# command has been verified locally, but the assembled workflow itself
+# hasn't been exercised end-to-end. See replit.md Gotchas for the
+# drizzle-kit push interactive-prompt issue push-force avoids below.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  static-analysis:
+    name: Typecheck + dependency audit (dependency scanning)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Typecheck + pnpm audit gated at --audit-level=critical (see
+      # package.json's "ci" script and docs/04, Section 3).
+      - run: pnpm run ci
+
+  semgrep-sast:
+    name: Semgrep SAST scan (real tool, not the adversarial-probe substitute)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      # p/owasp-top-ten + p/typescript/p/react are Semgrep's public community
+      # rulesets (no login/token required) — this is the actual SAST tool the
+      # brief names (§5.6), on top of (not instead of) the adversarial-probe
+      # suite below, which stays a runtime/behavioral check the static scan
+      # can't do. Fails the build on any finding (--error) rather than just
+      # reporting, matching how pnpm audit is gated above.
+      - run: semgrep scan --config p/owasp-top-ten --config p/typescript --config p/react --error
+
+  dynamic-security-tests:
+    name: Concurrency load test + adversarial probes (live server)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: secureai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/secureai
+      SESSION_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: development
+      PORT: 8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      # push-force is safe here since a fresh CI database has nothing to
+      # disambiguate, so the interactive prompt push needs never comes up.
+      - run: pnpm --filter @workspace/db run push-force
+      - run: pnpm --filter @workspace/api-server run build
+      - name: Start API server in the background
+        run: node artifacts/api-server/dist/index.mjs &
+      - name: Wait for the API server to come up
+        run: npx --yes wait-on http://localhost:8080/healthz --timeout 30000
+      # Both scripts talk to the API server directly (port 8080) rather
+      # than through the Vite proxy, so the frontend isn't started here.
+      - name: Rate-limiter concurrency test (see R-AUTH-2)
+        run: pnpm --filter @workspace/scripts run security:load-test
+        env:
+          LOAD_TEST_BASE_URL: http://localhost:8080
+      - name: Adversarial probes (SQLi / CSRF / auth-bypass / IDOR / stored XSS)
+        run: pnpm --filter @workspace/scripts run security:probes
+        env:
+          PROBES_BASE_URL: http://localhost:8080
