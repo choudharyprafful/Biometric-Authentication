@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Certificate pinning for release builds (brief §4/§5.2, R-MOBILE-2 in
+  04_Threat_Model_Risk_Assessment.md). Debug builds are unaffected — cleartext
+  HTTP to localhost during local dev is granted separately, in
+  src/debug/AndroidManifest.xml's usesCleartextTraffic override, needed for
+  the adb-reverse tunnel described in src/config.ts.
+
+  HOW TO REPLACE THE PLACEHOLDER PINS ONCE A REAL PRODUCTION DOMAIN EXISTS:
+    1. Replace "secureai-api.example.com" below with the real deployed domain.
+    2. Compute the SPKI pin of its live certificate:
+         openssl s_client -connect secureai-api.example.com:443 -servername secureai-api.example.com </dev/null 2>/dev/null \
+           | openssl x509 -pubkey -noout \
+           | openssl pkey -pubin -outform der \
+           | openssl dgst -sha256 -binary \
+           | openssl enc -base64
+    3. ALWAYS include a second, independent backup pin (a different cert —
+       e.g. the CA's intermediate, or a second leaf cert from a planned
+       rotation) so a routine cert renewal doesn't hard-lock the app out of
+       its own API. A pin-set with only one pin is a self-inflicted denial
+       of service the moment that certificate is renewed or revoked.
+    4. Placeholder values below are syntactically valid base64 SHA-256
+       digests but do NOT correspond to any real certificate — they exist so
+       this file is a complete, correctly-wired example, not a template with
+       missing pieces. Traffic to the real domain will fail to validate
+       until they're replaced with real pins from step 2.
+-->
+<network-security-config>
+    <domain-config>
+        <domain includeSubdomains="true">secureai-api.example.com</domain>
+        <pin-set expiration="2027-01-01">
+            <!-- Primary pin — the current production leaf certificate's SPKI hash. Placeholder. -->
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <!-- Backup pin — a second, independent certificate (e.g. next rotation's cert
+                 or the issuing CA's intermediate). Required so a routine renewal doesn't
+                 lock the app out. Placeholder. -->
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+    </domain-config>
+
+    <!-- Everything else (including the local-dev domains in src/config.ts)
+         falls through to the platform default: system trust store, no
+         pinning, cleartext blocked unless a debug-only override says
+         otherwise. Pinning is deliberately scoped to the production API
+         domain only — pinning localhost would be both meaningless (no real
+         TLS cert exists there) and would break local development. -->
+</network-security-config>

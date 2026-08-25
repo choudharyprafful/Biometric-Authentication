@@ -349,6 +349,14 @@ with it — see `isReplitDeployment` in `allowedOrigins.ts`.
 - **`allowDeviceCredentials: false`** (`src/lib/biometricKey.ts`) — only a real biometric (fingerprint /
   face) unlocks the key, not a PIN/pattern fallback. Matches the same "gate a crypto operation with an
   actual biometric" intent as the WebAuthn passkey path this replaces.
+- **Certificate pinning (Android release builds only)** —
+  `android/app/src/main/res/xml/network_security_config.xml`, wired via `android:networkSecurityConfig`
+  in the release manifest. Pins the production API domain's SPKI hash so a device with a rogue/compromised
+  CA in its trust store can't MITM the app even over otherwise-valid TLS. Debug builds are unaffected
+  (`src/debug/AndroidManifest.xml`'s cleartext override still applies for the local `adb reverse` tunnel).
+  The pin values are placeholders — see the comment block at the top of that file for exactly how to
+  compute real ones once a production domain is deployed. No iOS project exists yet in this PoC, so iOS
+  pinning (`NSPinnedDomains` in `Info.plist`, or a config plugin) isn't implemented.
 
 ## UI: styled to match the web app, not just functionally equivalent
 
