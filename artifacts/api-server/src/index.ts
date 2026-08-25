@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedIfEmpty } from "./lib/seed";
+import { startRetentionJob } from "./lib/retention";
 
 const rawPort = process.env["PORT"];
 
@@ -30,4 +31,6 @@ app.listen(port, async (err) => {
   } catch (e) {
     logger.warn({ err: e }, "Seed failed — continuing without demo data");
   }
+
+  startRetentionJob();
 });

@@ -7,6 +7,10 @@ export const threatsTable = pgTable("threats", {
   type: text("type").notNull(),
   severity: text("severity", { enum: ["low", "medium", "high", "critical"] }).notNull(),
   description: text("description").notNull(),
+  // A jargon-free, one- or two-sentence explanation of what happened and
+  // why it matters — the technical `description` above is for security
+  // staff; this is for anyone else looking at the same dashboard.
+  plainSummary: text("plain_summary"),
   status: text("status", { enum: ["active", "mitigated", "resolved"] }).notNull().default("active"),
   affectedUsers: integer("affected_users"),
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
