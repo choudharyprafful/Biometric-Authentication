@@ -5,10 +5,16 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "security:load-test": "tsx ./src/security/load-test.ts",
+    "security:probes": "tsx ./src/security/adversarial-probes.ts"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "^8.20.0",
     "tsx": "catalog:"
   }
 }
