@@ -43,6 +43,14 @@ const LOGIN_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const LOGIN_MAX_ATTEMPTS_PER_ACCOUNT = 5;
 const LOGIN_MAX_ATTEMPTS_PER_IP = 20;
 
+// Free-tier-abuse defense (docs/04_Threat_Model_Risk_Assessment.md, R-PAY-5):
+// registration is anonymous (no session/account to key by yet), so this is
+// keyed by IP, same pattern as the login IP cap above. Looser than login's
+// IP cap since legitimate signups from a shared IP (office, campus, NAT) are
+// a normal, one-time-per-person event, not a repeated action like login.
+const REGISTER_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const REGISTER_MAX_ATTEMPTS_PER_IP = 10;
+
 export function hashResetToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -150,6 +158,15 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
 // POST /auth/register
 router.post("/auth/register", async (req, res): Promise<void> => {
+  const ip = getClientIp(req);
+  const ipReservation = checkAndRecordRequest(`register:ip:${ip}`, REGISTER_MAX_ATTEMPTS_PER_IP, REGISTER_RATE_WINDOW_MS);
+  if (!ipReservation.allowed) {
+    await logEvent({ eventType: "RATE_LIMIT_HIT", details: "Registration rate limit hit (IP threshold)", ipAddress: ip, userAgent: req.headers["user-agent"] });
+    res.set("Retry-After", String(ipReservation.retryAfterSeconds ?? 3600));
+    res.status(429).json({ error: "Too many registration attempts from this network — please try again later" });
+    return;
+  }
+
   const parsed = RegisterUserBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
