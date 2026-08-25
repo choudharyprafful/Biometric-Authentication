@@ -29,6 +29,8 @@ export * from './plan';
 export * from './planId';
 export * from './resetPasswordFaceInput';
 export * from './resetPasswordResult';
+export * from './securityAlert';
+export * from './securityAlertSeverity';
 export * from './securityDashboard';
 export * from './securityLog';
 export * from './subscribeInput';

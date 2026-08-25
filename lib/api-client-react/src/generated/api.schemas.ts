@@ -135,6 +135,23 @@ export interface SecurityLog {
   timestamp: string;
 }
 
+export type SecurityAlertSeverity = typeof SecurityAlertSeverity[keyof typeof SecurityAlertSeverity];
+
+
+export const SecurityAlertSeverity = {
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export interface SecurityAlert {
+  /** Stable, deterministic per alert kind + key (e.g. "rate-limit-spike:203.0.113.5") so the frontend can key a list without a persisted row */
+  id: string;
+  severity: SecurityAlertSeverity;
+  message: string;
+  count: number;
+  windowMinutes: number;
+}
+
 export interface SecurityDashboard {
   totalUsers: number;
   faceEnrolledUsers: number;
@@ -143,6 +160,8 @@ export interface SecurityDashboard {
   failedLogins24h: number;
   threatsDetected: number;
   recentLogs: SecurityLog[];
+  /** Computed, not stored — recomputed on every dashboard request from recent security_logs activity. Empty for non-security_analyst roles, same visibility rule as recentLogs. */
+  activeAlerts: SecurityAlert[];
 }
 
 export type ThreatSeverity = typeof ThreatSeverity[keyof typeof ThreatSeverity];

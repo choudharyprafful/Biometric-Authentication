@@ -108,6 +108,35 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {dashboard.activeAlerts.length > 0 && (
+        <div className="space-y-2" role="alert" aria-live="polite">
+          <h2 className="text-xl font-mono uppercase tracking-widest text-destructive border-b border-destructive/30 pb-2 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 animate-pulse" />
+            Active Alerts ({dashboard.activeAlerts.length})
+          </h2>
+          {dashboard.activeAlerts.map((alert) => (
+            <button
+              key={alert.id}
+              type="button"
+              onClick={() => setLocation('/security-logs')}
+              className={`w-full text-left flex items-center justify-between gap-4 p-4 border font-mono transition-colors ${
+                alert.severity === 'high'
+                  ? 'bg-destructive/10 border-destructive/50 hover:border-destructive'
+                  : 'bg-yellow-500/10 border-yellow-500/40 hover:border-yellow-500'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Badge className={alert.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-yellow-500 text-black'}>
+                  {alert.severity.toUpperCase()}
+                </Badge>
+                <span className="text-sm text-foreground">{alert.message}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Review →</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-xl font-mono uppercase tracking-widest text-foreground border-b border-border pb-2">Recent Audit Trail</h2>

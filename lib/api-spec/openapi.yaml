@@ -949,7 +949,7 @@ components:
 
     SecurityDashboard:
       type: object
-      required: [totalUsers, faceEnrolledUsers, activeSessionsCount, loginAttempts24h, failedLogins24h, threatsDetected, recentLogs]
+      required: [totalUsers, faceEnrolledUsers, activeSessionsCount, loginAttempts24h, failedLogins24h, threatsDetected, recentLogs, activeAlerts]
       properties:
         totalUsers:
           type: number
@@ -967,6 +967,28 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SecurityLog"
+        activeAlerts:
+          description: Computed, not stored — recomputed on every dashboard request from recent security_logs activity. Empty for non-security_analyst roles, same visibility rule as recentLogs.
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityAlert"
+
+    SecurityAlert:
+      type: object
+      required: [id, severity, message, count, windowMinutes]
+      properties:
+        id:
+          description: Stable, deterministic per alert kind + key (e.g. "rate-limit-spike:203.0.113.5") so the frontend can key a list without a persisted row
+          type: string
+        severity:
+          type: string
+          enum: [medium, high]
+        message:
+          type: string
+        count:
+          type: number
+        windowMinutes:
+          type: number
 
     SecurityLog:
       type: object

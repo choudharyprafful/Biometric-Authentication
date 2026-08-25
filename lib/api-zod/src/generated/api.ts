@@ -379,7 +379,14 @@ export const GetSecurityDashboardResponse = zod.object({
   "userAgent": zod.string().nullish(),
   "details": zod.string(),
   "timestamp": zod.string()
-}))
+})),
+  "activeAlerts": zod.array(zod.object({
+  "id": zod.string().describe('Stable, deterministic per alert kind + key (e.g. \"rate-limit-spike:203.0.113.5\") so the frontend can key a list without a persisted row'),
+  "severity": zod.enum(['medium', 'high']),
+  "message": zod.string(),
+  "count": zod.number(),
+  "windowMinutes": zod.number()
+})).describe('Computed, not stored — recomputed on every dashboard request from recent security_logs activity. Empty for non-security_analyst roles, same visibility rule as recentLogs.')
 })
 
 

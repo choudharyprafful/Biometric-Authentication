@@ -5,6 +5,7 @@
  * SecureAI - Biometric Security Demo API
  * OpenAPI spec version: 0.1.0
  */
+import type { SecurityAlert } from './securityAlert';
 import type { SecurityLog } from './securityLog';
 
 export interface SecurityDashboard {
@@ -15,4 +16,6 @@ export interface SecurityDashboard {
   failedLogins24h: number;
   threatsDetected: number;
   recentLogs: SecurityLog[];
+  /** Computed, not stored — recomputed on every dashboard request from recent security_logs activity. Empty for non-security_analyst roles, same visibility rule as recentLogs. */
+  activeAlerts: SecurityAlert[];
 }
