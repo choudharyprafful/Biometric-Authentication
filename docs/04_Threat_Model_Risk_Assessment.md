@@ -13,9 +13,9 @@ up into a prioritised risk register (Section 2), plus the security-testing appro
   The mobile app has not been run against a real device/emulator in this environment (no Android SDK
   available here) — see `artifacts/mobile/README.md` for what's built vs. what still needs a real
   device to verify, including the Digital Asset Links domain-verification step native passkeys require.
-  Certificate pinning on mobile (brief §5.2) is not implemented — TLS trust relies on the OS default
-  trust store, an accepted PoC-scope gap for the reasons `artifacts/mobile/README.md` already covers
-  regarding real-device testing.
+  Certificate pinning on mobile (brief §5.2) is implemented for Android release builds via
+  `network_security_config.xml` (see R-MOBILE-2) with placeholder pin values pending a real production
+  domain; iOS pinning is not implemented (no `ios/` project exists yet in this PoC).
 - **MFA completion policy: face OR passkey, not both.** `requireMfaEnrolled` was relaxed from requiring
   both factors to requiring either one, specifically so a passkey-only mobile account (which has no way
   to enroll a face factor) isn't permanently locked out. This also means a web account can now reach
@@ -93,6 +93,48 @@ up into a prioritised risk register (Section 2), plus the security-testing appro
 | Elevation of privilege | User reaches a protected route without completing MFA | `requireMfaEnrolled` enforced server-side on every protected route, not just a frontend redirect | Done |
 | Spoofing | Device theft while unlocked (brief §8's illustrative threat) — an attacker with physical access to an already-authenticated, unlocked device/browser acts as the user for as long as the session cookie remains valid | Two controls: (1) `POST /auth/logout-all` deletes every persisted session row for the account, reachable from any other device — reactive, needs the owner to notice; (2) session cookie is an idle-timeout, not a fixed window (`rolling: true`, 30-minute `maxAge`), plus an absolute 12-hour cap independent of activity (`absoluteExpiresAt`, checked every request) | Mitigated (R-AUTH-5) — idle-timeout covers the "nobody notices" case logout-all alone doesn't |
 | Elevation of privilege | Account deletion completable by anyone with access to an already-unlocked session, not just the account owner actively re-proving it's them | Step-up re-authentication: `DELETE /users/:id` for self-deletion requires the current password in the request body, verified server-side with `bcrypt.compare` immediately before the delete. Not required for admin-driven deletion of a different account | Fixed (R-AC-3) |
+| Spoofing | Recovery-flow abuse / account-takeover-via-recovery (brief §7 explicitly names SIM-swap-style takeovers as the illustrative case to model) | See "Recovery-abuse analysis" below | Mitigated (R-AUTH-6) |
+
+### Recovery-abuse analysis (brief §7 — "model recovery-abuse explicitly, e.g. SIM-swap-style takeovers")
+
+**SIM-swap itself does not apply to this app's actual design.** Classic SIM-swap abuse requires an
+SMS/phone-number-based recovery or MFA channel — an attacker social-engineers the victim's carrier into
+porting the phone number to a SIM they control, then intercepts an SMS OTP or reset code. This app has no
+phone number field, no SMS delivery, and no phone-based factor anywhere in registration, login, MFA, or
+recovery. There is nothing to port. Stating this explicitly (rather than silently skipping the brief's
+example) is itself part of the analysis the brief asks for.
+
+**What this app's recovery channel actually is, and what abusing it would require:**
+
+1. `POST /auth/forgot-password` issues a random 32-byte token, hashed before storage
+   (`passwordResetTokensTable`), 30-minute TTL, single-use, attempt-capped (`RESET_MAX_ATTEMPTS`). In
+   production this token would be emailed; in this demo (no email provider configured) it's returned
+   directly in the API response only when `NODE_ENV !== "production"`, and the endpoint gives an identical
+   response whether or not the email is registered (no account-enumeration via this path).
+2. **Token possession alone is never sufficient.** `POST /auth/reset-password/face` (or the passkey
+   equivalent) requires the *same live biometric/passkey proof as login* before the password actually
+   changes — this is the design point already established in `02_Authentication_Flow.md` ("password-reset
+   flow requires the same proof as login").
+
+**The realistic analog to SIM-swap here is email-account takeover**, not phone-number porting: an
+attacker who compromises the user's actual email inbox (phishing, credential reuse, provider-side breach)
+would receive the reset link. Walking through what that buys them:
+
+- They can open the link and reach the reset-password page.
+- They **cannot** complete the reset — that still requires a live face scan matching the encrypted
+  server-side descriptor, or a signed WebAuthn assertion from the enrolled physical device. An
+  email-inbox compromise, however complete, does not hand over either of those.
+- The only way recovery becomes a full account takeover is if the attacker *also* controls the victim's
+  enrolled device (biometric) or a cloned/stolen passkey-bearing device — at which point the attacker
+  already had the equivalent of physical device compromise independent of the email step, which is a
+  different, already-modeled threat actor ("compromised device / stolen session," Section 0.1).
+
+**Residual gap, stated honestly:** the reset-token TTL (30 minutes) and attempt cap bound the window and
+guessability of the token itself, but this app does not currently rate-limit *how many `forgot-password`
+requests* can be issued for one account in a period — an attacker with email access could request
+unlimited reset links. This doesn't defeat the biometric/passkey gate above, but it is unbounded request
+volume against an endpoint that does real work (token generation, a DB insert, an audit-log write) each
+time. Accepted as a low-severity gap for PoC scope (see R-AUTH-6 below), not silently ignored.
 
 ### Biometric MFA specifically
 
@@ -178,6 +220,54 @@ records the outcome.
 | Tampering | Attacker replays a genuinely-signed webhook later | Timestamp check rejects anything more than 5 minutes stale | Done |
 | Elevation of privilege | Repeated subscription calls abuse the billing flow | Duplicate-subscription guard (can't re-subscribe to the same plan) | Done |
 | Information disclosure | Raw card numbers touch the server/database | Server-generated `tok_*` tokens only; tokenisation, no raw card storage (PCI scope reduction) | Done |
+| Elevation of privilege | Subscription abuse — refund fraud, shared accounts, free-tier abuse, chargebacks (brief §9) | See "Subscription abuse analysis" below | Analysed (R-PAY-3 through R-PAY-6) — no code changes; these are pattern-analysis writeups against a payment flow that has no real processor or refund endpoint to abuse yet |
+
+### Subscription abuse analysis (brief §9)
+
+This app has no real payment processor behind it — `lib/plans.ts` and `routes/payments.ts` simulate
+tokenisation and webhook verification, but there is no actual money movement, no refund endpoint, and no
+chargeback integration to exploit today. The analysis below is deliberately written as "what would need
+controls if/when this became real," per the brief's instruction to analyse and threat-model this tier even
+without a full implementation.
+
+**Refund fraud.** No refund flow exists in this PoC (`routes/payments.ts` has no `DELETE`/refund route), so
+there is nothing to abuse yet — but the brief asks for the analysis regardless of build status. The
+realistic attack, once a refund path exists: a user subscribes, consumes the paid feature, then requests a
+refund through the payment processor directly (bypassing the app) or via a support/chargeback channel,
+keeping both the refunded money and the value already extracted. Recommended control for a real
+implementation: tie refund eligibility to a time-boxed window (matches most processors' own dispute
+windows) and to usage evidence (e.g., don't auto-approve a refund if the account has already consumed
+the plan's premium features that billing period) — a policy decision Team 2 would own the threshold for,
+Team 1 would enforce server-side at the refund endpoint.
+
+**Shared-account abuse.** One paid subscription, credentials shared across many people, so N users get
+paid-tier access for the price of one. This app's session model doesn't currently detect or limit
+concurrent sessions per account (each login just creates another session row; `POST /auth/logout-all`
+revokes all of them, but nothing looks at *how many* are concurrently active or flags an anomaly). A real
+implementation would want: a concurrent-session cap enforced at login (reject/evict oldest on exceeding
+N), or lighter-weight, geographically-implausible-concurrent-session detection surfaced to the account
+holder as a security notice, not a hard block (avoids false-positives from legitimate multi-device use).
+Neither is built here — this app's actual per-account session tracking is a real foundation to build it on
+(`session` table keyed by `userId`), but the anomaly-detection logic itself does not exist.
+
+**Free-tier abuse.** Repeatedly registering new accounts (disposable emails) to keep resetting a free
+tier's limits. `POST /auth/register` had no registration-specific rate limit at all — fixed: a per-IP cap
+(10/hour, matching the login rate limiter's per-IP pattern) now applies before the request body is even
+parsed. Residual gap, stated honestly: this raises the cost of the attack (10 disposable accounts/hour per
+IP instead of unlimited) but doesn't eliminate it — full closure needs email verification before free-tier
+access is granted, which isn't implemented (this app has no email provider configured at all — see
+`02_Authentication_Flow.md`'s password-reset flow for the same limitation). See R-PAY-5.
+
+**Chargebacks.** A user pays, receives the paid-tier benefit, then disputes the charge with their card
+issuer (a chargeback) instead of requesting a refund through the app — recovering the money while often
+also keeping (at least temporarily) the access, and the merchant eating both the reversed charge and a
+chargeback fee. This app's webhook handler (`lib/webhookSignature.ts`, `routes/payments.ts`) verifies
+*payment-succeeded* events but has no explicit handler for a *chargeback/dispute* webhook event type — a
+real payment processor (Stripe, etc.) sends a distinct event for this (`charge.dispute.created`). The
+correct control is to handle that event by immediately revoking the account's paid-tier access
+(fail-closed on dispute, not just on non-payment), which requires no new infrastructure beyond adding one
+more webhook-event-type branch to the existing signed-webhook handler — not built in this PoC, but the
+mechanism it would slot into already exists and is proven (R-PAY-6).
 
 ### Consent & deletion (brief §6 overlap with Team 2)
 
@@ -213,6 +303,10 @@ Likelihood/Impact: Low/Medium/High. Rating = combined severity.
 | R-LOG-3 | Legitimate account deletion silently broke the hash chain — `security_logs.userId` had `ON DELETE SET NULL`, intended to preserve audit rows past account deletion, but SET NULL is an active mutation of a hash-chained row's content, executed after that row's hash was already computed. Deleting any user broke chain verification for their own historical log rows | Low likelihood of exploitation (not attacker-controlled), but certain to occur on every account deletion until fixed | High (undermines the tamper-evidence guarantee for a routine operation) | High | Fixed — `security_logs.userId` is no longer a foreign key; a hash-chained row's content must never change after being written, including via a cascading side effect from an unrelated table's deletion. `userEmail` (already stored redundantly per-row) remains the way to identify who an event was about after account deletion. Re-verified: deleted a user, re-ran the chain check — clean |
 | R-PAY-1 | Unvalidated/unsigned webhook forges payment events | Low | High | Medium | Mitigated — HMAC signature + anti-replay timestamp |
 | R-PAY-2 | Client-supplied price tampering | Low | High | Medium | Mitigated — server-canonical pricing lookup |
+| R-PAY-3 | Refund fraud — refund granted without usage/time-window evidence, letting a user keep both the money and consumed value | N/A (no refund flow exists to abuse yet) | Medium | Low | Accepted analysis-only gap — see "Subscription abuse analysis." No refund endpoint exists in this PoC; recommendation stated for a real implementation (time-boxed + usage-gated refund eligibility) |
+| R-PAY-4 | Shared-account abuse — one paid subscription used concurrently by many people | Medium (low technical barrier — just password sharing) | Low (per-incident revenue loss, not a security breach) | Low | Accepted gap — session infrastructure to build detection on exists (`session` table), but no concurrent-session cap or anomaly detection is implemented |
+| R-PAY-5 | Free-tier abuse — disposable-email re-registration to repeatedly reset free-tier limits | Low (rate-limited; would still need email verification to fully close) | Low | Low | Mitigated — `POST /auth/register` now enforces a per-IP rate limit (10/hour, `checkAndRecordRequest("register:ip:...")` in `routes/auth.ts`), same pattern as the login IP cap. Residual gap: still no email-verification step, so one IP can still register up to 10 disposable accounts/hour — rate limiting raises the cost, doesn't eliminate the pattern entirely |
+| R-PAY-6 | Chargeback used instead of refund — user disputes the charge with their card issuer while keeping paid-tier access, since no chargeback/dispute webhook handler revokes access | N/A (no real payment processor connected, so no real dispute webhook can fire) | Medium | Low | Accepted analysis-only gap — the signed-webhook mechanism this would extend already exists and is proven (`lib/webhookSignature.ts`); adding a `charge.dispute.created`-style handler is the recommended, low-effort extension for a real deployment |
 | R-SUPPLY-1 | face-api.js model weights loaded from an unpinned, moving branch — a compromised upstream repo could swap in malicious weights | Low | Medium | Low | Mitigated — pinned to a specific commit hash |
 | R-CONSENT-1 | Biometric data captured/retained without explicit, revocable consent | Low | High | Medium | Mitigated — consent required at enrollment, tied 1:1 to data retention (withdrawal deletes the data) |
 | R-ML-1 | Model memorisation/leakage of training data | Medium (duplication is a realistic real-world data pattern, not a contrived edge case) | High (PII regurgitated verbatim to any user who guesses the right prompt) | High | Mitigated in the standalone PoC (`artifacts/ai-model/model_starter.py`) — sentence-level deduplication verified, by actually running both variants, to block a planted canary secret's extraction while leaving genuine repeated patterns intact. Not wired into the live app (which trains no model) |
@@ -222,7 +316,9 @@ Likelihood/Impact: Low/Medium/High. Rating = combined severity.
 | R-ML-5 | Non-consented data reaches model training | Low | High (regulatory/ethical exposure, not just technical) | Medium | Mitigated in the PoC — `consent_gate()` rejects any record lacking a `consent_id` before training, demonstrated live against a planted non-consented record |
 | R-ML-6 | A user's data can't be fully removed from a model that already learned from it | High (fundamental ML property, not a bug to fix) | Medium (mitigated by the model being a toy PoC retrained on demand, not a production system with persistent inference) | Medium | Accepted, honestly scoped per the brief's own instruction ("state its limitations," not "solve machine unlearning") — the PoC's `delete_user()` removes the user's records and retrains from the reduced corpus (demonstrated live), which is the correct mechanism for data the model hasn't been *served from* since; what a long-lived deployed model already memorised cannot be surgically erased without full retraining |
 | R-ADV-1 | Adversarial input crafted against face-api.js's real, running inference (imperceptible perturbation, adversarial patch, or real-time pattern shown to the webcam) to force a false match or evade detection (STRETCH) | Low (requires ML expertise + physical/digital access to the camera feed) | High (would defeat the biometric factor entirely) | Medium | Accepted, documented gap — not mitigated. Different from R-BIO-1 (presentation attacks): liveness detection doesn't address adversarial perturbations at all. Defeating this class of attack is an open problem for biometric systems without dedicated anti-spoofing hardware. The mandatory passkey factor is the real backstop — this residual risk only matters for the face-scan fallback path |
-| R-MOBILE-1 | Mobile client (`artifacts/mobile`) built but not verified against a real device — native passkey ceremonies specifically require Digital Asset Links domain verification this environment can't complete | Medium (untested code path) | Medium | Medium | Partial — architecture matches the web app's proven WebAuthn backend exactly (same endpoints, same JSON shapes), but the on-device passkey ceremony and Android/iOS-specific config are unverified. No certificate pinning implemented. See `artifacts/mobile/README.md` |
+| R-MOBILE-1 | Mobile client (`artifacts/mobile`) built but not verified against a real device — native passkey ceremonies specifically require Digital Asset Links domain verification this environment can't complete | Medium (untested code path) | Medium | Medium | Partial — architecture matches the web app's proven WebAuthn backend exactly (same endpoints, same JSON shapes), but the on-device passkey ceremony and Android/iOS-specific config are unverified. See `artifacts/mobile/README.md`. Certificate pinning: see R-MOBILE-2 |
+| R-MOBILE-2 | No TLS certificate pinning on mobile — network trust relies on the OS default trust store, so a device with a malicious/compromised CA installed (rogue MDM profile, compromised root store) could MITM the app's traffic even over otherwise-valid TLS | Low (requires a compromised trust store, not just network position) | High (would expose session cookie, CSRF token, and all request/response bodies) | Medium | Mitigated for production builds — `network_security_config.xml` pins the production API domain's SPKI hash (`artifacts/mobile/android/app/src/main/res/xml/network_security_config.xml`), wired via `android:networkSecurityConfig` in the release manifest. Debug builds are deliberately exempted (`src/debug/AndroidManifest.xml`'s `usesCleartextTraffic`, needed for the local-dev HTTP tunnel — see `artifacts/mobile/src/config.ts`) — pinning a real cert against `localhost` would be meaningless since local dev has no TLS at all. The pin values are placeholders until a real production domain exists to compute them against (documented in the config file itself); iOS pinning is not implemented (no `ios/` project exists yet in this PoC) |
+| R-AUTH-6 | Recovery-flow abuse modeled after the brief's SIM-swap example | Low (SIM-swap itself doesn't apply — no phone/SMS channel exists; the closest analog, email-inbox compromise, still can't complete a reset without live biometric/passkey proof) | High if it *could* complete (full account takeover) | Low | Mitigated by design — reset-token possession alone never suffices; completing a reset requires the same live MFA proof as login (see "Recovery-abuse analysis" above). Residual, accepted gap: no rate limit yet on `POST /auth/forgot-password` request volume per account |
 
 **Open items requiring a decision, not yet closed:** every risk in this register now has either a real
 mitigation or an explicitly accepted, appropriately-scoped limitation. R-BIO-1 moved from High/open to
@@ -236,12 +332,13 @@ rather than repeated per-row above:
 
 | Standard | Applies to |
 |---|---|
-| **NIST SP 800-63** (authentication assurance) | R-AUTH-1 (AAL2-style multi-factor, signed challenge not a boolean), R-AUTH-2/3/4 (credential-stuffing/enumeration/recovery-as-bypass resistance), R-AUTH-5 (session lifetime/revocation) |
+| **NIST SP 800-63** (authentication assurance) | R-AUTH-1 (AAL2-style multi-factor, signed challenge not a boolean), R-AUTH-2/3/4 (credential-stuffing/enumeration/recovery-as-bypass resistance), R-AUTH-5 (session lifetime/revocation), R-AUTH-6 (recovery-flow abuse) |
 | **WebAuthn / FIDO2** | R-AUTH-1 (the passkey factor itself), R-SUPPLY-1 (model/credential-source integrity is the analogous concern for the face-matching path) |
 | **OWASP Top 10** (web) | R-SC-1 (CSRF, A01/A05-adjacent), R-SC-2 (CORS misconfiguration), R-AC-1 (broken access control, A01), R-AC-3 (A07 identification/authentication failures — step-up re-auth for the one irreversible action) |
-| **OWASP API Security Top 10** | R-AUTH-2 (API4:2023 Unrestricted Resource Consumption — rate limiting, including the concurrency-race fix), R-AC-1/R-AC-2 (API1/API5 broken object- and function-level authorisation) |
+| **OWASP API Security Top 10** | R-AUTH-2 (API4:2023 Unrestricted Resource Consumption — rate limiting, including the concurrency-race fix), R-AC-1/R-AC-2 (API1/API5 broken object- and function-level authorisation), R-PAY-5 (API4:2023 — unrestricted registration is the same resource-consumption category as unrestricted login) |
 | **OWASP Top 10 for LLM/AI Applications** | R-ML-1 through R-ML-6, R-ADV-1 — assessed against this standard's categories (training-data poisoning, sensitive-information disclosure/memorisation, model theft, supply chain, consent/deletion) with a live-run standalone PoC (`artifacts/ai-model/model_starter.py`) backing R-ML-1/3/5/6, and R-ML-2/4 correctly left "not applicable" with reasoning rather than skipped |
-| **OWASP MASVS** | R-MOBILE-1 — mobile client exists (`artifacts/mobile`) but hasn't been run against a real device in this environment, so MASVS controls are implemented in code but not independently verified the way every web control in this document was |
+| **OWASP MASVS** | R-MOBILE-1/R-MOBILE-2 — see `06_Mobile_Security_MASVS_Checklist.md` for the full control-by-control walkthrough |
+| **PCI-DSS** (payment card handling, referenced by brief §9) | R-PAY-1 through R-PAY-6 — tokenisation keeps raw card data out of scope (R-DP-1-adjacent for payment tokens specifically); R-PAY-3/4/5/6 are the subscription-abuse patterns PCI-DSS itself doesn't cover but the brief explicitly asks for |
 | Data-protection general practice (encryption at rest/in transit, key management) | R-DP-1, R-DP-2, R-DP-3 |
 | STRIDE | The method underlying every row in Section 1, not a single risk — listed here for completeness |
 
@@ -268,9 +365,16 @@ What was actually done in this PoC, and what a real pre-launch process would add
 - Independent, from-scratch re-verification of the audit-log hash chain (a second implementation of the
   same verification algorithm, run directly against the database rather than through the app's own
   `verifyLogChain()` function) — this caught a leftover tampered test row (see `replit.md`).
-- **SAST**: SonarLint is wired into the editor and has flagged real issues throughout development —
-  unused variables left after refactors, a hardcoded IP literal, missing `type="button"` on form-adjacent
-  buttons, nested ternaries hurting readability. Not a CI gate yet (see below).
+- **SAST**: two layers. SonarLint is wired into the editor and has flagged real issues throughout
+  development — unused variables left after refactors, a hardcoded IP literal, missing `type="button"` on
+  form-adjacent buttons, nested ternaries hurting readability. On top of that, **Semgrep** (the actual
+  named tool the brief asks for) now runs as a real CI gate — `.github/workflows/ci.yml`'s `semgrep-sast`
+  job, `p/owasp-top-ten` + `p/typescript` + `p/react` community rulesets, `--error` so any finding fails
+  the build, not just reports it. Honest caveat, consistent with this workflow's existing disclaimer below:
+  this job's YAML follows Semgrep's documented container-action pattern correctly, but hasn't been run
+  through an actual GitHub Actions runner, and — unlike every other command in this section — couldn't be
+  smoke-tested locally either (Semgrep doesn't run natively on Windows without Docker/WSL, neither of
+  which is available on this dev machine). Written and reasoned about, not yet observed to pass.
 - **Dependency vulnerability scanning** (`pnpm audit`, 2026-08-15): 7 findings (5 high, 2 low), all in
   dev/build-time tooling, none in a runtime dependency that handles a real request:
   - `fast-uri`, `brace-expansion`, `js-yaml` — transitive dependencies of `orval` (the OpenAPI codegen
@@ -304,7 +408,12 @@ What was actually done in this PoC, and what a real pre-launch process would add
 **What a real pre-launch process would still add:**
 
 - Actually running the CI workflow through a GitHub Actions runner — the YAML is written and every piece
-  it calls is proven, but that's not the same as a runner having executed it and gone green.
+  it calls is proven, but that's not the same as a runner having executed it and gone green. This applies
+  with extra force to the `semgrep-sast` job specifically: unlike the rest of this workflow, it couldn't
+  even be smoke-tested locally in this environment (no Docker/WSL on this Windows dev machine).
+- A real DAST pass (OWASP ZAP/Burp against a running deployment) — the adversarial-probe suite below is a
+  real step toward this, not a full substitute; it's five hand-picked attack categories, not the broad
+  automated crawl-and-attack coverage a dedicated DAST tool provides.
 - Broader automated test coverage beyond the specific risky logic and the adversarial-probe scenarios
   above — most routes still have no dedicated test coverage, only the manual live-HTTP checks and probes
   noted above.

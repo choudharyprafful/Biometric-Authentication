@@ -121,3 +121,70 @@ regardless of what the client claims. This is why:
 - **Step-up re-authentication**: self-account deletion requires the current password re-entered and
   verified server-side immediately before the delete — an unlocked session alone isn't enough for the one
   irreversible action (R-AC-3).
+
+## Design trade-off: password + biometric, not passkey-alone (brief §7)
+
+The brief explicitly flags an alternative worth considering: "a passkey with user verification can itself
+be multi-factor in a single gesture (possession + inherence), potentially replacing the password," and
+asks for the trade-off to be documented. This app chose the more conservative design — password (first
+factor) + device-native biometric/passkey (second factor) — deliberately, not by default. Reasoning:
+
+**What a passkey-alone design would look like.** A WebAuthn passkey with `userVerification: "required"`
+already combines two of the three classic factor categories in one user gesture: *possession* of the
+enrolled device (the private key never leaves it) and *inherence* (the biometric gates release of that
+key). NIST SP 800-63B recognizes this as a legitimate multi-factor authenticator. Under this design,
+registration and login would both collapse to a single passkey ceremony — no separate password field, no
+two-step login flow, no password-hash storage or reset-token infrastructure at all.
+
+**Why this app kept the password anyway:**
+
+- **A third, independent factor category.** Password adds *knowledge* on top of *possession + inherence*.
+  If a device is lost, stolen, or its Keystore/Secure Enclave is somehow compromised, a passkey-alone
+  design has nothing left to fall back on — the single gesture that grants access is also the single
+  point of failure. This app's password remains a genuinely separate secret an attacker needs even after
+  fully compromising the enrolled device's biometric hardware (a much higher bar than software
+  compromise, but not zero — e.g. a coerced unlock).
+- **Device-loss continuity.** A brand-new, unenrolled device can still get the user to "I know the
+  password" before any device-specific ceremony — useful for the recovery/re-enrollment flow
+  (`02` above), where the password is what lets `POST /auth/forgot-password` + the reset-token flow work
+  at all as an *entry point*, even though the reset still can't *complete* without the live biometric/
+  passkey proof (see `04_Threat_Model_Risk_Assessment.md`'s recovery-abuse analysis, R-AUTH-6).
+- **Matches the brief's own stated default.** Section 2 decision #1 and Tier 1 §1 both specify
+  "device-native biometric authentication as a **second factor** on top of the password" as the confirmed
+  scope decision, not an open design choice — this app implements that decision as written, while still
+  documenting the passkey-alone alternative here because the brief separately asks for the trade-off to be
+  reasoned about, not assumed away.
+
+**The cost of this choice, stated honestly:** two-step login instead of one gesture; password-reset attack
+surface and infrastructure that a passkey-alone design wouldn't need at all; users must remember a
+password in addition to owning an enrolled device. The conservative choice is not free — it's a real
+trade of convenience and reduced attack surface (passkey-alone) against defense-in-depth via an
+independent factor category (password + biometric), and this app takes the latter deliberately.
+
+## Design decision: no device-passcode MFA fallback (brief §7)
+
+The brief's recovery-and-fallback item asks for "a safe local fallback (device passcode)" alongside the
+lost-device recovery path. This app's mobile client makes a deliberate, documented choice **not** to offer
+one: `ReactNativeBiometrics` is constructed with `allowDeviceCredentials: false`
+(`artifacts/mobile/src/lib/biometricKey.ts`), meaning only a real fingerprint/face scan can unlock the
+device-bound signing key — a PIN/pattern/device-passcode can never substitute for it.
+
+**Why, given the brief explicitly asks for a passcode fallback:** the entire point of this app's MFA
+design is that the second factor is *inherence* (something you are), layered on top of the password's
+*knowledge* factor. A device passcode is itself a *knowledge* factor (something you know) — allowing it to
+satisfy the "biometric" second factor would silently collapse the design back to knowledge-plus-knowledge
+(password + device PIN), which is not meaningfully different from just having a longer password, and
+defeats the reason a second factor category was required in the first place. This mirrors the exact
+reasoning in the trade-off above: factor-category independence is the point, and a passcode fallback would
+quietly erase it for exactly the accounts that ever needed the fallback.
+
+**This is not the same as having no fallback at all.** The brief's actual underlying concern — a user
+being permanently locked out — is covered a different way: the password-reset flow (`02` above) is a
+complete, working recovery path that doesn't depend on the original device's biometric sensor at all,
+only on live re-proof via a *newly enrolled* device's biometric or passkey. A user who can't use their
+enrolled device's biometric sensor (broken sensor, lost device) recovers via password + re-enrolling a
+working device, never via a passcode standing in for the biometric on the same device. Documented here as
+a deliberate departure from the brief's literal wording, in service of the brief's own stated intent
+(the second factor "must gate a cryptographic operation... never be trusted as a client-reported success
+boolean") — a passcode-gated key release is still cryptographically real, but factor-category-wise it
+undermines the two-factor guarantee, which is the more important property to preserve.
