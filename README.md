@@ -62,4 +62,4 @@ For the mobile app, see [`artifacts/mobile/README.md`](artifacts/mobile/README.m
 
 ## Progress tracking
 
-Work is tracked week-by-week against the brief as [GitHub Issues](../../issues), each with a checklist mapping brief requirements to the actual files that satisfy them.
+Work is tracked week-by-week against the brief as [GitHub Issues](../../issues), each with a checklist mapping brief requirements to the actual files that satisfy them. [`PROGRESS.md`](PROGRESS.md) mirrors the same status locally, in-repo.
