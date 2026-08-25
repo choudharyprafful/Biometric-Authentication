@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useRegisterUser } from '@workspace/api-client-react';
 import { Card, Input, Label, Button } from '../components/ui';
+import { Checkbox } from '../components/ui/checkbox';
 import { Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,8 +11,9 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [dataConsent, setDataConsent] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [, setLocation] = useLocation();
   const registerMutation = useRegisterUser();
   const { refetchUser } = useAuth();
@@ -19,18 +21,23 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (password !== confirmPassword) {
       setError('Passkeys do not match.');
       return;
     }
-    
+
+    if (!dataConsent) {
+      setError('You must consent to data processing to register.');
+      return;
+    }
+
     try {
-      await registerMutation.mutateAsync({ data: { name, email, password } });
+      await registerMutation.mutateAsync({ data: { name, email, password, dataConsent } });
       await refetchUser();
       setLocation('/enroll');
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Registration sequence failed.');
+      setError(err?.data?.error || 'Registration sequence failed.');
     }
   };
 
@@ -90,13 +97,27 @@ export default function Register() {
               />
             </div>
           </div>
-          
+
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="dataConsent"
+              checked={dataConsent}
+              onCheckedChange={(checked) => setDataConsent(checked === true)}
+              data-testid="checkbox-data-consent"
+            />
+            <Label htmlFor="dataConsent" className="text-xs font-normal leading-snug text-muted-foreground">
+              I consent to my account and profile data being processed and stored for the purposes of this
+              application. I understand I can request deletion of my account at any time.
+            </Label>
+          </div>
+
           {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
-          
-          <Button 
-            type="submit" 
-            className="w-full" 
+
+          <Button
+            type="submit"
+            className="w-full"
             isLoading={registerMutation.isPending}
+            disabled={!dataConsent}
             data-testid="button-register"
           >
             Issue Clearance

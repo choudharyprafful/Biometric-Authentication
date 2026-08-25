@@ -28,7 +28,8 @@ export const registerUserBodyPasswordMin = 8;
 export const RegisterUserBody = zod.object({
   "email": zod.string(),
   "name": zod.string().min(1),
-  "password": zod.string().min(registerUserBodyPasswordMin)
+  "password": zod.string().min(registerUserBodyPasswordMin),
+  "dataConsent": zod.boolean().describe('Must be true — explicit consent to processing of account\/profile data. Registration is rejected without it.')
 })
 
 export const RegisterUserResponse = zod.object({
@@ -36,8 +37,12 @@ export const RegisterUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
@@ -62,8 +67,12 @@ export const LoginUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -83,12 +92,66 @@ export const FaceVerifyResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
   "token": zod.string()
+})
+
+
+/**
+ * Always returns the same response whether or not the email is registered, to avoid leaking account existence.
+ * @summary Request a password reset link
+ */
+export const ForgotPasswordBody = zod.object({
+  "email": zod.string()
+})
+
+export const ForgotPasswordResponse = zod.object({
+  "message": zod.string(),
+  "devResetLink": zod.string().nullish().describe('Only populated outside production, where no email provider is configured — lets the demo be clicked through without a mail server.')
+})
+
+
+/**
+ * A reset link alone is not enough to change the password — the account's face or passkey must also verify, same as login MFA.
+ * @summary Check a reset token and report which biometric/passkey second factors are available
+ */
+
+
+
+export const VerifyResetTokenBody = zod.object({
+  "token": zod.string().min(1)
+})
+
+export const VerifyResetTokenResponse = zod.object({
+  "faceAvailable": zod.boolean().describe('True when the account has an enrolled face descriptor to verify against'),
+  "passkeyAvailable": zod.boolean().describe('True when the account has at least one registered passkey')
+})
+
+
+/**
+ * @summary Complete a password reset by matching a live face scan against the enrolled descriptor
+ */
+
+export const resetPasswordWithFaceBodyNewPasswordMin = 8;
+
+
+
+export const ResetPasswordWithFaceBody = zod.object({
+  "token": zod.string().min(1),
+  "descriptor": zod.array(zod.number()),
+  "newPassword": zod.string().min(resetPasswordWithFaceBodyNewPasswordMin)
+})
+
+export const ResetPasswordWithFaceResponse = zod.object({
+  "success": zod.boolean()
 })
 
 
@@ -99,28 +162,45 @@ export const LogoutUserResponse = zod.void()
 
 
 /**
+ * Deletes every persisted session belonging to this account, not just the current one. Addresses the "device theft while unlocked" scenario — a stolen device with a valid session can be locked out from any other device, without needing to change the password.
+ * @summary Sign out of every device — session revocation
+ */
+export const LogoutAllDevicesResponse = zod.object({
+  "terminatedSessions": zod.number().describe('Number of session rows deleted, including the one making this request')
+})
+
+
+/**
  * @summary Get current authenticated user
  */
 export const GetCurrentUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
 
 
 /**
- * @summary List all users (admin only)
+ * @summary List all users (admin or it_support)
  */
 export const ListUsersResponseItem = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -138,8 +218,12 @@ export const GetUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -157,25 +241,34 @@ export const UpdateUserParams = zod.object({
 
 export const UpdateUserBody = zod.object({
   "name": zod.string().min(1).optional(),
-  "role": zod.enum(['user', 'admin']).optional()
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']).optional()
 })
 
 export const UpdateUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
 
 
 /**
- * @summary Delete a user (admin only)
+ * Self-deletion is step-up authenticated — the account's current password must be re-submitted even though the session is already logged in, since account deletion shouldn't be completable by anyone who merely has access to an already-unlocked session. Not required when an admin deletes a different account.
+ * @summary Delete a user — self-service ("delete my profile") or admin-driven
  */
 export const DeleteUserParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const DeleteUserBody = zod.object({
+  "password": zod.string().optional().describe('Required when deleting your own account (step-up re-authentication); ignored for admin-driven deletion of a different account')
 })
 
 export const DeleteUserResponse = zod.void()
@@ -189,15 +282,20 @@ export const EnrollFaceParams = zod.object({
 })
 
 export const EnrollFaceBody = zod.object({
-  "descriptor": zod.array(zod.number())
+  "descriptor": zod.array(zod.number()),
+  "consent": zod.boolean().describe('Must be true — explicit consent to capturing and storing a biometric face template. Enrollment is rejected without it.')
 })
 
 export const EnrollFaceResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -214,10 +312,51 @@ export const RemoveFaceResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['user', 'admin']),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
   "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
+})
+
+
+/**
+ * Clears the stored face descriptor and deletes every enrolled passkey for the account, so the user is routed back through /enroll. For unblocking a locked-out user who lost their device/face access — not a self-service action.
+ * @summary Force-clear a user's face + passkey enrollment (admin or it_support only)
+ */
+export const ResetUserMfaParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResetUserMfaResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
+  "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().nullish()
+})
+
+
+/**
+ * Same single-use, time-limited token mechanism as self-service /auth/forgot-password — no email provider is configured for this demo, so the link is returned directly outside production.
+ * @summary Issue a password reset link on behalf of a user (admin or it_support only)
+ */
+export const StaffResetPasswordParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const StaffResetPasswordResponse = zod.object({
+  "message": zod.string(),
+  "devResetLink": zod.string().nullish().describe('Only populated outside production, where no email provider is configured — lets the demo be clicked through without a mail server.')
 })
 
 
@@ -253,7 +392,11 @@ export const listSecurityLogsQueryOffsetDefault = 0;
 export const ListSecurityLogsQueryParams = zod.object({
   "limit": zod.coerce.number().default(listSecurityLogsQueryLimitDefault),
   "offset": zod.coerce.number().default(listSecurityLogsQueryOffsetDefault),
-  "eventType": zod.coerce.string().optional()
+  "eventType": zod.coerce.string().optional(),
+  "userEmail": zod.coerce.string().optional().describe('Case-insensitive partial match against the actor\'s email'),
+  "ipAddress": zod.coerce.string().optional().describe('Case-insensitive partial match against the request\'s origin IP'),
+  "fromDate": zod.coerce.string().optional().describe('ISO 8601 timestamp — only logs at or after this time'),
+  "toDate": zod.coerce.string().optional().describe('ISO 8601 timestamp — only logs at or before this time')
 })
 
 export const ListSecurityLogsResponseItem = zod.object({
@@ -277,6 +420,7 @@ export const ListThreatsResponseItem = zod.object({
   "type": zod.string(),
   "severity": zod.enum(['low', 'medium', 'high', 'critical']),
   "description": zod.string(),
+  "plainSummary": zod.string().nullish().describe('A jargon-free explanation of what happened and why it matters, for a non-technical viewer of the same dashboard'),
   "timestamp": zod.string(),
   "status": zod.enum(['active', 'mitigated', 'resolved']),
   "affectedUsers": zod.number().nullish()
@@ -285,11 +429,22 @@ export const ListThreatsResponse = zod.array(ListThreatsResponseItem)
 
 
 /**
+ * @summary Recompute the audit log hash chain and report whether it's intact (admin only)
+ */
+export const VerifyLogIntegrityResponse = zod.object({
+  "valid": zod.boolean(),
+  "rowsChecked": zod.number(),
+  "brokenAtId": zod.number().nullable(),
+  "reason": zod.string().nullable()
+})
+
+
+/**
  * @summary List all payments
  */
 export const ListPaymentsResponseItem = zod.object({
   "id": zod.number(),
-  "userId": zod.number(),
+  "userId": zod.number().nullable().describe('Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.'),
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
@@ -320,7 +475,7 @@ export const CreatePaymentBody = zod.object({
 
 export const CreatePaymentResponse = zod.object({
   "id": zod.number(),
-  "userId": zod.number(),
+  "userId": zod.number().nullable().describe('Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.'),
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
@@ -340,7 +495,7 @@ export const GetPaymentParams = zod.object({
 
 export const GetPaymentResponse = zod.object({
   "id": zod.number(),
-  "userId": zod.number(),
+  "userId": zod.number().nullable().describe('Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.'),
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
@@ -349,5 +504,130 @@ export const GetPaymentResponse = zod.object({
   "providerToken": zod.string(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary List available subscription plans (fixed, server-defined pricing)
+ */
+export const ListPlansResponseItem = zod.object({
+  "id": zod.enum(['plus', 'pro', 'team']),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "interval": zod.string(),
+  "description": zod.string(),
+  "features": zod.array(zod.string())
+})
+export const ListPlansResponse = zod.array(ListPlansResponseItem)
+
+
+/**
+ * @summary Subscribe to a plan — the server looks up the canonical price by planId, the client never sends an amount
+ */
+
+
+
+export const SubscribeBody = zod.object({
+  "planId": zod.string().min(1).describe('One of the Plan.id values from GET \/payments\/plans — never a client-supplied amount')
+})
+
+export const SubscribeResponse = zod.object({
+  "payment": zod.object({
+  "id": zod.number(),
+  "userId": zod.number().nullable().describe('Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.'),
+  "userEmail": zod.string().nullish(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "status": zod.enum(['pending', 'completed', 'failed', 'refunded']),
+  "description": zod.string(),
+  "providerToken": zod.string(),
+  "createdAt": zod.string()
+}),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team'])
+})
+
+
+/**
+ * HMAC-SHA256 signed via X-Webhook-Signature + X-Webhook-Timestamp headers (anti-replay window). Server-to-server — not session-authenticated, since a webhook caller has no browser session.
+ * @summary Receive a signed payment-status update from the (simulated) payment provider
+ */
+export const PaymentWebhookBody = zod.object({
+  "type": zod.enum(['payment.completed', 'payment.failed', 'payment.refunded']),
+  "paymentId": zod.number()
+})
+
+export const PaymentWebhookResponse = zod.object({
+  "received": zod.boolean()
+})
+
+
+/**
+ * @summary List the current user's uploaded files (metadata only, no content)
+ */
+export const ListUploadsResponseItem = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "fileName": zod.string(),
+  "mimeType": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "sizeBytes": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListUploadsResponse = zod.array(ListUploadsResponseItem)
+
+
+/**
+ * @summary Encrypt and store an uploaded text, image, or video file
+ */
+export const createUploadBodyFileNameMax = 255;
+
+
+
+
+
+export const CreateUploadBody = zod.object({
+  "fileName": zod.string().min(1).max(createUploadBodyFileNameMax),
+  "mimeType": zod.string().min(1),
+  "dataBase64": zod.string().min(1).describe('Raw file bytes, base64-encoded')
+})
+
+export const CreateUploadResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "fileName": zod.string(),
+  "mimeType": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "sizeBytes": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Decrypt and return a file's content (owner only)
+ */
+export const GetUploadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetUploadResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "fileName": zod.string(),
+  "mimeType": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "sizeBytes": zod.number(),
+  "createdAt": zod.string(),
+  "dataBase64": zod.string().describe('Decrypted file content, base64-encoded')
+})
+
+
+/**
+ * @summary Delete an uploaded file (owner only)
+ */
+export const DeleteUploadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteUploadResponse = zod.void()
 
 

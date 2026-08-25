@@ -21,21 +21,38 @@ import type {
 
 import type {
   AuthResponse,
+  DeleteUserConfirmation,
   ErrorResponse,
   FaceEnrollment,
   FaceVerifyInput,
+  ForgotPasswordInput,
+  ForgotPasswordResult,
   HealthStatus,
   ListSecurityLogsParams,
+  LogChainVerification,
   LoginCredentials,
   LoginResponse,
+  LogoutAllResult,
   Payment,
   PaymentInput,
+  PaymentWebhookInput,
+  PaymentWebhookResult,
+  Plan,
+  ResetPasswordFaceInput,
+  ResetPasswordResult,
   SecurityDashboard,
   SecurityLog,
+  SubscribeInput,
+  SubscribeResult,
   Threat,
+  UploadContent,
+  UploadInput,
+  UploadMeta,
   User,
   UserRegistration,
-  UserUpdate
+  UserUpdate,
+  VerifyResetTokenInput,
+  VerifyResetTokenResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -356,6 +373,221 @@ export const useFaceVerify = <TError = ErrorType<ErrorResponse>,
       return useMutation(getFaceVerifyMutationOptions(options));
     }
 
+export const getForgotPasswordUrl = () => {
+
+
+
+
+  return `/api/auth/forgot-password`
+}
+
+/**
+ * Always returns the same response whether or not the email is registered, to avoid leaking account existence.
+ * @summary Request a password reset link
+ */
+export const forgotPassword = async (forgotPasswordInput: ForgotPasswordInput, options?: Parameters<typeof customFetch>[1]): Promise<ForgotPasswordResult> => {
+
+  return customFetch<ForgotPasswordResult>(getForgotPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forgotPasswordInput)
+  }
+);}
+
+
+
+
+
+export const getForgotPasswordMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forgotPassword>>, TError,{data: BodyType<ForgotPasswordInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof forgotPassword>>, TError,{data: BodyType<ForgotPasswordInput>}, TContext> => {
+
+const mutationKey = ['forgotPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof forgotPassword>>, {data: BodyType<ForgotPasswordInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  forgotPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ForgotPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof forgotPassword>>>
+    export type ForgotPasswordMutationBody = BodyType<ForgotPasswordInput>
+    export type ForgotPasswordMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request a password reset link
+ */
+export const useForgotPassword = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forgotPassword>>, TError,{data: BodyType<ForgotPasswordInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof forgotPassword>>,
+        TError,
+        {data: BodyType<ForgotPasswordInput>},
+        TContext
+      > => {
+      return useMutation(getForgotPasswordMutationOptions(options));
+    }
+
+export const getVerifyResetTokenUrl = () => {
+
+
+
+
+  return `/api/auth/reset-password/verify`
+}
+
+/**
+ * A reset link alone is not enough to change the password — the account's face or passkey must also verify, same as login MFA.
+ * @summary Check a reset token and report which biometric/passkey second factors are available
+ */
+export const verifyResetToken = async (verifyResetTokenInput: VerifyResetTokenInput, options?: Parameters<typeof customFetch>[1]): Promise<VerifyResetTokenResult> => {
+
+  return customFetch<VerifyResetTokenResult>(getVerifyResetTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(verifyResetTokenInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyResetTokenMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyResetToken>>, TError,{data: BodyType<VerifyResetTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyResetToken>>, TError,{data: BodyType<VerifyResetTokenInput>}, TContext> => {
+
+const mutationKey = ['verifyResetToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyResetToken>>, {data: BodyType<VerifyResetTokenInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyResetToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyResetTokenMutationResult = NonNullable<Awaited<ReturnType<typeof verifyResetToken>>>
+    export type VerifyResetTokenMutationBody = BodyType<VerifyResetTokenInput>
+    export type VerifyResetTokenMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Check a reset token and report which biometric/passkey second factors are available
+ */
+export const useVerifyResetToken = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyResetToken>>, TError,{data: BodyType<VerifyResetTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyResetToken>>,
+        TError,
+        {data: BodyType<VerifyResetTokenInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyResetTokenMutationOptions(options));
+    }
+
+export const getResetPasswordWithFaceUrl = () => {
+
+
+
+
+  return `/api/auth/reset-password/face`
+}
+
+/**
+ * @summary Complete a password reset by matching a live face scan against the enrolled descriptor
+ */
+export const resetPasswordWithFace = async (resetPasswordFaceInput: ResetPasswordFaceInput, options?: Parameters<typeof customFetch>[1]): Promise<ResetPasswordResult> => {
+
+  return customFetch<ResetPasswordResult>(getResetPasswordWithFaceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resetPasswordFaceInput)
+  }
+);}
+
+
+
+
+
+export const getResetPasswordWithFaceMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPasswordWithFace>>, TError,{data: BodyType<ResetPasswordFaceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetPasswordWithFace>>, TError,{data: BodyType<ResetPasswordFaceInput>}, TContext> => {
+
+const mutationKey = ['resetPasswordWithFace'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetPasswordWithFace>>, {data: BodyType<ResetPasswordFaceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resetPasswordWithFace(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetPasswordWithFaceMutationResult = NonNullable<Awaited<ReturnType<typeof resetPasswordWithFace>>>
+    export type ResetPasswordWithFaceMutationBody = BodyType<ResetPasswordFaceInput>
+    export type ResetPasswordWithFaceMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Complete a password reset by matching a live face scan against the enrolled descriptor
+ */
+export const useResetPasswordWithFace = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPasswordWithFace>>, TError,{data: BodyType<ResetPasswordFaceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetPasswordWithFace>>,
+        TError,
+        {data: BodyType<ResetPasswordFaceInput>},
+        TContext
+      > => {
+      return useMutation(getResetPasswordWithFaceMutationOptions(options));
+    }
+
 export const getLogoutUserUrl = () => {
 
 
@@ -425,6 +657,78 @@ export const useLogoutUser = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLogoutUserMutationOptions(options));
+    }
+
+export const getLogoutAllDevicesUrl = () => {
+
+
+
+
+  return `/api/auth/logout-all`
+}
+
+/**
+ * Deletes every persisted session belonging to this account, not just the current one. Addresses the "device theft while unlocked" scenario — a stolen device with a valid session can be locked out from any other device, without needing to change the password.
+ * @summary Sign out of every device — session revocation
+ */
+export const logoutAllDevices = async ( options?: Parameters<typeof customFetch>[1]): Promise<LogoutAllResult> => {
+
+  return customFetch<LogoutAllResult>(getLogoutAllDevicesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLogoutAllDevicesMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutAllDevices>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logoutAllDevices>>, TError,void, TContext> => {
+
+const mutationKey = ['logoutAllDevices'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutAllDevices>>, void> = () => {
+
+
+          return  logoutAllDevices(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutAllDevicesMutationResult = NonNullable<Awaited<ReturnType<typeof logoutAllDevices>>>
+
+    export type LogoutAllDevicesMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Sign out of every device — session revocation
+ */
+export const useLogoutAllDevices = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutAllDevices>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logoutAllDevices>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutAllDevicesMutationOptions(options));
     }
 
 export const getGetCurrentUserUrl = () => {
@@ -513,7 +817,7 @@ export const getListUsersUrl = () => {
 }
 
 /**
- * @summary List all users (admin only)
+ * @summary List all users (admin or it_support)
  */
 export const listUsers = async ( options?: Parameters<typeof customFetch>[1]): Promise<User[]> => {
 
@@ -560,7 +864,7 @@ export type ListUsersQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List all users (admin only)
+ * @summary List all users (admin or it_support)
  */
 
 export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>(
@@ -739,16 +1043,18 @@ export const getDeleteUserUrl = (id: number,) => {
 }
 
 /**
- * @summary Delete a user (admin only)
+ * Self-deletion is step-up authenticated — the account's current password must be re-submitted even though the session is already logged in, since account deletion shouldn't be completable by anyone who merely has access to an already-unlocked session. Not required when an admin deletes a different account.
+ * @summary Delete a user — self-service ("delete my profile") or admin-driven
  */
-export const deleteUser = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+export const deleteUser = async (id: number,
+    deleteUserConfirmation?: DeleteUserConfirmation, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
 
   return customFetch<void>(getDeleteUserUrl(id),
   {
     ...options,
-    method: 'DELETE'
-
-
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deleteUserConfirmation)
   }
 );}
 
@@ -757,8 +1063,8 @@ export const deleteUser = async (id: number, options?: Parameters<typeof customF
 
 
 export const getDeleteUserMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number;data?: BodyType<DeleteUserConfirmation>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number;data?: BodyType<DeleteUserConfirmation>}, TContext> => {
 
 const mutationKey = ['deleteUser'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -770,10 +1076,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, {id: number;data?: BodyType<DeleteUserConfirmation>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  deleteUser(id,requestOptions)
+          return  deleteUser(id,data,requestOptions)
         }
 
 
@@ -784,18 +1090,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUser>>>
-
+    export type DeleteUserMutationBody = BodyType<DeleteUserConfirmation> | undefined
     export type DeleteUserMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Delete a user (admin only)
+ * @summary Delete a user — self-service ("delete my profile") or admin-driven
  */
 export const useDeleteUser = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number;data?: BodyType<DeleteUserConfirmation>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteUser>>,
         TError,
-        {id: number},
+        {id: number;data?: BodyType<DeleteUserConfirmation>},
         TContext
       > => {
       return useMutation(getDeleteUserMutationOptions(options));
@@ -942,6 +1248,150 @@ export const useRemoveFace = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRemoveFaceMutationOptions(options));
+    }
+
+export const getResetUserMfaUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}/reset-mfa`
+}
+
+/**
+ * Clears the stored face descriptor and deletes every enrolled passkey for the account, so the user is routed back through /enroll. For unblocking a locked-out user who lost their device/face access — not a self-service action.
+ * @summary Force-clear a user's face + passkey enrollment (admin or it_support only)
+ */
+export const resetUserMfa = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<User> => {
+
+  return customFetch<User>(getResetUserMfaUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResetUserMfaMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetUserMfa>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetUserMfa>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resetUserMfa'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetUserMfa>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resetUserMfa(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetUserMfaMutationResult = NonNullable<Awaited<ReturnType<typeof resetUserMfa>>>
+
+    export type ResetUserMfaMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Force-clear a user's face + passkey enrollment (admin or it_support only)
+ */
+export const useResetUserMfa = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetUserMfa>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetUserMfa>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResetUserMfaMutationOptions(options));
+    }
+
+export const getStaffResetPasswordUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}/reset-password`
+}
+
+/**
+ * Same single-use, time-limited token mechanism as self-service /auth/forgot-password — no email provider is configured for this demo, so the link is returned directly outside production.
+ * @summary Issue a password reset link on behalf of a user (admin or it_support only)
+ */
+export const staffResetPassword = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ForgotPasswordResult> => {
+
+  return customFetch<ForgotPasswordResult>(getStaffResetPasswordUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStaffResetPasswordMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof staffResetPassword>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof staffResetPassword>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['staffResetPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof staffResetPassword>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  staffResetPassword(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StaffResetPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof staffResetPassword>>>
+
+    export type StaffResetPasswordMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Issue a password reset link on behalf of a user (admin or it_support only)
+ */
+export const useStaffResetPassword = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof staffResetPassword>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof staffResetPassword>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getStaffResetPasswordMutationOptions(options));
     }
 
 export const getGetSecurityDashboardUrl = () => {
@@ -1182,6 +1632,83 @@ export function useListThreats<TData = Awaited<ReturnType<typeof listThreats>>, 
 
 
 
+export const getVerifyLogIntegrityUrl = () => {
+
+
+
+
+  return `/api/security/logs/verify`
+}
+
+/**
+ * @summary Recompute the audit log hash chain and report whether it's intact (admin only)
+ */
+export const verifyLogIntegrity = async ( options?: Parameters<typeof customFetch>[1]): Promise<LogChainVerification> => {
+
+  return customFetch<LogChainVerification>(getVerifyLogIntegrityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getVerifyLogIntegrityQueryKey = () => {
+    return [
+    `/api/security/logs/verify`
+    ] as const;
+    }
+
+
+export const getVerifyLogIntegrityQueryOptions = <TData = Awaited<ReturnType<typeof verifyLogIntegrity>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof verifyLogIntegrity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getVerifyLogIntegrityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof verifyLogIntegrity>>> = ({ signal }) => verifyLogIntegrity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof verifyLogIntegrity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type VerifyLogIntegrityQueryResult = NonNullable<Awaited<ReturnType<typeof verifyLogIntegrity>>>
+export type VerifyLogIntegrityQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Recompute the audit log hash chain and report whether it's intact (admin only)
+ */
+
+export function useVerifyLogIntegrity<TData = Awaited<ReturnType<typeof verifyLogIntegrity>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof verifyLogIntegrity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getVerifyLogIntegrityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListPaymentsUrl = () => {
 
 
@@ -1406,4 +1933,520 @@ export function useGetPayment<TData = Awaited<ReturnType<typeof getPayment>>, TE
 
 
 
+
+export const getListPlansUrl = () => {
+
+
+
+
+  return `/api/payments/plans`
+}
+
+/**
+ * @summary List available subscription plans (fixed, server-defined pricing)
+ */
+export const listPlans = async ( options?: Parameters<typeof customFetch>[1]): Promise<Plan[]> => {
+
+  return customFetch<Plan[]>(getListPlansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlansQueryKey = () => {
+    return [
+    `/api/payments/plans`
+    ] as const;
+    }
+
+
+export const getListPlansQueryOptions = <TData = Awaited<ReturnType<typeof listPlans>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlans>>> = ({ signal }) => listPlans({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listPlans>>>
+export type ListPlansQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List available subscription plans (fixed, server-defined pricing)
+ */
+
+export function useListPlans<TData = Awaited<ReturnType<typeof listPlans>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubscribeUrl = () => {
+
+
+
+
+  return `/api/payments/subscribe`
+}
+
+/**
+ * @summary Subscribe to a plan — the server looks up the canonical price by planId, the client never sends an amount
+ */
+export const subscribe = async (subscribeInput: SubscribeInput, options?: Parameters<typeof customFetch>[1]): Promise<SubscribeResult> => {
+
+  return customFetch<SubscribeResult>(getSubscribeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(subscribeInput)
+  }
+);}
+
+
+
+
+
+export const getSubscribeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscribe>>, TError,{data: BodyType<SubscribeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof subscribe>>, TError,{data: BodyType<SubscribeInput>}, TContext> => {
+
+const mutationKey = ['subscribe'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof subscribe>>, {data: BodyType<SubscribeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  subscribe(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubscribeMutationResult = NonNullable<Awaited<ReturnType<typeof subscribe>>>
+    export type SubscribeMutationBody = BodyType<SubscribeInput>
+    export type SubscribeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Subscribe to a plan — the server looks up the canonical price by planId, the client never sends an amount
+ */
+export const useSubscribe = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscribe>>, TError,{data: BodyType<SubscribeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof subscribe>>,
+        TError,
+        {data: BodyType<SubscribeInput>},
+        TContext
+      > => {
+      return useMutation(getSubscribeMutationOptions(options));
+    }
+
+export const getPaymentWebhookUrl = () => {
+
+
+
+
+  return `/api/payments/webhook`
+}
+
+/**
+ * HMAC-SHA256 signed via X-Webhook-Signature + X-Webhook-Timestamp headers (anti-replay window). Server-to-server — not session-authenticated, since a webhook caller has no browser session.
+ * @summary Receive a signed payment-status update from the (simulated) payment provider
+ */
+export const paymentWebhook = async (paymentWebhookInput: PaymentWebhookInput, options?: Parameters<typeof customFetch>[1]): Promise<PaymentWebhookResult> => {
+
+  return customFetch<PaymentWebhookResult>(getPaymentWebhookUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentWebhookInput)
+  }
+);}
+
+
+
+
+
+export const getPaymentWebhookMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof paymentWebhook>>, TError,{data: BodyType<PaymentWebhookInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof paymentWebhook>>, TError,{data: BodyType<PaymentWebhookInput>}, TContext> => {
+
+const mutationKey = ['paymentWebhook'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof paymentWebhook>>, {data: BodyType<PaymentWebhookInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  paymentWebhook(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PaymentWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof paymentWebhook>>>
+    export type PaymentWebhookMutationBody = BodyType<PaymentWebhookInput>
+    export type PaymentWebhookMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Receive a signed payment-status update from the (simulated) payment provider
+ */
+export const usePaymentWebhook = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof paymentWebhook>>, TError,{data: BodyType<PaymentWebhookInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof paymentWebhook>>,
+        TError,
+        {data: BodyType<PaymentWebhookInput>},
+        TContext
+      > => {
+      return useMutation(getPaymentWebhookMutationOptions(options));
+    }
+
+export const getListUploadsUrl = () => {
+
+
+
+
+  return `/api/uploads`
+}
+
+/**
+ * @summary List the current user's uploaded files (metadata only, no content)
+ */
+export const listUploads = async ( options?: Parameters<typeof customFetch>[1]): Promise<UploadMeta[]> => {
+
+  return customFetch<UploadMeta[]>(getListUploadsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUploadsQueryKey = () => {
+    return [
+    `/api/uploads`
+    ] as const;
+    }
+
+
+export const getListUploadsQueryOptions = <TData = Awaited<ReturnType<typeof listUploads>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUploads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUploadsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUploads>>> = ({ signal }) => listUploads({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUploads>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUploadsQueryResult = NonNullable<Awaited<ReturnType<typeof listUploads>>>
+export type ListUploadsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the current user's uploaded files (metadata only, no content)
+ */
+
+export function useListUploads<TData = Awaited<ReturnType<typeof listUploads>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUploads>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUploadsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateUploadUrl = () => {
+
+
+
+
+  return `/api/uploads`
+}
+
+/**
+ * @summary Encrypt and store an uploaded text, image, or video file
+ */
+export const createUpload = async (uploadInput: UploadInput, options?: Parameters<typeof customFetch>[1]): Promise<UploadMeta> => {
+
+  return customFetch<UploadMeta>(getCreateUploadUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(uploadInput)
+  }
+);}
+
+
+
+
+
+export const getCreateUploadMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUpload>>, TError,{data: BodyType<UploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createUpload>>, TError,{data: BodyType<UploadInput>}, TContext> => {
+
+const mutationKey = ['createUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUpload>>, {data: BodyType<UploadInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createUpload(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateUploadMutationResult = NonNullable<Awaited<ReturnType<typeof createUpload>>>
+    export type CreateUploadMutationBody = BodyType<UploadInput>
+    export type CreateUploadMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Encrypt and store an uploaded text, image, or video file
+ */
+export const useCreateUpload = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUpload>>, TError,{data: BodyType<UploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createUpload>>,
+        TError,
+        {data: BodyType<UploadInput>},
+        TContext
+      > => {
+      return useMutation(getCreateUploadMutationOptions(options));
+    }
+
+export const getGetUploadUrl = (id: number,) => {
+
+
+
+
+  return `/api/uploads/${id}`
+}
+
+/**
+ * @summary Decrypt and return a file's content (owner only)
+ */
+export const getUpload = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<UploadContent> => {
+
+  return customFetch<UploadContent>(getGetUploadUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUploadQueryKey = (id: number,) => {
+    return [
+    `/api/uploads/${id}`
+    ] as const;
+    }
+
+
+export const getGetUploadQueryOptions = <TData = Awaited<ReturnType<typeof getUpload>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpload>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUploadQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUpload>>> = ({ signal }) => getUpload(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUpload>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUploadQueryResult = NonNullable<Awaited<ReturnType<typeof getUpload>>>
+export type GetUploadQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Decrypt and return a file's content (owner only)
+ */
+
+export function useGetUpload<TData = Awaited<ReturnType<typeof getUpload>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpload>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUploadQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteUploadUrl = (id: number,) => {
+
+
+
+
+  return `/api/uploads/${id}`
+}
+
+/**
+ * @summary Delete an uploaded file (owner only)
+ */
+export const deleteUpload = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteUploadUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteUploadMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUpload>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUpload>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteUpload'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUpload>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteUpload(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUploadMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUpload>>>
+
+    export type DeleteUploadMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete an uploaded file (owner only)
+ */
+export const useDeleteUpload = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUpload>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUpload>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteUploadMutationOptions(options));
+    }
 

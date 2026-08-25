@@ -19,6 +19,18 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 export const UserRole = {
   user: 'user',
   admin: 'admin',
+  security_analyst: 'security_analyst',
+  it_support: 'it_support',
+} as const;
+
+export type UserSubscriptionPlan = typeof UserSubscriptionPlan[keyof typeof UserSubscriptionPlan];
+
+
+export const UserSubscriptionPlan = {
+  free: 'free',
+  plus: 'plus',
+  pro: 'pro',
+  team: 'team',
 } as const;
 
 export interface User {
@@ -27,6 +39,13 @@ export interface User {
   name: string;
   role: UserRole;
   faceEnrolled: boolean;
+  /** True when the account has at least one registered passkey */
+  passkeyEnrolled: boolean;
+  /** General data-processing consent, captured at registration */
+  dataConsentGiven: boolean;
+  /** Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted */
+  biometricConsentGiven: boolean;
+  subscriptionPlan: UserSubscriptionPlan;
   createdAt: string;
   /** @nullable */
   updatedAt?: string | null;
@@ -38,6 +57,8 @@ export interface UserRegistration {
   name: string;
   /** @minLength 8 */
   password: string;
+  /** Must be true — explicit consent to processing of account/profile data. Registration is rejected without it. */
+  dataConsent: boolean;
 }
 
 export interface LoginCredentials {
@@ -62,6 +83,11 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface LogoutAllResult {
+  /** Number of session rows deleted, including the one making this request */
+  terminatedSessions: number;
+}
+
 export interface FaceVerifyInput {
   descriptor: number[];
   tempToken: string;
@@ -69,6 +95,8 @@ export interface FaceVerifyInput {
 
 export interface FaceEnrollment {
   descriptor: number[];
+  /** Must be true — explicit consent to capturing and storing a biometric face template. Enrollment is rejected without it. */
+  consent: boolean;
 }
 
 export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
@@ -77,12 +105,19 @@ export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
 export const UserUpdateRole = {
   user: 'user',
   admin: 'admin',
+  security_analyst: 'security_analyst',
+  it_support: 'it_support',
 } as const;
 
 export interface UserUpdate {
   /** @minLength 1 */
   name?: string;
   role?: UserUpdateRole;
+}
+
+export interface DeleteUserConfirmation {
+  /** Required when deleting your own account (step-up re-authentication); ignored for admin-driven deletion of a different account */
+  password?: string;
 }
 
 export interface SecurityLog {
@@ -134,10 +169,24 @@ export interface Threat {
   type: string;
   severity: ThreatSeverity;
   description: string;
+  /**
+     * A jargon-free explanation of what happened and why it matters, for a non-technical viewer of the same dashboard
+     * @nullable
+     */
+  plainSummary?: string | null;
   timestamp: string;
   status: ThreatStatus;
   /** @nullable */
   affectedUsers?: number | null;
+}
+
+export interface LogChainVerification {
+  valid: boolean;
+  rowsChecked: number;
+  /** @nullable */
+  brokenAtId: number | null;
+  /** @nullable */
+  reason: string | null;
 }
 
 export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus];
@@ -152,7 +201,11 @@ export const PaymentStatus = {
 
 export interface Payment {
   id: number;
-  userId: number;
+  /**
+     * Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.
+     * @nullable
+     */
+  userId: number | null;
   /** @nullable */
   userEmail?: string | null;
   amount: number;
@@ -175,9 +228,179 @@ export interface PaymentInput {
   description: string;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ForgotPasswordResult {
+  message: string;
+  /**
+     * Only populated outside production, where no email provider is configured — lets the demo be clicked through without a mail server.
+     * @nullable
+     */
+  devResetLink?: string | null;
+}
+
+export interface VerifyResetTokenInput {
+  /** @minLength 1 */
+  token: string;
+}
+
+export interface VerifyResetTokenResult {
+  /** True when the account has an enrolled face descriptor to verify against */
+  faceAvailable: boolean;
+  /** True when the account has at least one registered passkey */
+  passkeyAvailable: boolean;
+}
+
+export interface ResetPasswordFaceInput {
+  /** @minLength 1 */
+  token: string;
+  descriptor: number[];
+  /** @minLength 8 */
+  newPassword: string;
+}
+
+export interface ResetPasswordResult {
+  success: boolean;
+}
+
+export type PlanId = typeof PlanId[keyof typeof PlanId];
+
+
+export const PlanId = {
+  plus: 'plus',
+  pro: 'pro',
+  team: 'team',
+} as const;
+
+export interface Plan {
+  id: PlanId;
+  name: string;
+  amount: number;
+  currency: string;
+  interval: string;
+  description: string;
+  features: string[];
+}
+
+export interface SubscribeInput {
+  /**
+     * One of the Plan.id values from GET /payments/plans — never a client-supplied amount
+     * @minLength 1
+     */
+  planId: string;
+}
+
+export type SubscribeResultSubscriptionPlan = typeof SubscribeResultSubscriptionPlan[keyof typeof SubscribeResultSubscriptionPlan];
+
+
+export const SubscribeResultSubscriptionPlan = {
+  free: 'free',
+  plus: 'plus',
+  pro: 'pro',
+  team: 'team',
+} as const;
+
+export interface SubscribeResult {
+  payment: Payment;
+  subscriptionPlan: SubscribeResultSubscriptionPlan;
+}
+
+export type PaymentWebhookInputType = typeof PaymentWebhookInputType[keyof typeof PaymentWebhookInputType];
+
+
+export const PaymentWebhookInputType = {
+  paymentcompleted: 'payment.completed',
+  paymentfailed: 'payment.failed',
+  paymentrefunded: 'payment.refunded',
+} as const;
+
+export interface PaymentWebhookInput {
+  type: PaymentWebhookInputType;
+  paymentId: number;
+}
+
+export interface PaymentWebhookResult {
+  received: boolean;
+}
+
+export type UploadMetaFileType = typeof UploadMetaFileType[keyof typeof UploadMetaFileType];
+
+
+export const UploadMetaFileType = {
+  image: 'image',
+  video: 'video',
+  text: 'text',
+  audio: 'audio',
+} as const;
+
+export interface UploadMeta {
+  id: number;
+  userId: number;
+  fileName: string;
+  mimeType: string;
+  fileType: UploadMetaFileType;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export type UploadContentFileType = typeof UploadContentFileType[keyof typeof UploadContentFileType];
+
+
+export const UploadContentFileType = {
+  image: 'image',
+  video: 'video',
+  text: 'text',
+  audio: 'audio',
+} as const;
+
+export interface UploadContent {
+  id: number;
+  userId: number;
+  fileName: string;
+  mimeType: string;
+  fileType: UploadContentFileType;
+  sizeBytes: number;
+  createdAt: string;
+  /** Decrypted file content, base64-encoded */
+  dataBase64: string;
+}
+
+export interface UploadInput {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  fileName: string;
+  /** @minLength 1 */
+  mimeType: string;
+  /**
+     * Raw file bytes, base64-encoded
+     * @minLength 1
+     */
+  dataBase64: string;
+}
+
 export type ListSecurityLogsParams = {
 limit?: number;
 offset?: number;
 eventType?: string;
+/**
+ * Case-insensitive partial match against the actor's email
+ */
+userEmail?: string;
+/**
+ * Case-insensitive partial match against the request's origin IP
+ */
+ipAddress?: string;
+/**
+ * ISO 8601 timestamp — only logs at or after this time
+ */
+fromDate?: string;
+/**
+ * ISO 8601 timestamp — only logs at or before this time
+ */
+toDate?: string;
 };
 

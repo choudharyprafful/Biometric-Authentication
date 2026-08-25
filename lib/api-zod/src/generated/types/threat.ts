@@ -13,6 +13,11 @@ export interface Threat {
   type: string;
   severity: ThreatSeverity;
   description: string;
+  /**
+     * A jargon-free explanation of what happened and why it matters, for a non-technical viewer of the same dashboard
+     * @nullable
+     */
+  plainSummary?: string | null;
   timestamp: string;
   status: ThreatStatus;
   /** @nullable */

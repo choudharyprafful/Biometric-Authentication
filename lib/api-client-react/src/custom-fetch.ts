@@ -322,6 +322,17 @@ async function parseSuccessBody(
   }
 }
 
+const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** Reads the csrf_token cookie set by the API (double-submit CSRF pattern).
+ *  Browser-only — `document` doesn't exist in React Native/Expo bundles,
+ *  where this simply no-ops. */
+function readCsrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = /(?:^|;\s*)csrf_token=([^;]*)/.exec(document.cookie);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
 export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
@@ -336,6 +347,14 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+
+  // Double-submit CSRF: echo the cookie value back as a header so the API
+  // can confirm this request came from same-origin JS, not a forged
+  // cross-site form/fetch that can't read the cookie to copy it.
+  if (!CSRF_SAFE_METHODS.has(method) && !headers.has("x-csrf-token")) {
+    const csrfToken = readCsrfCookie();
+    if (csrfToken) headers.set("x-csrf-token", csrfToken);
+  }
 
   if (
     typeof init.body === "string" &&

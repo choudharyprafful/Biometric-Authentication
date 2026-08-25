@@ -9,7 +9,11 @@ import type { PaymentStatus } from './paymentStatus';
 
 export interface Payment {
   id: number;
-  userId: number;
+  /**
+     * Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.
+     * @nullable
+     */
+  userId: number | null;
   /** @nullable */
   userEmail?: string | null;
   amount: number;

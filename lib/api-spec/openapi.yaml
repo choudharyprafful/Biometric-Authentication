@@ -18,6 +18,8 @@ tags:
     description: Security monitoring
   - name: payments
     description: Payment operations
+  - name: uploads
+    description: Encrypted file uploads (text, image, video)
 paths:
   /healthz:
     get:
@@ -114,6 +116,83 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request a password reset link
+      description: Always returns the same response whether or not the email is registered, to avoid leaking account existence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          description: Reset link issued if the account exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForgotPasswordResult"
+
+  /auth/reset-password/verify:
+    post:
+      operationId: verifyResetToken
+      tags: [auth]
+      summary: Check a reset token and report which biometric/passkey second factors are available
+      description: A reset link alone is not enough to change the password — the account's face or passkey must also verify, same as login MFA.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyResetTokenInput"
+      responses:
+        "200":
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyResetTokenResult"
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/reset-password/face:
+    post:
+      operationId: resetPasswordWithFace
+      tags: [auth]
+      summary: Complete a password reset by matching a live face scan against the enrolled descriptor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordFaceInput"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResetPasswordResult"
+        "400":
+          description: Invalid/expired token or malformed face data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Face did not match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/logout:
     post:
       operationId: logoutUser
@@ -122,6 +201,26 @@ paths:
       responses:
         "204":
           description: Logged out successfully
+
+  /auth/logout-all:
+    post:
+      operationId: logoutAllDevices
+      tags: [auth]
+      summary: Sign out of every device — session revocation
+      description: Deletes every persisted session belonging to this account, not just the current one. Addresses the "device theft while unlocked" scenario — a stolen device with a valid session can be locked out from any other device, without needing to change the password.
+      responses:
+        "200":
+          description: All sessions terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutAllResult"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /auth/me:
     get:
@@ -146,7 +245,7 @@ paths:
     get:
       operationId: listUsers
       tags: [users]
-      summary: List all users (admin only)
+      summary: List all users (admin or it_support)
       responses:
         "200":
           description: List of users
@@ -215,16 +314,29 @@ paths:
     delete:
       operationId: deleteUser
       tags: [users]
-      summary: Delete a user (admin only)
+      summary: Delete a user — self-service ("delete my profile") or admin-driven
+      description: Self-deletion is step-up authenticated — the account's current password must be re-submitted even though the session is already logged in, since account deletion shouldn't be completable by anyone who merely has access to an already-unlocked session. Not required when an admin deletes a different account.
       parameters:
         - in: path
           name: id
           required: true
           schema:
             type: number
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteUserConfirmation"
       responses:
         "204":
           description: User deleted
+        "401":
+          description: Password re-verification failed (self-delete only)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: User not found
           content:
@@ -294,6 +406,70 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/{id}/reset-mfa:
+    post:
+      operationId: resetUserMfa
+      tags: [users]
+      summary: Force-clear a user's face + passkey enrollment (admin or it_support only)
+      description: Clears the stored face descriptor and deletes every enrolled passkey for the account, so the user is routed back through /enroll. For unblocking a locked-out user who lost their device/face access — not a self-service action.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: MFA enrollment cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          description: Admin or it_support access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{id}/reset-password:
+    post:
+      operationId: staffResetPassword
+      tags: [users]
+      summary: Issue a password reset link on behalf of a user (admin or it_support only)
+      description: Same single-use, time-limited token mechanism as self-service /auth/forgot-password — no email provider is configured for this demo, so the link is returned directly outside production.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Reset link issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForgotPasswordResult"
+        "403":
+          description: Admin or it_support access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /security/dashboard:
     get:
       operationId: getSecurityDashboard
@@ -327,6 +503,26 @@ paths:
           name: eventType
           schema:
             type: string
+        - in: query
+          name: userEmail
+          description: Case-insensitive partial match against the actor's email
+          schema:
+            type: string
+        - in: query
+          name: ipAddress
+          description: Case-insensitive partial match against the request's origin IP
+          schema:
+            type: string
+        - in: query
+          name: fromDate
+          description: ISO 8601 timestamp — only logs at or after this time
+          schema:
+            type: string
+        - in: query
+          name: toDate
+          description: ISO 8601 timestamp — only logs at or before this time
+          schema:
+            type: string
       responses:
         "200":
           description: Security logs
@@ -351,6 +547,25 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Threat"
+
+  /security/logs/verify:
+    get:
+      operationId: verifyLogIntegrity
+      tags: [security]
+      summary: Recompute the audit log hash chain and report whether it's intact (admin only)
+      responses:
+        "200":
+          description: Chain verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogChainVerification"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /payments:
     get:
@@ -416,6 +631,174 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /payments/plans:
+    get:
+      operationId: listPlans
+      tags: [payments]
+      summary: List available subscription plans (fixed, server-defined pricing)
+      responses:
+        "200":
+          description: Plan catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+
+  /payments/subscribe:
+    post:
+      operationId: subscribe
+      tags: [payments]
+      summary: Subscribe to a plan — the server looks up the canonical price by planId, the client never sends an amount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribeInput"
+      responses:
+        "201":
+          description: Subscription payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscribeResult"
+        "400":
+          description: Unknown plan or already subscribed to it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /payments/webhook:
+    post:
+      operationId: paymentWebhook
+      tags: [payments]
+      summary: Receive a signed payment-status update from the (simulated) payment provider
+      description: HMAC-SHA256 signed via X-Webhook-Signature + X-Webhook-Timestamp headers (anti-replay window). Server-to-server — not session-authenticated, since a webhook caller has no browser session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentWebhookInput"
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentWebhookResult"
+        "401":
+          description: Invalid, missing, or stale signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /uploads:
+    get:
+      operationId: listUploads
+      tags: [uploads]
+      summary: List the current user's uploaded files (metadata only, no content)
+      responses:
+        "200":
+          description: Upload metadata list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UploadMeta"
+
+    post:
+      operationId: createUpload
+      tags: [uploads]
+      summary: Encrypt and store an uploaded text, image, or video file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadInput"
+      responses:
+        "201":
+          description: File encrypted and stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadMeta"
+        "400":
+          description: Bad request (unsupported type or too large)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /uploads/{id}:
+    get:
+      operationId: getUpload
+      tags: [uploads]
+      summary: Decrypt and return a file's content (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Decrypted file content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadContent"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Upload not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteUpload
+      tags: [uploads]
+      summary: Delete an uploaded file (owner only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Upload deleted
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Upload not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -434,7 +817,7 @@ components:
 
     User:
       type: object
-      required: [id, email, name, role, faceEnrolled, createdAt]
+      required: [id, email, name, role, faceEnrolled, passkeyEnrolled, dataConsentGiven, biometricConsentGiven, subscriptionPlan, createdAt]
       properties:
         id:
           type: number
@@ -444,9 +827,21 @@ components:
           type: string
         role:
           type: string
-          enum: [user, admin]
+          enum: [user, admin, security_analyst, it_support]
         faceEnrolled:
           type: boolean
+        passkeyEnrolled:
+          description: True when the account has at least one registered passkey
+          type: boolean
+        dataConsentGiven:
+          description: General data-processing consent, captured at registration
+          type: boolean
+        biometricConsentGiven:
+          description: Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted
+          type: boolean
+        subscriptionPlan:
+          type: string
+          enum: [free, plus, pro, team]
         createdAt:
           type: string
         updatedAt:
@@ -454,7 +849,7 @@ components:
 
     UserRegistration:
       type: object
-      required: [email, name, password]
+      required: [email, name, password, dataConsent]
       properties:
         email:
           type: string
@@ -464,6 +859,9 @@ components:
         password:
           type: string
           minLength: 8
+        dataConsent:
+          description: Must be true — explicit consent to processing of account/profile data. Registration is rejected without it.
+          type: boolean
 
     LoginCredentials:
       type: object
@@ -501,6 +899,14 @@ components:
         token:
           type: string
 
+    LogoutAllResult:
+      type: object
+      required: [terminatedSessions]
+      properties:
+        terminatedSessions:
+          description: Number of session rows deleted, including the one making this request
+          type: number
+
     FaceVerifyInput:
       type: object
       required: [descriptor, tempToken]
@@ -514,12 +920,15 @@ components:
 
     FaceEnrollment:
       type: object
-      required: [descriptor]
+      required: [descriptor, consent]
       properties:
         descriptor:
           type: array
           items:
             type: number
+        consent:
+          description: Must be true — explicit consent to capturing and storing a biometric face template. Enrollment is rejected without it.
+          type: boolean
 
     UserUpdate:
       type: object
@@ -529,7 +938,14 @@ components:
           minLength: 1
         role:
           type: string
-          enum: [user, admin]
+          enum: [user, admin, security_analyst, it_support]
+
+    DeleteUserConfirmation:
+      type: object
+      properties:
+        password:
+          description: Required when deleting your own account (step-up re-authentication); ignored for admin-driven deletion of a different account
+          type: string
 
     SecurityDashboard:
       type: object
@@ -586,6 +1002,9 @@ components:
           enum: [low, medium, high, critical]
         description:
           type: string
+        plainSummary:
+          description: A jargon-free explanation of what happened and why it matters, for a non-technical viewer of the same dashboard
+          type: ["string", "null"]
         timestamp:
           type: string
         status:
@@ -594,6 +1013,19 @@ components:
         affectedUsers:
           type: ["number", "null"]
 
+    LogChainVerification:
+      type: object
+      required: [valid, rowsChecked, brokenAtId, reason]
+      properties:
+        valid:
+          type: boolean
+        rowsChecked:
+          type: number
+        brokenAtId:
+          type: ["number", "null"]
+        reason:
+          type: ["string", "null"]
+
     Payment:
       type: object
       required: [id, userId, amount, currency, status, description, providerToken, createdAt]
@@ -601,7 +1033,8 @@ components:
         id:
           type: number
         userId:
-          type: number
+          description: Null if the owning account has since been deleted — the payment record is retained (userEmail preserves who it was), the account is not.
+          type: ["number", "null"]
         userEmail:
           type: ["string", "null"]
         amount:
@@ -630,5 +1063,180 @@ components:
           minLength: 3
           maxLength: 3
         description:
+          type: string
+          minLength: 1
+
+    ForgotPasswordInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+
+    ForgotPasswordResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        devResetLink:
+          description: Only populated outside production, where no email provider is configured — lets the demo be clicked through without a mail server.
+          type: ["string", "null"]
+
+    VerifyResetTokenInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 1
+
+    VerifyResetTokenResult:
+      type: object
+      required: [faceAvailable, passkeyAvailable]
+      properties:
+        faceAvailable:
+          description: True when the account has an enrolled face descriptor to verify against
+          type: boolean
+        passkeyAvailable:
+          description: True when the account has at least one registered passkey
+          type: boolean
+
+    ResetPasswordFaceInput:
+      type: object
+      required: [token, descriptor, newPassword]
+      properties:
+        token:
+          type: string
+          minLength: 1
+        descriptor:
+          type: array
+          items:
+            type: number
+        newPassword:
+          type: string
+          minLength: 8
+
+    ResetPasswordResult:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+    Plan:
+      type: object
+      required: [id, name, amount, currency, interval, description, features]
+      properties:
+        id:
+          type: string
+          enum: [plus, pro, team]
+        name:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        interval:
+          type: string
+        description:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+
+    SubscribeInput:
+      type: object
+      required: [planId]
+      properties:
+        planId:
+          description: One of the Plan.id values from GET /payments/plans — never a client-supplied amount
+          type: string
+          minLength: 1
+
+    SubscribeResult:
+      type: object
+      required: [payment, subscriptionPlan]
+      properties:
+        payment:
+          $ref: "#/components/schemas/Payment"
+        subscriptionPlan:
+          type: string
+          enum: [free, plus, pro, team]
+
+    PaymentWebhookInput:
+      type: object
+      required: [type, paymentId]
+      properties:
+        type:
+          type: string
+          enum: [payment.completed, payment.failed, payment.refunded]
+        paymentId:
+          type: number
+
+    PaymentWebhookResult:
+      type: object
+      required: [received]
+      properties:
+        received:
+          type: boolean
+
+    UploadMeta:
+      type: object
+      required: [id, userId, fileName, mimeType, fileType, sizeBytes, createdAt]
+      properties:
+        id:
+          type: number
+        userId:
+          type: number
+        fileName:
+          type: string
+        mimeType:
+          type: string
+        fileType:
+          type: string
+          enum: [image, video, text, audio]
+        sizeBytes:
+          type: number
+        createdAt:
+          type: string
+
+    UploadContent:
+      type: object
+      required: [id, userId, fileName, mimeType, fileType, sizeBytes, createdAt, dataBase64]
+      properties:
+        id:
+          type: number
+        userId:
+          type: number
+        fileName:
+          type: string
+        mimeType:
+          type: string
+        fileType:
+          type: string
+          enum: [image, video, text, audio]
+        sizeBytes:
+          type: number
+        createdAt:
+          type: string
+        dataBase64:
+          description: Decrypted file content, base64-encoded
+          type: string
+
+    UploadInput:
+      type: object
+      required: [fileName, mimeType, dataBase64]
+      properties:
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        mimeType:
+          type: string
+          minLength: 1
+        dataBase64:
+          description: Raw file bytes, base64-encoded
           type: string
           minLength: 1

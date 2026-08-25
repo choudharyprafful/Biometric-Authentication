@@ -8,4 +8,6 @@
 
 export interface FaceEnrollment {
   descriptor: number[];
+  /** Must be true — explicit consent to capturing and storing a biometric face template. Enrollment is rejected without it. */
+  consent: boolean;
 }

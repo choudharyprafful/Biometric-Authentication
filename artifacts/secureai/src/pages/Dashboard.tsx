@@ -27,14 +27,22 @@ export default function Dashboard() {
     );
   }
 
+  const isAdmin = user?.role === 'admin';
+  const canManageUsers = isAdmin || user?.role === 'it_support';
+  // Audit log visibility is security_analyst-only, deliberately NOT admin
+  // too — separation of duties (see security.ts's canSeeAuditLogs). Admin
+  // manages accounts; security_analyst audits activity; neither role does both.
+  const canMonitor = user?.role === 'security_analyst';
+  const operatorsCardHref = canManageUsers ? '/users' : canMonitor ? '/security-logs' : '/dashboard';
+  const operatorsCardAction = canManageUsers ? 'Open user registry' : canMonitor ? 'View audit trail' : 'Aggregate count only';
   const statCards = [
     {
       label: 'Active Operators',
       value: dashboard.totalUsers,
       icon: Users,
       color: 'text-blue-400',
-      href: user?.role === 'admin' ? '/users' : '/security-logs',
-      action: user?.role === 'admin' ? 'Open user registry' : 'View audit trail',
+      href: operatorsCardHref,
+      action: operatorsCardAction,
     },
     {
       label: 'Biometric Enrolled',
@@ -49,8 +57,8 @@ export default function Dashboard() {
       value: dashboard.failedLogins24h,
       icon: Activity,
       color: dashboard.failedLogins24h > 10 ? 'text-destructive' : 'text-yellow-400',
-      href: '/security-logs',
-      action: 'Review access events',
+      href: canMonitor ? '/security-logs' : '/dashboard',
+      action: canMonitor ? 'Review access events' : 'Aggregate count only',
     },
     {
       label: 'Active Threats',
@@ -130,7 +138,9 @@ export default function Dashboard() {
               </div>
             ))}
             {dashboard.recentLogs.length === 0 && (
-              <p className="text-muted-foreground font-mono text-sm">No recent logs.</p>
+              <p className="text-muted-foreground font-mono text-sm">
+                {canMonitor ? 'No recent logs.' : 'Audit trail requires security analyst access.'}
+              </p>
             )}
           </div>
         </div>

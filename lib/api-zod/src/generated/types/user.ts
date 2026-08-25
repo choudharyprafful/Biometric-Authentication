@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UserRole } from './userRole';
+import type { UserSubscriptionPlan } from './userSubscriptionPlan';
 
 export interface User {
   id: number;
@@ -13,6 +14,13 @@ export interface User {
   name: string;
   role: UserRole;
   faceEnrolled: boolean;
+  /** True when the account has at least one registered passkey */
+  passkeyEnrolled: boolean;
+  /** General data-processing consent, captured at registration */
+  dataConsentGiven: boolean;
+  /** Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted */
+  biometricConsentGiven: boolean;
+  subscriptionPlan: UserSubscriptionPlan;
   createdAt: string;
   /** @nullable */
   updatedAt?: string | null;

@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "SecureAI",
+    "slug": "secureai-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "secureai",
+    "android": {
+      "package": "com.secureai.mobile",
+      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"]
+    },
+    "ios": {
+      "bundleIdentifier": "com.secureai.mobile"
+    }
+  }
+}

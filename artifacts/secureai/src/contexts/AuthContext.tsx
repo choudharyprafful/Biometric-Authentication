@@ -27,14 +27,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [requiresFaceVerification, setRequiresFaceVerification] = useState(false);
   const [location, setLocation] = useLocation();
 
-  // Basic protection: if we are not loading, don't have a user, and are on a protected route -> /
+  // Route guard:
+  // - Unauthenticated users on protected routes → login page
+  // - Authenticated users on public routes → dashboard
+  // - Authenticated users with neither factor enrolled → /enroll
+  //   (either face or passkey satisfies MFA — see requireMfaEnrolled.ts)
   useEffect(() => {
     if (!isLoading) {
-      const isPublicRoute = location === '/' || location === '/register';
+      const isPublicRoute = location === '/' || location === '/register' || location === '/forgot-password' || location === '/reset-password';
+      const isEnrollRoute = location === '/enroll';
+      const mfaComplete = !!user && (user.faceEnrolled || user.passkeyEnrolled);
+
       if (!user && !isPublicRoute && !requiresFaceVerification) {
         setLocation('/');
       } else if (user && isPublicRoute && !requiresFaceVerification) {
-        setLocation('/dashboard');
+        // Always send freshly-logged-in, not-fully-enrolled users to enroll first
+        setLocation(mfaComplete ? '/dashboard' : '/enroll');
+      } else if (user && !mfaComplete && !isEnrollRoute && !isPublicRoute) {
+        // Authenticated but MFA enrollment incomplete — block access to all other routes
+        setLocation('/enroll');
       }
     }
   }, [user, isLoading, location, setLocation, requiresFaceVerification]);

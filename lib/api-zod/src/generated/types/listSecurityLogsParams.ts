@@ -10,4 +10,20 @@ export type ListSecurityLogsParams = {
 limit?: number;
 offset?: number;
 eventType?: string;
+/**
+ * Case-insensitive partial match against the actor's email
+ */
+userEmail?: string;
+/**
+ * Case-insensitive partial match against the request's origin IP
+ */
+ipAddress?: string;
+/**
+ * ISO 8601 timestamp — only logs at or after this time
+ */
+fromDate?: string;
+/**
+ * ISO 8601 timestamp — only logs at or before this time
+ */
+toDate?: string;
 };

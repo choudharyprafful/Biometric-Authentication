@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
-import { db, usersTable, passkeysTable } from "@workspace/db";
+import bcrypt from "bcryptjs";
+import { db, usersTable, passkeysTable, passwordResetTokensTable } from "@workspace/db";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -10,11 +11,19 @@ import {
   type AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
 import { logEvent } from "../lib/auditLog";
-import { MFA_CHALLENGE_TTL_MS } from "./auth";
+import { MFA_CHALLENGE_TTL_MS, loadUsableResetToken } from "./auth";
+import { ALLOWED_ORIGINS, isAllowedOrigin } from "../lib/allowedOrigins";
+import { requestRateLimit } from "../middlewares/requestRateLimit";
+import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 
 const router: IRouter = Router();
 
 const RP_NAME = "SecureAI";
+
+// Registering a passkey involves real WebAuthn attestation verification —
+// throttle it per account so it can't be turned into a spam vector for
+// creating unbounded passkey rows.
+const passkeyRegisterRateLimit = requestRateLimit("passkey-register", 15, 5 * 60 * 1000);
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -22,30 +31,16 @@ function getClientIp(req: Request): string {
   return req.socket?.remoteAddress ?? "unknown";
 }
 
-/**
- * Allowlisted origins pinned from deployment configuration — never derived
- * from request headers, which are attacker-controlled. Dev uses
- * REPLIT_DEV_DOMAIN; production uses REPLIT_DOMAINS (comma-separated).
- */
-const ALLOWED_ORIGINS: readonly string[] = (() => {
-  const origins = new Set<string>();
-  const dev = process.env["REPLIT_DEV_DOMAIN"];
-  if (dev) origins.add(`https://${dev}`);
-  for (const domain of (process.env["REPLIT_DOMAINS"] ?? "").split(",")) {
-    const d = domain.trim();
-    if (d) origins.add(`https://${d}`);
-  }
-  return [...origins];
-})();
-
 /** Resolve the RP ID + expected origin by validating the request Origin
- *  against the pinned allowlist. Returns null for unrecognized origins. */
+ *  against the shared allowlist (same one CORS enforces). Returns null for
+ *  unrecognized origins. */
 function getRp(req: Request): { rpID: string; origin: string } | null {
   const requestOrigin = req.headers.origin;
-  if (typeof requestOrigin !== "string") return null;
-  const allowed = ALLOWED_ORIGINS.find((o) => o === requestOrigin);
-  if (!allowed) return null;
-  return { rpID: new URL(allowed).hostname, origin: allowed };
+  if (typeof requestOrigin !== "string" || !isAllowedOrigin(requestOrigin)) return null;
+
+  const exact = ALLOWED_ORIGINS.find((o) => o === requestOrigin);
+  const hostname = exact ? new URL(exact).hostname : new URL(requestOrigin).hostname;
+  return { rpID: hostname, origin: requestOrigin };
 }
 
 function requireRp(req: Request, res: import("express").Response): { rpID: string; origin: string } | null {
@@ -91,13 +86,18 @@ function regenerateSession(req: Request): Promise<void> {
   });
 }
 
-function mapUser(user: typeof usersTable.$inferSelect) {
+async function mapUser(user: typeof usersTable.$inferSelect) {
+  const passkeys = await db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id)).limit(1);
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
     faceEnrolled: user.faceEnrolled,
+    passkeyEnrolled: passkeys.length > 0,
+    dataConsentGiven: user.dataConsentGiven,
+    biometricConsentGiven: user.biometricConsentGiven,
+    subscriptionPlan: user.subscriptionPlan,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt?.toISOString() ?? null,
   };
@@ -149,7 +149,7 @@ router.post("/auth/passkey/register-options", async (req, res): Promise<void> =>
 });
 
 // POST /auth/passkey/register-verify
-router.post("/auth/passkey/register-verify", async (req, res): Promise<void> => {
+router.post("/auth/passkey/register-verify", passkeyRegisterRateLimit, async (req, res): Promise<void> => {
   const userId = req.session.userId;
   const expectedChallenge = req.session.webauthnChallenge;
   if (!userId || !expectedChallenge) {
@@ -248,6 +248,17 @@ router.delete("/auth/passkey/:id", async (req, res): Promise<void> => {
     return;
   }
   await db.delete(passkeysTable).where(eq(passkeysTable.id, id));
+
+  const [user] = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, userId));
+  await logEvent({
+    eventType: "PASSKEY_REMOVED",
+    details: `Passkey removed${key.deviceName ? ` (${key.deviceName})` : ""} for ${user?.email ?? userId}`,
+    userId,
+    userEmail: user?.email,
+    ipAddress: getClientIp(req),
+    userAgent: req.headers["user-agent"],
+  });
+
   res.sendStatus(204);
 });
 
@@ -360,6 +371,7 @@ router.post("/auth/passkey/login-verify", async (req, res): Promise<void> => {
   try {
     await regenerateSession(req);
     req.session.userId = user.id;
+    req.session.absoluteExpiresAt = Date.now() + ABSOLUTE_SESSION_MAX_MS;
     delete req.session.pendingUserId;
     delete req.session.tempToken;
     delete req.session.mfaIssuedAt;
@@ -373,7 +385,134 @@ router.post("/auth/passkey/login-verify", async (req, res): Promise<void> => {
 
   await logEvent({ eventType: "LOGIN_PASSKEY_SUCCESS", details: `Passkey MFA passed for ${user.email} — device-held key signed the server challenge`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
-  res.json({ verified: true, user: mapUser(user) });
+  res.json({ verified: true, user: await mapUser(user) });
+});
+
+// ---------------------------------------------------------------------------
+// Password reset second factor — a reset link alone never changes a
+// password; the account's passkey must also sign a fresh server challenge,
+// same crypto-gated proof used for login MFA (see auth.ts reset-password/face
+// for the face-scan equivalent).
+// ---------------------------------------------------------------------------
+
+// POST /auth/reset-password/passkey-options
+router.post("/auth/reset-password/passkey-options", async (req, res): Promise<void> => {
+  const body = req.body as { token?: string };
+  if (!body?.token) {
+    res.status(400).json({ error: "Missing reset token" });
+    return;
+  }
+
+  const record = await loadUsableResetToken(body.token);
+  if (!record) {
+    res.status(400).json({ error: "Invalid or expired reset link" });
+    return;
+  }
+
+  const rp = requireRp(req, res);
+  if (!rp) return;
+  const { rpID } = rp;
+
+  const keys = await db.select().from(passkeysTable).where(eq(passkeysTable.userId, record.userId));
+  if (keys.length === 0) {
+    res.status(404).json({ error: "No passkeys enrolled for this account" });
+    return;
+  }
+
+  const options = await generateAuthenticationOptions({
+    rpID,
+    userVerification: "required",
+    allowCredentials: keys.map((k) => ({ id: k.credentialId })),
+  });
+
+  req.session.webauthnChallenge = options.challenge;
+  req.session.resetToken = body.token;
+  try {
+    await saveSession(req);
+  } catch {
+    res.status(500).json({ error: "Could not store challenge" });
+    return;
+  }
+  res.json(options);
+});
+
+// POST /auth/reset-password/passkey-verify
+router.post("/auth/reset-password/passkey-verify", async (req, res): Promise<void> => {
+  const resetToken = req.session.resetToken;
+  const expectedChallenge = req.session.webauthnChallenge;
+  const ip = getClientIp(req);
+  if (!resetToken || !expectedChallenge) {
+    res.status(401).json({ error: "No pending reset" });
+    return;
+  }
+  delete req.session.webauthnChallenge;
+  delete req.session.resetToken;
+
+  const record = await loadUsableResetToken(resetToken);
+  if (!record) {
+    res.status(400).json({ error: "Invalid or expired reset link" });
+    return;
+  }
+
+  const body = req.body as { response?: AuthenticationResponseJSON; newPassword?: string };
+  if (!body?.response || !body.newPassword || body.newPassword.length < 8) {
+    res.status(400).json({ error: "Missing passkey response or new password" });
+    return;
+  }
+
+  const [key] = await db.select().from(passkeysTable).where(eq(passkeysTable.credentialId, body.response.id));
+  if (!key || key.userId !== record.userId) {
+    await logEvent({ eventType: "PASSWORD_RESET_PASSKEY_FAILED", details: "Reset passkey verify: unknown credential", userId: record.userId, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    res.status(401).json({ error: "Unknown passkey" });
+    return;
+  }
+
+  const rp = requireRp(req, res);
+  if (!rp) return;
+  const { rpID, origin } = rp;
+  let verification;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response: body.response,
+      expectedChallenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      requireUserVerification: true,
+      credential: {
+        id: key.credentialId,
+        publicKey: new Uint8Array(Buffer.from(key.publicKey, "base64url")),
+        counter: key.counter,
+        transports: (key.transports as import("@simplewebauthn/server").AuthenticatorTransportFuture[] | null) ?? undefined,
+      },
+    });
+  } catch (e) {
+    await logEvent({ eventType: "PASSWORD_RESET_PASSKEY_FAILED", details: `Reset passkey verify failed: ${(e as Error).message}`, userId: record.userId, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    res.status(401).json({ error: "Passkey verification failed" });
+    return;
+  }
+
+  if (!verification.verified) {
+    await logEvent({ eventType: "PASSWORD_RESET_PASSKEY_FAILED", details: "Reset passkey signature invalid", userId: record.userId, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    res.status(401).json({ error: "Passkey verification failed" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, record.userId));
+  if (!user) {
+    res.status(400).json({ error: "Account no longer exists" });
+    return;
+  }
+
+  await db.update(passkeysTable).set({ counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() }).where(eq(passkeysTable.id, key.id));
+
+  const passwordHash = await bcrypt.hash(body.newPassword, 12);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, user.id));
+  // Consume the token immediately — a reset link is single-use.
+  await db.update(passwordResetTokensTable).set({ usedAt: new Date() }).where(eq(passwordResetTokensTable.id, record.id));
+
+  await logEvent({ eventType: "PASSWORD_RESET_COMPLETED", details: `Password reset completed for ${user.email} (passkey-verified)`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+
+  res.json({ success: true });
 });
 
 export default router;

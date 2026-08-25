@@ -12,4 +12,6 @@ export interface UserRegistration {
   name: string;
   /** @minLength 8 */
   password: string;
+  /** Must be true — explicit consent to processing of account/profile data. Registration is rejected without it. */
+  dataConsent: boolean;
 }

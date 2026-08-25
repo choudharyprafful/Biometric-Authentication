@@ -5,6 +5,8 @@ import { Layout } from './components/Layout';
 import NotFound from './pages/not-found';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Enroll from './pages/Enroll';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
@@ -19,6 +21,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       
       <Route path="/dashboard">
         <Layout><Dashboard /></Layout>

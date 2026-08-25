@@ -16,6 +16,9 @@ export default function Login() {
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [faceAvailable, setFaceAvailable] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+  // Passkey is the signed-challenge factor and is preferred; face scan is
+  // only shown up front when no passkey is registered, or on request.
+  const [useFaceInstead, setUseFaceInstead] = useState(false);
   
   const { requiresFaceVerification, tempToken, setTempToken, setRequiresFaceVerification, refetchUser } = useAuth();
   const [, setLocation] = useLocation();
@@ -38,10 +41,15 @@ export default function Login() {
         setScanAttempt(0);
       } else {
         await refetchUser();
-        setLocation('/dashboard');
+        // Send not-fully-enrolled users straight to mandatory enrollment
+        if (res.user && (!res.user.faceEnrolled || !res.user.passkeyEnrolled)) {
+          setLocation('/enroll');
+        } else {
+          setLocation('/dashboard');
+        }
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Authentication failed. Unauthorized access attempt logged.');
+      setError(err?.data?.error || 'Authentication failed. Unauthorized access attempt logged.');
     }
   };
 
@@ -49,6 +57,7 @@ export default function Login() {
     if (!requiresFaceVerification) {
       setPasskeyAvailable(false);
       setFaceAvailable(false);
+      setUseFaceInstead(false);
     }
   }, [requiresFaceVerification]);
 
@@ -56,11 +65,16 @@ export default function Login() {
     setError('');
     setPasskeyBusy(true);
     try {
-      await loginWithPasskey();
+      const result = await loginWithPasskey();
       setTempToken(null);
       setRequiresFaceVerification(false);
       await refetchUser();
-      setLocation('/dashboard');
+      // If passkey MFA passed but enrollment isn't fully complete, go to enroll
+      if (result?.user && (!result.user.faceEnrolled || !result.user.passkeyEnrolled)) {
+        setLocation('/enroll');
+      } else {
+        setLocation('/dashboard');
+      }
     } catch (err: any) {
       if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
         let inIframe = true;
@@ -83,13 +97,20 @@ export default function Login() {
     setError('');
     
     try {
-      await faceVerifyMutation.mutateAsync({ data: { descriptor, tempToken } });
+      const result = await faceVerifyMutation.mutateAsync({ data: { descriptor, tempToken } });
       setTempToken(null);
       setRequiresFaceVerification(false);
       await refetchUser();
-      setLocation('/dashboard');
+      // Face verify passed — user.faceEnrolled must be true at this point,
+      // but guard anyway so we never land on dashboard before enrollment
+      // (face + passkey) is fully complete.
+      if (result?.user && (!result.user.faceEnrolled || !result.user.passkeyEnrolled)) {
+        setLocation('/enroll');
+      } else {
+        setLocation('/dashboard');
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'Biometric verification failed.');
+      setError(err?.data?.error || 'Biometric verification failed.');
       // Mount a fresh scanner after a failed comparison so the operator can
       // deliberately position their face and try again.
       setScanAttempt((attempt) => attempt + 1);
@@ -129,10 +150,17 @@ export default function Login() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Passkey</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Passkey</Label>
+                  <Link href="/forgot-password">
+                    <span className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider">
+                      Forgot?
+                    </span>
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -176,67 +204,83 @@ export default function Login() {
           </form>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            <div className="text-center space-y-2">
-              <Fingerprint className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
-              <h2 className="font-mono text-lg uppercase tracking-widest text-primary">
-                {faceAvailable ? 'Biometric Step Required' : 'Passkey Step Required'}
-              </h2>
-              {faceAvailable ? (
+            {(() => {
+              const showFaceCamera = faceAvailable && (useFaceInstead || !passkeyAvailable);
+              return (
                 <>
-                  <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
-                  <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                    Camera permission is required. The scan starts automatically once your face is detected.
-                  </p>
+                  <div className="text-center space-y-2">
+                    <Fingerprint className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
+                    <h2 className="font-mono text-lg uppercase tracking-widest text-primary">
+                      {showFaceCamera ? 'Biometric Step Required' : 'Passkey Step Required'}
+                    </h2>
+                    {showFaceCamera ? (
+                      <>
+                        <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
+                        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                          Camera permission is required. The scan starts automatically once your face is detected.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs font-mono text-muted-foreground">
+                        Your device passkey signs a one-time server challenge — that signature is the real second factor.
+                      </p>
+                    )}
+                  </div>
+
+                  {showFaceCamera && (
+                    <FaceCamera
+                      key={scanAttempt}
+                      onCapture={handleFaceScan}
+                      autoCapture={true}
+                      isVerifying={true}
+                    />
+                  )}
+
+                  {!showFaceCamera && passkeyAvailable && (
+                    <Button
+                      className="w-full"
+                      onClick={handlePasskeyLogin}
+                      isLoading={passkeyBusy}
+                      data-testid="button-passkey-login"
+                    >
+                      <KeyRound className="w-4 h-4 mr-2" />
+                      Verify with device passkey
+                    </Button>
+                  )}
+
+                  {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
+                  {faceVerifyMutation.isPending && <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">Verifying biometric signature...</p>}
+
+                  {showFaceCamera && error && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setError('');
+                        setScanAttempt((attempt) => attempt + 1);
+                      }}
+                      disabled={faceVerifyMutation.isPending}
+                    >
+                      Try face scan again
+                    </Button>
+                  )}
+
+                  {passkeyAvailable && faceAvailable && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => { setError(''); setUseFaceInstead((v) => !v); }}
+                    >
+                      {showFaceCamera ? 'Use device passkey instead' : 'Use face scan instead'}
+                    </Button>
+                  )}
                 </>
-              ) : (
-                <p className="text-xs font-mono text-muted-foreground">
-                  Confirm your identity with your device passkey to continue.
-                </p>
-              )}
-            </div>
-            
-            {faceAvailable && (
-              <FaceCamera 
-                key={scanAttempt}
-                onCapture={handleFaceScan} 
-                autoCapture={true} 
-                isVerifying={true}
-              />
-            )}
-            
-            {passkeyAvailable && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handlePasskeyLogin}
-                isLoading={passkeyBusy}
-                data-testid="button-passkey-login"
-              >
-                <KeyRound className="w-4 h-4 mr-2" />
-                {faceAvailable ? 'Use device passkey instead' : 'Verify with device passkey'}
-              </Button>
-            )}
+              );
+            })()}
 
-            {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
-            {faceVerifyMutation.isPending && <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">Verifying biometric signature...</p>}
-
-            {error && faceAvailable && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setError('');
-                  setScanAttempt((attempt) => attempt + 1);
-                }}
-                disabled={faceVerifyMutation.isPending}
-              >
-                Try face scan again
-              </Button>
-            )}
-            
-            <Button 
-              variant="ghost" 
-              className="w-full" 
+            <Button
+              variant="ghost"
+              className="w-full"
               onClick={() => { setRequiresFaceVerification(false); setTempToken(null); }}
             >
               Abort sequence
