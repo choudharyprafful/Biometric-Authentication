@@ -18,8 +18,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex">
       <Sidebar />
-      <main className={`flex-1 transition-all duration-300 ${user ? 'ml-64' : ''}`}>
-        <div className="p-8 max-w-7xl mx-auto h-full">
+      <main className={`flex-1 min-w-0 transition-all duration-300 ${user ? 'md:ml-64' : ''}`}>
+        <div className={`p-4 md:p-8 max-w-7xl mx-auto h-full ${user ? 'pt-20 md:pt-8' : ''}`}>
           {children}
         </div>
       </main>

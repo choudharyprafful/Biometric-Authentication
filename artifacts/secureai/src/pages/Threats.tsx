@@ -42,12 +42,12 @@ export default function Threats() {
             <ShieldAlert className="w-8 h-8 text-destructive" />
             Threat Intel
           </h1>
-          <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">Active anomalies and risk vectors</p>
+          <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">What's been detected, in plain terms — technical detail is available below each one</p>
         </div>
-        
+
         <div className="flex gap-4">
           <div className="text-right">
-            <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Active Vectors</p>
+            <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Happening right now</p>
             <p className="text-2xl font-mono font-bold text-destructive">
               {threats?.filter(t => t.status === 'active').length || 0}
             </p>
@@ -64,10 +64,10 @@ export default function Threats() {
             )}
             
             <div className="flex flex-col md:flex-row justify-between gap-6 pl-2">
-              <div className="space-y-4 flex-1">
-                <div className="flex items-center gap-3">
+              <div className="space-y-3 flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
                   {getStatusIcon(threat.status)}
-                  <h3 className="text-lg font-mono font-bold text-foreground uppercase tracking-wider">{threat.type.replace(/_/g, ' ')}</h3>
+                  <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">{threat.type.replace(/_/g, ' ')}</span>
                   <div className={`px-2 py-0.5 border text-xs font-mono uppercase tracking-widest ${getSeverityColor(threat.severity)}`}>
                     {threat.severity}
                   </div>
@@ -75,21 +75,30 @@ export default function Threats() {
                     {threat.status}
                   </Badge>
                 </div>
-                
-                <p className="text-sm font-mono text-muted-foreground border-l border-border pl-4">
-                  {threat.description}
+
+                {/* Plain-English explanation — this is the main thing anyone
+                    looking at this board should read; the technical detail
+                    below it is for security staff, not required reading. */}
+                <p className="text-base text-foreground leading-relaxed">
+                  {threat.plainSummary || threat.description}
                 </p>
+
+                {threat.plainSummary && (
+                  <p className="text-xs font-mono text-muted-foreground/70 border-l border-border pl-4">
+                    <span className="uppercase tracking-widest">Technical detail:</span> {threat.description}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col justify-between md:items-end gap-2 shrink-0 md:w-48">
                 <div className="text-left md:text-right">
-                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Detection Time</p>
+                  <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">When</p>
                   <p className="text-sm font-mono text-foreground">{format(new Date(threat.timestamp), 'yyyy-MM-dd HH:mm:ss')}</p>
                 </div>
                 {threat.affectedUsers !== null && (
                   <div className="text-left md:text-right">
-                    <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Impact Radius</p>
-                    <p className="text-sm font-mono text-primary">{threat.affectedUsers} Users</p>
+                    <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">People affected</p>
+                    <p className="text-sm font-mono text-primary">{threat.affectedUsers}</p>
                   </div>
                 )}
               </div>

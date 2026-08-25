@@ -13,6 +13,8 @@ import Users from './pages/Users';
 import SecurityLogs from './pages/SecurityLogs';
 import Threats from './pages/Threats';
 import Payments from './pages/Payments';
+import Uploads from './pages/Uploads';
+import DataProtection from './pages/DataProtection';
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,12 @@ function Router() {
       </Route>
       <Route path="/payments">
         <Layout><Payments /></Layout>
+      </Route>
+      <Route path="/uploads">
+        <Layout><Uploads /></Layout>
+      </Route>
+      <Route path="/data-protection">
+        <Layout><DataProtection /></Layout>
       </Route>
       <Route path="/enroll">
         <Layout><Enroll /></Layout>

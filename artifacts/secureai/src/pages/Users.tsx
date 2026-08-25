@@ -1,28 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from 'wouter';
-import { useListUsers, useDeleteUser, useUpdateUser, getListUsersQueryKey } from '@workspace/api-client-react';
+import { useListUsers, useDeleteUser, useUpdateUser, useResetUserMfa, useStaffResetPassword, getListUsersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button } from '../components/ui';
-import { Loader2, Trash2, ShieldAlert, Fingerprint } from 'lucide-react';
+import { Loader2, Trash2, Fingerprint, KeyRound, ShieldOff } from 'lucide-react';
 import { format } from 'date-fns';
+
+function roleBadgeVariant(role: string): 'destructive' | 'outline' | 'secondary' {
+  if (role === 'admin') return 'destructive';
+  if (role === 'security_analyst' || role === 'it_support') return 'outline';
+  return 'secondary';
+}
 
 export default function Users() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  
+  const [resetLinks, setResetLinks] = useState<Record<number, string>>({});
+
+  // Admin has full control here; it_support gets the same view plus the two
+  // account-recovery actions below, but never role changes or deletion —
+  // that split is enforced server-side too, this is just matching UI to it.
+  const isAdmin = user?.role === 'admin';
+  const isStaff = isAdmin || user?.role === 'it_support';
+
   const { data: users, isLoading } = useListUsers({
     query: {
       queryKey: getListUsersQueryKey(),
-      enabled: user?.role === 'admin',
+      enabled: isStaff,
     },
   });
   const deleteMutation = useDeleteUser();
   const updateMutation = useUpdateUser();
+  const resetMfaMutation = useResetUserMfa();
+  const resetPasswordMutation = useStaffResetPassword();
 
-  // Redirect if not admin
-  if (user && user.role !== 'admin') {
+  // Redirect if neither admin nor it_support
+  if (user && !isStaff) {
     setLocation('/dashboard');
     return null;
   }
@@ -37,11 +52,31 @@ export default function Users() {
     }
   };
 
-  const handleToggleRole = async (id: number, currentRole: string) => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  const handleChangeRole = async (id: number, newRole: string) => {
     try {
       await updateMutation.mutateAsync({ id, data: { role: newRole as any } });
       queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleResetMfa = async (id: number, email: string) => {
+    if (!confirm(`Clear face + passkey enrollment for ${email}? They'll need to re-enroll from scratch.`)) return;
+    try {
+      await resetMfaMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleResetPassword = async (id: number) => {
+    try {
+      const result = await resetPasswordMutation.mutateAsync({ id });
+      if (result.devResetLink) {
+        setResetLinks((prev) => ({ ...prev, [id]: result.devResetLink as string }));
+      }
     } catch (err) {
       console.error(err);
     }
@@ -76,7 +111,10 @@ export default function Users() {
                 <TableCell className="font-mono text-sm text-foreground">{u.name}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">{u.email}</TableCell>
                 <TableCell>
-                  <Badge variant={u.role === 'admin' ? 'destructive' : 'secondary'} className={u.role === 'admin' ? 'animate-pulse' : ''}>
+                  <Badge
+                    variant={roleBadgeVariant(u.role)}
+                    className={u.role === 'admin' ? 'animate-pulse' : ''}
+                  >
                     {u.role}
                   </Badge>
                 </TableCell>
@@ -92,23 +130,56 @@ export default function Users() {
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {format(new Date(u.createdAt), 'MMM dd, yyyy')}
                 </TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleToggleRole(u.id, u.role)}
-                    disabled={updateMutation.isPending || u.id === user?.id}
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    onClick={() => handleDelete(u.id)}
-                    disabled={deleteMutation.isPending || u.id === user?.id}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                    {isAdmin && (
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                        disabled={updateMutation.isPending || u.id === user?.id}
+                        data-testid={`select-role-${u.id}`}
+                        className="bg-input border border-border text-foreground font-mono text-xs uppercase px-2 py-1.5 outline-none focus:border-primary disabled:opacity-50"
+                      >
+                        <option value="user">User</option>
+                        <option value="security_analyst">Security Analyst</option>
+                        <option value="it_support">IT Support</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      title="Send a password reset link"
+                      onClick={() => handleResetPassword(u.id)}
+                      disabled={resetPasswordMutation.isPending}
+                    >
+                      <KeyRound className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      title="Clear face + passkey enrollment"
+                      onClick={() => handleResetMfa(u.id, u.email)}
+                      disabled={resetMfaMutation.isPending || (!u.faceEnrolled && !u.passkeyEnrolled)}
+                    >
+                      <ShieldOff className="w-4 h-4" />
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(u.id)}
+                        disabled={deleteMutation.isPending || u.id === user?.id}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {resetLinks[u.id] && (
+                    <p className="mt-2 text-right text-[10px] font-mono text-muted-foreground break-all">
+                      Dev reset link: <span className="text-foreground">{resetLinks[u.id]}</span>
+                    </p>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
