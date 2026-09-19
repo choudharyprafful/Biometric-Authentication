@@ -1,0 +1,143 @@
+/**
+ * Client-side-only card field validation, for realism in the payment UI.
+ * The full number, expiry and CVV never leave this device — only the brand
+ * and last 4 digits are sent, and only to drive the simulated processor's
+ * decline logic. See PaymentsScreen.tsx for the PCI-scope reasoning.
+ *
+ * DUPLICATED FROM artifacts/secureai/src/lib/cardValidation.ts, deliberately
+ * and with the cost acknowledged. This package sits outside the pnpm
+ * workspace (React Native pins React 18.3 against the workspace's 19.x —
+ * see this directory's pnpm-workspace.yaml), so it cannot import from
+ * @workspace/* the way the web app and API server share code. The realistic
+ * alternatives were all worse at this scale: publishing a private package
+ * for ~130 lines of pure arithmetic, or restructuring the workspace around
+ * a version conflict that has nothing to do with payments.
+ *
+ * The real risk of a copy is silent divergence, so: this file is pure
+ * functions over strings with no platform dependencies, and it must stay
+ * byte-for-byte equivalent in behaviour to the web copy. Change one, change
+ * both. If a third consumer ever appears, that is the signal to stop copying
+ * and extract it properly.
+ */
+
+export interface CardDetails {
+  number: string;
+  expiry: string;
+  cvv: string;
+}
+
+export const EMPTY_CARD: CardDetails = { number: '', expiry: '', cvv: '' };
+
+export function formatCardNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 19);
+  return (digits.match(/.{1,4}/g) ?? []).join(' ');
+}
+
+export function formatExpiry(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 4);
+  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+/** Standard Luhn checksum — the same format check every real card number
+ *  satisfies, used here purely for realistic client-side validation. */
+export function luhnCheck(cardNumber: string): boolean {
+  const digits = cardNumber.replace(/\D/g, '');
+  if (digits.length < 12 || digits.length > 19) return false;
+  let sum = 0;
+  let alternate = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = Number(digits[i]);
+    if (alternate) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alternate = !alternate;
+  }
+  return sum % 10 === 0;
+}
+
+export function isExpiryValid(expiry: string): boolean {
+  const match = /^(\d{2})\/(\d{2})$/.exec(expiry);
+  if (!match) return false;
+  const month = Number(match[1]);
+  const year = 2000 + Number(match[2]);
+  if (month < 1 || month > 12) return false;
+  const lastDayOfExpiryMonth = new Date(year, month, 0, 23, 59, 59);
+  return lastDayOfExpiryMonth >= new Date();
+}
+
+export type CardBrand = 'Visa' | 'Mastercard' | 'Amex' | 'Discover' | 'JCB' | 'Diners Club' | 'Card';
+
+/** Brand is derived from the leading digits only (a standard, publicly
+ *  documented numbering scheme — not sensitive on its own, unlike the
+ *  rest of the number). Used purely for a realistic "charged" receipt. */
+export function getCardBrand(number: string): CardBrand {
+  const digits = number.replace(/\D/g, '');
+  if (/^4/.test(digits)) return 'Visa';
+  if (/^(5[1-5]|2[2-7])/.test(digits)) return 'Mastercard';
+  if (/^3[47]/.test(digits)) return 'Amex';
+  if (/^(6011|65|64[4-9])/.test(digits)) return 'Discover';
+  if (/^(2131|1800|35)/.test(digits)) return 'JCB';
+  if (/^3(0[0-5]|[68])/.test(digits)) return 'Diners Club';
+  return 'Card';
+}
+
+// Each real network fixes its own PAN length and CVV length — a
+// Luhn-valid 16-digit number with an Amex prefix is not a real Amex
+// number, and a 3-digit code on an Amex card is not where its real CVV
+// (called CID) actually sits. Checking both, not just Luhn, is what makes
+// this "further validation" rather than the same single generic check
+// every brand was previously held to.
+const PAN_LENGTHS_BY_BRAND: Record<CardBrand, number[]> = {
+  Visa: [13, 16, 19],
+  Mastercard: [16],
+  Amex: [15],
+  Discover: [16, 19],
+  JCB: [16, 19],
+  'Diners Club': [14, 16, 19],
+  Card: [12, 13, 14, 15, 16, 17, 18, 19],
+};
+
+const CVV_LENGTH_BY_BRAND: Record<CardBrand, number> = {
+  Visa: 3,
+  Mastercard: 3,
+  Amex: 4,
+  Discover: 3,
+  JCB: 3,
+  'Diners Club': 3,
+  Card: 3,
+};
+
+/** Whether the digit count matches what this specific brand's numbering
+ *  scheme actually allows — a check the brand-agnostic Luhn pass alone
+ *  can't make (a Luhn-valid number can still be the wrong length for the
+ *  network its prefix claims to belong to). */
+export function isPanLengthValidForBrand(number: string, brand: CardBrand): boolean {
+  const digits = number.replace(/\D/g, '');
+  return PAN_LENGTHS_BY_BRAND[brand].includes(digits.length);
+}
+
+/** The CVV length real processors actually expect for this brand — 4 for
+ *  Amex (printed on the front, called CID), 3 for every other network
+ *  (printed on the back). */
+export function isCvvValidForBrand(cvv: string, brand: CardBrand): boolean {
+  return new RegExp(String.raw`^\d{${CVV_LENGTH_BY_BRAND[brand]}}$`).test(cvv);
+}
+
+export function isCardFormValid(card: CardDetails): boolean {
+  const brand = getCardBrand(card.number);
+  return (
+    luhnCheck(card.number) &&
+    isPanLengthValidForBrand(card.number, brand) &&
+    isExpiryValid(card.expiry) &&
+    isCvvValidForBrand(card.cvv, brand)
+  );
+}
+
+/** Last 4 digits only — the one part of a card number that's routinely
+ *  shown on real receipts precisely because it isn't sensitive by itself. */
+export function getLast4(number: string): string {
+  const digits = number.replace(/\D/g, '');
+  return digits.slice(-4);
+}
