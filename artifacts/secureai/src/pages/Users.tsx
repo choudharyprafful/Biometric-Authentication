@@ -106,20 +106,20 @@ export default function Users() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users?.map(u => (
-              <TableRow key={u.id}>
-                <TableCell className="font-mono text-sm text-foreground">{u.name}</TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">{u.email}</TableCell>
+            {users?.map(operator => (
+              <TableRow key={operator.id}>
+                <TableCell className="font-mono text-sm text-foreground">{operator.name}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{operator.email}</TableCell>
                 <TableCell>
                   <Badge
-                    variant={roleBadgeVariant(u.role)}
-                    className={u.role === 'admin' ? 'animate-pulse' : ''}
+                    variant={roleBadgeVariant(operator.role)}
+                    className={operator.role === 'admin' ? 'animate-pulse' : ''}
                   >
-                    {u.role}
+                    {operator.role}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {u.faceEnrolled ? (
+                  {operator.faceEnrolled ? (
                     <Badge variant="success" className="gap-1 px-2 py-0.5">
                       <Fingerprint className="w-3 h-3" /> Enrolled
                     </Badge>
@@ -128,16 +128,16 @@ export default function Users() {
                   )}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {format(new Date(u.createdAt), 'MMM dd, yyyy')}
+                  {format(new Date(operator.createdAt), 'MMM dd, yyyy')}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2 flex-wrap">
                     {isAdmin && (
                       <select
-                        value={u.role}
-                        onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                        disabled={updateMutation.isPending || u.id === user?.id}
-                        data-testid={`select-role-${u.id}`}
+                        value={operator.role}
+                        onChange={(e) => handleChangeRole(operator.id, e.target.value)}
+                        disabled={updateMutation.isPending || operator.id === user?.id}
+                        data-testid={`select-role-${operator.id}`}
                         className="bg-input border border-border text-foreground font-mono text-xs uppercase px-2 py-1.5 outline-none focus:border-primary disabled:opacity-50"
                       >
                         <option value="user">User</option>
@@ -150,7 +150,7 @@ export default function Users() {
                       variant="outline"
                       size="sm"
                       title="Send a password reset link"
-                      onClick={() => handleResetPassword(u.id)}
+                      onClick={() => handleResetPassword(operator.id)}
                       disabled={resetPasswordMutation.isPending}
                     >
                       <KeyRound className="w-4 h-4" />
@@ -159,8 +159,8 @@ export default function Users() {
                       variant="outline"
                       size="sm"
                       title="Clear face + passkey enrollment"
-                      onClick={() => handleResetMfa(u.id, u.email)}
-                      disabled={resetMfaMutation.isPending || (!u.faceEnrolled && !u.passkeyEnrolled)}
+                      onClick={() => handleResetMfa(operator.id, operator.email)}
+                      disabled={resetMfaMutation.isPending || (!operator.faceEnrolled && !operator.passkeyEnrolled)}
                     >
                       <ShieldOff className="w-4 h-4" />
                     </Button>
@@ -168,16 +168,16 @@ export default function Users() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleDelete(u.id)}
-                        disabled={deleteMutation.isPending || u.id === user?.id}
+                        onClick={() => handleDelete(operator.id)}
+                        disabled={deleteMutation.isPending || operator.id === user?.id}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     )}
                   </div>
-                  {resetLinks[u.id] && (
+                  {resetLinks[operator.id] && (
                     <p className="mt-2 text-right text-[10px] font-mono text-muted-foreground break-all">
-                      Dev reset link: <span className="text-foreground">{resetLinks[u.id]}</span>
+                      Dev reset link: <span className="text-foreground">{resetLinks[operator.id]}</span>
                     </p>
                   )}
                 </TableCell>

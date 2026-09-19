@@ -33,12 +33,12 @@ export function luhnCheck(cardNumber: string): boolean {
   let sum = 0;
   let alternate = false;
   for (let i = digits.length - 1; i >= 0; i--) {
-    let n = Number(digits[i]);
+    let digit = Number(digits[i]);
     if (alternate) {
-      n *= 2;
-      if (n > 9) n -= 9;
+      digit *= 2;
+      if (digit > 9) digit -= 9;
     }
-    sum += n;
+    sum += digit;
     alternate = !alternate;
   }
   return sum % 10 === 0;

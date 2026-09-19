@@ -98,15 +98,15 @@ export function UploadsScreen() {
           point is that the uploader sees what they are declaring. */}
       <Text style={styles.sourceLabel}>Where is this from?</Text>
       <View style={styles.sourceRow}>
-        {CONTENT_SOURCE_OPTIONS.map((opt) => {
-          const selected = contentSource === opt.value;
+        {CONTENT_SOURCE_OPTIONS.map((option) => {
+          const selected = contentSource === option.value;
           return (
             <Pressable
-              key={opt.value}
-              onPress={() => setContentSource(opt.value)}
+              key={option.value}
+              onPress={() => setContentSource(option.value)}
               style={[styles.sourceChip, selected && styles.sourceChipOn]}
             >
-              <Text style={[styles.sourceChipText, selected && styles.sourceChipTextOn]}>{opt.label}</Text>
+              <Text style={[styles.sourceChipText, selected && styles.sourceChipTextOn]}>{option.label}</Text>
             </Pressable>
           );
         })}
@@ -128,33 +128,33 @@ export function UploadsScreen() {
       ) : uploads.length === 0 ? (
         <Text style={styles.emptyText}>No files yet.</Text>
       ) : (
-        uploads.map((u) => {
-          const busy = busyId === u.id;
+        uploads.map((upload) => {
+          const busy = busyId === upload.id;
           return (
-            <Card key={u.id} style={styles.fileCard}>
+            <Card key={upload.id} style={styles.fileCard}>
               <View style={styles.fileTop}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.fileName} numberOfLines={1}>{u.fileName}</Text>
-                  <Text style={styles.fileMeta}>{formatSize(u.sizeBytes)} · {new Date(u.createdAt).toLocaleDateString()}</Text>
+                  <Text style={styles.fileName} numberOfLines={1}>{upload.fileName}</Text>
+                  <Text style={styles.fileMeta}>{formatSize(upload.sizeBytes)} · {new Date(upload.createdAt).toLocaleDateString()}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Badge tone="outline">{u.fileType}</Badge>
+                  <Badge tone="outline">{upload.fileType}</Badge>
                   {/* Explicit === false, not a falsy check: an older server
                       that predates this field returns undefined, and treating
                       that as "excluded" would badge every file on a backend
                       that simply hasn't been upgraded yet. A client should not
                       assert a server's behaviour from a missing field. */}
-                  {u.trainingEligible === false && <Badge tone="outline">not used for AI</Badge>}
+                  {upload.trainingEligible === false && <Badge tone="outline">not used for AI</Badge>}
                 </View>
               </View>
               <View style={styles.actionsRow}>
-                <Button size="sm" variant="outline" onPress={() => handlePreview(u)} disabled={busy} style={{ flexGrow: 1 }}>
+                <Button size="sm" variant="outline" onPress={() => handlePreview(upload)} disabled={busy} style={{ flexGrow: 1 }}>
                   Preview
                 </Button>
-                <Button size="sm" variant="outline" onPress={() => handleDownload(u)} disabled={busy} style={{ flexGrow: 1 }}>
+                <Button size="sm" variant="outline" onPress={() => handleDownload(upload)} disabled={busy} style={{ flexGrow: 1 }}>
                   Share
                 </Button>
-                <Button size="sm" variant="destructive" onPress={() => handleDelete(u)} disabled={busy} style={{ flexGrow: 1 }}>
+                <Button size="sm" variant="destructive" onPress={() => handleDelete(upload)} disabled={busy} style={{ flexGrow: 1 }}>
                   Delete
                 </Button>
               </View>

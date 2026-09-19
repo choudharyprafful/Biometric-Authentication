@@ -49,7 +49,7 @@ export default function Threats() {
           <div className="text-right">
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-widest">Happening right now</p>
             <p className="text-2xl font-mono font-bold text-destructive">
-              {threats?.filter(t => t.status === 'active').length || 0}
+              {threats?.filter(threat => threat.status === 'active').length || 0}
             </p>
           </div>
         </div>

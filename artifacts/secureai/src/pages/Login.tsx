@@ -269,7 +269,7 @@ export default function Login() {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => { setError(''); setUseFaceInstead((v) => !v); }}
+                      onClick={() => { setError(''); setUseFaceInstead((prev) => !prev); }}
                     >
                       {showFaceCamera ? 'Use device passkey instead' : 'Use face scan instead'}
                     </Button>

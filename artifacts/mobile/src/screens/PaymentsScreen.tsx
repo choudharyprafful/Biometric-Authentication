@@ -71,7 +71,7 @@ export function PaymentsScreen() {
     setLoading(true);
     setError('');
     Promise.all([listPayments(), listPlans()])
-      .then(([p, pl]) => { setPayments(p); setPlans(pl); })
+      .then(([fetchedPayments, fetchedPlans]) => { setPayments(fetchedPayments); setPlans(fetchedPlans); })
       .catch((err) => setError(err?.message || 'Failed to load payments.'))
       .finally(() => setLoading(false));
   }, []);
@@ -144,8 +144,8 @@ export function PaymentsScreen() {
               <Text style={styles.planName}>{plan.name}</Text>
               <Text style={styles.planPrice}>${plan.amount}/{plan.interval}</Text>
             </View>
-            {plan.features.map((f) => (
-              <Text key={f} style={styles.feature}>• {f}</Text>
+            {plan.features.map((feature) => (
+              <Text key={feature} style={styles.feature}>• {feature}</Text>
             ))}
             <Button
               size="sm"
@@ -173,7 +173,7 @@ export function PaymentsScreen() {
         </View>
         <Input
           value={card.number}
-          onChangeText={(t) => setCard((c) => ({ ...c, number: formatCardNumber(t) }))}
+          onChangeText={(text) => setCard((prevCard) => ({ ...prevCard, number: formatCardNumber(text) }))}
           keyboardType="number-pad"
           placeholder="4242 4242 4242 4242"
           maxLength={23}
@@ -183,7 +183,7 @@ export function PaymentsScreen() {
             <Label style={{ marginTop: 12 }}>Expiry</Label>
             <Input
               value={card.expiry}
-              onChangeText={(t) => setCard((c) => ({ ...c, expiry: formatExpiry(t) }))}
+              onChangeText={(text) => setCard((prevCard) => ({ ...prevCard, expiry: formatExpiry(text) }))}
               keyboardType="number-pad"
               placeholder="MM/YY"
               maxLength={5}
@@ -193,7 +193,7 @@ export function PaymentsScreen() {
             <Label style={{ marginTop: 12 }}>{brand === 'Amex' ? 'CID' : 'CVV'}</Label>
             <Input
               value={card.cvv}
-              onChangeText={(t) => setCard((c) => ({ ...c, cvv: t.replace(/\D/g, '').slice(0, 4) }))}
+              onChangeText={(text) => setCard((prevCard) => ({ ...prevCard, cvv: text.replace(/\D/g, '').slice(0, 4) }))}
               keyboardType="number-pad"
               placeholder={brand === 'Amex' ? '4 digits' : '3 digits'}
               maxLength={4}
@@ -211,9 +211,9 @@ export function PaymentsScreen() {
         <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" />
         <Label style={{ marginTop: 12 }}>Currency</Label>
         <View style={styles.currencyRow}>
-          {CURRENCIES.map((c) => (
-            <Button key={c} size="sm" variant={currency === c ? 'default' : 'outline'} onPress={() => setCurrency(c)} style={{ flexGrow: 1 }}>
-              {c}
+          {CURRENCIES.map((currencyOption) => (
+            <Button key={currencyOption} size="sm" variant={currency === currencyOption ? 'default' : 'outline'} onPress={() => setCurrency(currencyOption)} style={{ flexGrow: 1 }}>
+              {currencyOption}
             </Button>
           ))}
         </View>
@@ -229,17 +229,17 @@ export function PaymentsScreen() {
       {payments.length === 0 ? (
         <Text style={styles.emptyText}>No transactions yet.</Text>
       ) : (
-        payments.map((p) => (
-          <Card key={p.id} style={styles.paymentCard}>
+        payments.map((payment) => (
+          <Card key={payment.id} style={styles.paymentCard}>
             <View style={styles.paymentTop}>
-              <Text style={styles.paymentDesc}>{p.description}</Text>
-              <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
+              <Text style={styles.paymentDesc}>{payment.description}</Text>
+              <Badge tone={STATUS_TONE[payment.status]}>{payment.status}</Badge>
             </View>
             <View style={styles.paymentBottom}>
-              <Text style={styles.paymentMeta}>{p.userEmail ?? 'deleted account'} · {new Date(p.createdAt).toLocaleDateString()}</Text>
-              <Text style={styles.paymentAmount}>{p.currency} {p.amount.toFixed(2)}</Text>
+              <Text style={styles.paymentMeta}>{payment.userEmail ?? 'deleted account'} · {new Date(payment.createdAt).toLocaleDateString()}</Text>
+              <Text style={styles.paymentAmount}>{payment.currency} {payment.amount.toFixed(2)}</Text>
             </View>
-            <Text style={styles.token}>{p.providerToken}</Text>
+            <Text style={styles.token}>{payment.providerToken}</Text>
           </Card>
         ))
       )}

@@ -70,17 +70,17 @@ function PasskeySection({ onEnrolled }: { onEnrolled?: () => void }) {
 
       {passkeys.length > 0 && (
         <ul className="space-y-2">
-          {passkeys.map((pk) => (
-            <li key={pk.id} className="flex items-center justify-between border border-primary/20 bg-primary/5 px-3 py-2">
+          {passkeys.map((passkey) => (
+            <li key={passkey.id} className="flex items-center justify-between border border-primary/20 bg-primary/5 px-3 py-2">
               <span className="font-mono text-xs text-muted-foreground">
-                {pk.deviceName || 'Passkey'} · added {new Date(pk.createdAt).toLocaleDateString()}
-                {pk.lastUsedAt ? ` · last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : ''}
+                {passkey.deviceName || 'Passkey'} · added {new Date(passkey.createdAt).toLocaleDateString()}
+                {passkey.lastUsedAt ? ` · last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}` : ''}
               </span>
               <button
                 className="text-destructive/70 hover:text-destructive"
-                onClick={() => handleDelete(pk.id)}
+                onClick={() => handleDelete(passkey.id)}
                 title="Remove passkey"
-                data-testid={`button-delete-passkey-${pk.id}`}
+                data-testid={`button-delete-passkey-${passkey.id}`}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -509,12 +509,12 @@ export default function Enroll() {
                   From {contentProfileQuery.data?.documentsConsidered ?? 0} of your text upload(s), your most frequent topics:
                 </p>
                 <div className="flex flex-wrap gap-2" data-testid="list-content-profile-keywords">
-                  {keywords.slice(0, 10).map((k) => (
+                  {keywords.slice(0, 10).map((item) => (
                     <span
-                      key={k.keyword}
+                      key={item.keyword}
                       className="px-2 py-1 rounded bg-primary/10 text-primary font-mono text-xs uppercase tracking-wider"
                     >
-                      {k.keyword}
+                      {item.keyword}
                     </span>
                   ))}
                 </div>
