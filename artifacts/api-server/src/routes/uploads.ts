@@ -169,7 +169,7 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
     plaintext = stripImageMetadata(plaintext, detectedFormat);
   } else if (fileType === "video") {
     // MP4/MOV GPS-atom stripping — see lib/videoSafety.ts for the full reasoning, including the box-order safety check that keeps this from being the "hand-rolled
-    // atom walker risks silent corruption" case this was previously, correctly, deferred over. Never rejects the upload: fails open to the original bytes on
+    //  atom walker risks silent corruption" case this was previously, correctly, deferred over. Never rejects the upload: fails open to the original bytes on 
     // anything it isn't confident is safe (e.g. streaming-optimised layout, fragmented MP4, WebM), same as every image parser above.
     plaintext = stripVideoMetadata(plaintext);
   }

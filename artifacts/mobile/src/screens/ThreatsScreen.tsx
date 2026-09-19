@@ -29,7 +29,7 @@ export function ThreatsScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const activeCount = threats.filter((threat) => threat.status === 'active').length;
+  const activeCount = threats.filter((t) => t.status === 'active').length;
 
   if (loading) {
     return <Centered><ActivityIndicator color={colors.primary} /></Centered>;
@@ -45,23 +45,23 @@ export function ThreatsScreen() {
       {threats.length === 0 ? (
         <Text style={styles.emptyText}>No threats detected.</Text>
       ) : (
-        threats.map((threat) => (
+        threats.map((t) => (
           <Card
-            key={threat.id}
-            style={[styles.card, threat.status === 'active' && threat.severity === 'critical' && styles.criticalCard]}
+            key={t.id}
+            style={[styles.card, t.status === 'active' && t.severity === 'critical' && styles.criticalCard]}
           >
             <View style={styles.topRow}>
-              <Text style={styles.type}>{threat.type.replace(/_/g, ' ')}</Text>
+              <Text style={styles.type}>{t.type.replace(/_/g, ' ')}</Text>
               <View style={styles.badges}>
-                <Badge tone={SEVERITY_TONE[threat.severity]}>{threat.severity}</Badge>
-                <Badge tone={STATUS_TONE[threat.status]}>{threat.status}</Badge>
+                <Badge tone={SEVERITY_TONE[t.severity]}>{t.severity}</Badge>
+                <Badge tone={STATUS_TONE[t.status]}>{t.status}</Badge>
               </View>
             </View>
-            <Text style={styles.summaryText}>{threat.plainSummary ?? threat.description}</Text>
-            {threat.plainSummary && <Text style={styles.techDetail}>{threat.description}</Text>}
+            <Text style={styles.summaryText}>{t.plainSummary ?? t.description}</Text>
+            {t.plainSummary && <Text style={styles.techDetail}>{t.description}</Text>}
             <View style={styles.footerRow}>
-              <Text style={styles.timestamp}>{new Date(threat.timestamp).toLocaleString()}</Text>
-              {threat.affectedUsers != null && <Text style={styles.affected}>{threat.affectedUsers} affected</Text>}
+              <Text style={styles.timestamp}>{new Date(t.timestamp).toLocaleString()}</Text>
+              {t.affectedUsers != null && <Text style={styles.affected}>{t.affectedUsers} affected</Text>}
             </View>
           </Card>
         ))

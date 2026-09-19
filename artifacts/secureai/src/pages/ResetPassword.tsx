@@ -162,7 +162,7 @@ export default function ResetPassword() {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => { setError(''); setUseFaceInstead((prev) => !prev); }}
+                      onClick={() => { setError(''); setUseFaceInstead((v) => !v); }}
                     >
                       {showFaceCamera ? 'Use device passkey instead' : 'Use face scan instead'}
                     </Button>

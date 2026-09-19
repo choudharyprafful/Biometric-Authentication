@@ -29,6 +29,7 @@ app.listen(port, async (err) => {
 
   await ensureDeletionAuditTrigger();
 
+  // Seed demo data if DB is empty
   try {
     await seedIfEmpty();
   } catch (e) {

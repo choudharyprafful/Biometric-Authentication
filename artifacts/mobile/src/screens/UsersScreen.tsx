@@ -110,24 +110,24 @@ export function UsersScreen() {
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : (
-        users.map((person) => {
-          const isSelf = person.id === me?.id;
-          const busy = busyId === person.id;
+        users.map((u) => {
+          const isSelf = u.id === me?.id;
+          const busy = busyId === u.id;
           return (
-            <Card key={person.id} style={styles.userCard} topAccent>
+            <Card key={u.id} style={styles.userCard} topAccent>
               <View style={styles.userHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.userName}>{person.name}</Text>
-                  <Text style={styles.userEmail}>{person.email}</Text>
+                  <Text style={styles.userName}>{u.name}</Text>
+                  <Text style={styles.userEmail}>{u.email}</Text>
                 </View>
-                <Badge tone={person.role === 'admin' ? 'destructive' : 'outline'}>{person.role}</Badge>
+                <Badge tone={u.role === 'admin' ? 'destructive' : 'outline'}>{u.role}</Badge>
               </View>
 
               <View style={styles.badgeRow}>
-                <Badge tone={person.faceEnrolled || person.passkeyEnrolled ? 'success' : 'warning'}>
-                  {person.faceEnrolled || person.passkeyEnrolled ? 'Biometric Enrolled' : 'Pending'}
+                <Badge tone={u.faceEnrolled || u.passkeyEnrolled ? 'success' : 'warning'}>
+                  {u.faceEnrolled || u.passkeyEnrolled ? 'Biometric Enrolled' : 'Pending'}
                 </Badge>
-                <Text style={styles.inducted}>Since {new Date(person.createdAt).toLocaleDateString()}</Text>
+                <Text style={styles.inducted}>Since {new Date(u.createdAt).toLocaleDateString()}</Text>
               </View>
 
               {isAdmin && !isSelf && (
@@ -136,8 +136,8 @@ export function UsersScreen() {
                     <Button
                       key={role}
                       size="sm"
-                      variant={person.role === role ? 'default' : 'outline'}
-                      onPress={() => handleRoleChange(person, role)}
+                      variant={u.role === role ? 'default' : 'outline'}
+                      onPress={() => handleRoleChange(u, role)}
                       disabled={busy}
                       style={styles.roleButton}
                     >
@@ -148,28 +148,28 @@ export function UsersScreen() {
               )}
 
               <View style={styles.actionsRow}>
-                <Button size="sm" variant="outline" onPress={() => handleResetPassword(person)} disabled={busy} style={styles.actionButton}>
+                <Button size="sm" variant="outline" onPress={() => handleResetPassword(u)} disabled={busy} style={styles.actionButton}>
                   Reset Password
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onPress={() => handleResetMfa(person)}
-                  disabled={busy || (!person.faceEnrolled && !person.passkeyEnrolled)}
+                  onPress={() => handleResetMfa(u)}
+                  disabled={busy || (!u.faceEnrolled && !u.passkeyEnrolled)}
                   style={styles.actionButton}
                 >
                   Reset MFA
                 </Button>
                 {isAdmin && !isSelf && (
-                  <Button size="sm" variant="destructive" onPress={() => handleDelete(person)} disabled={busy} style={styles.actionButton}>
+                  <Button size="sm" variant="destructive" onPress={() => handleDelete(u)} disabled={busy} style={styles.actionButton}>
                     Delete
                   </Button>
                 )}
               </View>
 
-              {resetLinks[person.id] !== undefined && (
+              {resetLinks[u.id] !== undefined && (
                 <Text style={styles.resetLink}>
-                  {resetLinks[person.id] ? `Dev reset link: ${resetLinks[person.id]}` : 'Reset link issued.'}
+                  {resetLinks[u.id] ? `Dev reset link: ${resetLinks[u.id]}` : 'Reset link issued.'}
                 </Text>
               )}
             </Card>

@@ -86,9 +86,9 @@ def generate_corpus(n_users=5):
     """
     records = []
     for i in range(n_users):
-        user_id = f"user-{i:02d}"
-        records.append(make_record(user_id, BENIGN[i % len(BENIGN)]))
-        records.append(make_record(user_id, CANARY_SENTENCE))   # the leak we plant
+        uid = f"user-{i:02d}"
+        records.append(make_record(uid, BENIGN[i % len(BENIGN)]))
+        records.append(make_record(uid, CANARY_SENTENCE))   # the leak we plant
 
     # one user who never consented - must never reach training
     records.append(
@@ -108,7 +108,7 @@ def generate_corpus(n_users=5):
         records.append(make_record("attacker-01", CANARY_SENTENCE))
 
     return records
-
+        
 # --- 2. the consent gate (Team 1 owns this) ----------------------------------
 
 def consent_gate(records):
@@ -119,23 +119,23 @@ def consent_gate(records):
     allowed, blocked = [], []
     per_user = defaultdict(int)
 
-    for record in records:
+    for rec in records:
 
-        if not record["consent_id"]:
+        if not rec["consent_id"]:
             print(
                 f"[CONSENT GATE] BLOCKED "
-                f"user={record['user_id']} "
-                f"source={record['source_id']}"
+                f"user={rec['user_id']} "
+                f"source={rec['source_id']}"
             )
-            blocked.append((record, "no consent record"))
+            blocked.append((rec, "no consent record"))
             continue
 
-        if per_user[record["user_id"]] >= MAX_DOCS_PER_USER:
-            blocked.append((record, "per-user cap reached"))
+        if per_user[rec["user_id"]] >= MAX_DOCS_PER_USER:
+            blocked.append((rec, "per-user cap reached"))
             continue
 
-        per_user[record["user_id"]] += 1
-        allowed.append(record)
+        per_user[rec["user_id"]] += 1
+        allowed.append(rec)
 
     return allowed, blocked
 
@@ -155,46 +155,46 @@ def train(records, dedup=False):
     do (exact-substring deduplication).
     """
     texts, seen, removed = [], set(), 0
-    for record in records:
+    for rec in records:
         if not dedup:
-            texts.append(record["text"])
+            texts.append(rec["text"])
             continue
         kept = []
-        for sentence in sentences(record["text"]):
-            key = " ".join(sentence.split()).lower()
+        for s in sentences(rec["text"]):
+            key = " ".join(s.split()).lower()
             if key in seen:
                 removed += 1
                 continue
             seen.add(key)
-            kept.append(sentence)
+            kept.append(s)
         if kept:
             texts.append(" ".join(kept))
 
     counts = defaultdict(lambda: defaultdict(int))
-    for text in texts:
-        tokens = text.split()
-        for i in range(len(tokens) - NGRAM_ORDER + 1):
-            context = " ".join(tokens[i:i + NGRAM_ORDER - 1])
-            counts[context][tokens[i + NGRAM_ORDER - 1]] += 1
+    for t in texts:
+        toks = t.split()
+        for i in range(len(toks) - NGRAM_ORDER + 1):
+            ctx = " ".join(toks[i:i + NGRAM_ORDER - 1])
+            counts[ctx][toks[i + NGRAM_ORDER - 1]] += 1
 
     return {"counts": counts, "docs": len(texts), "duplicates_removed": removed}
 
 
 def generate(model, prompt, max_tokens=12):
     """Greedy continuation. Only emits a token seen at least MIN_COUNT times."""
-    tokens = prompt.split()
-    output = []
+    toks = prompt.split()
+    out = []
     for _ in range(max_tokens):
-        context = " ".join(tokens[-(NGRAM_ORDER - 1):])
-        candidates = model["counts"].get(context)
-        if not candidates:
+        ctx = " ".join(toks[-(NGRAM_ORDER - 1):])
+        cands = model["counts"].get(ctx)
+        if not cands:
             break
-        next_word, count = max(candidates.items(), key=lambda item: item[1])
-        if count < MIN_COUNT:
+        nxt, cnt = max(cands.items(), key=lambda kv: kv[1])
+        if cnt < MIN_COUNT:
             break          # below the memorisation threshold - refuse
-        output.append(next_word)
-        tokens.append(next_word)
-    return " ".join(output)
+        out.append(nxt)
+        toks.append(nxt)
+    return " ".join(out)
 
 
 def extraction_test(model, prompt, secret):
@@ -206,13 +206,13 @@ def extraction_test(model, prompt, secret):
 
 def delete_user(records, user_id):
     """Deletion at the corpus level. The model must then be retrained."""
-    return [record for record in records if record["user_id"] != user_id]
+    return [r for r in records if r["user_id"] != user_id]
 
 
 # --- demo --------------------------------------------------------------------
 
-def line(text=""):
-    print(text)
+def line(t=""):
+    print(t)
 
 
 def main():
@@ -222,14 +222,14 @@ def main():
 
     records = generate_corpus()
     line(f"\n[1] Generated {len(records)} synthetic records")
-    line(f"    Canary planted {sum(CANARY in record['text'] for record in records)} times (duplication)")
+    line(f"    Canary planted {sum(CANARY in r['text'] for r in records)} times (duplication)")
     line(f"    Example record: {records[0]}")
 
     allowed, blocked = consent_gate(records)
     line(f"\n[2] Consent gate: {len(allowed)} allowed, {len(blocked)} blocked")
-
-    for record, why in blocked:
-        line(f"    BLOCKED {record['user_id']:<8} reason: {why}")
+    
+    for rec, why in blocked:
+        line(f"    BLOCKED {rec['user_id']:<8} reason: {why}")
 
     # --- phase A: vulnerable model
     vulnerable = train(allowed, dedup=False)

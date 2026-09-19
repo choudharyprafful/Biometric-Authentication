@@ -249,9 +249,9 @@ export async function listPlans(): Promise<Plan[]> {
  */
 let idempotencyCounter = 0;
 export function newIdempotencyKey(): string {
-  const globalScope = globalThis as { crypto?: { getRandomValues?: (array: Uint8Array) => Uint8Array } };
-  if (typeof globalScope.crypto?.getRandomValues === 'function') {
-    const bytes = globalScope.crypto.getRandomValues(new Uint8Array(16));
+  const g = globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } };
+  if (typeof g.crypto?.getRandomValues === 'function') {
+    const bytes = g.crypto.getRandomValues(new Uint8Array(16));
     return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   }
   idempotencyCounter += 1;

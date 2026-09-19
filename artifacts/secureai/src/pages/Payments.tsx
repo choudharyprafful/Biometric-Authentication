@@ -136,7 +136,7 @@ function SubscriptionPlans() {
   const [idempotencyKey, setIdempotencyKey] = useState('');
   const subscribeMutation = useSubscribe({ request: { headers: { 'Idempotency-Key': idempotencyKey } } });
 
-  const pendingPlan = plans?.find((plan) => plan.id === pendingPlanId) ?? null;
+  const pendingPlan = plans?.find((p) => p.id === pendingPlanId) ?? null;
 
   const handleConfirmSubscribe = async () => {
     if (!pendingPlanId || !pendingPlan || !isCardFormValid(card)) return;

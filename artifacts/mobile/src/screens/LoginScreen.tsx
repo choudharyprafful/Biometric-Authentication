@@ -21,7 +21,7 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
   // separate cross-device bootstrap for an account that has no biometric key
   // on THIS device yet (e.g. enrolled via web) — see src/lib/biometricKey.ts's
   // linkDeviceWithCode() for why that path exists.
-  const [step, setStep] = useState<LoginStep>('password');
+  const [view, setView] = useState<LoginStep>('password');
 
   const handlePasswordSubmit = async () => {
     setError('');
@@ -37,7 +37,7 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
         setError('This account has no device biometric key enrolled on this device. Use "Link this device" below with a code from an already signed-in session.');
         return;
       }
-      setStep('biometric');
+      setView('biometric');
     } catch (err: any) {
       setError(err?.message || 'Login failed.');
     } finally {
@@ -80,7 +80,7 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
       </View>
 
       <Card accentCorners style={styles.card}>
-        {step === 'password' && (
+        {view === 'password' && (
           <>
             <View style={styles.field}>
               <Label>Operator ID (Email)</Label>
@@ -109,13 +109,13 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
             <Pressable onPress={onSwitchToRegister}>
               <Text style={styles.link}>Need an account? Register</Text>
             </Pressable>
-            <Pressable onPress={() => { setError(''); setStep('link'); }}>
+            <Pressable onPress={() => { setError(''); setView('link'); }}>
               <Text style={styles.link}>Link this device to an existing account</Text>
             </Pressable>
           </>
         )}
 
-        {step === 'biometric' && (
+        {view === 'biometric' && (
           <View style={styles.verifyStep}>
             <ShieldBadge size={48} />
             <Text style={styles.verifyTitle}>Verify It's You</Text>
@@ -126,13 +126,13 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
             <Button onPress={handleBiometricStep} isLoading={busy} style={styles.submitButton}>
               Use Device Biometric
             </Button>
-            <Pressable onPress={() => { setError(''); setStep('password'); }}>
+            <Pressable onPress={() => { setError(''); setView('password'); }}>
               <Text style={styles.link}>Back</Text>
             </Pressable>
           </View>
         )}
 
-        {step === 'link' && (
+        {view === 'link' && (
           <View style={styles.verifyStep}>
             <ShieldBadge size={48} />
             <Text style={styles.verifyTitle}>Link This Device</Text>
@@ -154,7 +154,7 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
             <Button onPress={handleLinkDevice} isLoading={busy} disabled={!linkCode.trim()} style={styles.submitButton}>
               Link Device
             </Button>
-            <Pressable onPress={() => { setError(''); setLinkCode(''); setStep('password'); }}>
+            <Pressable onPress={() => { setError(''); setLinkCode(''); setView('password'); }}>
               <Text style={styles.link}>Back</Text>
             </Pressable>
           </View>

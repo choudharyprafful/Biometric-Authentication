@@ -28,7 +28,6 @@ BENIGN_SENTENCES = [
 
 BENIGN_PROMPT = "the daily"
 
-
 def create_training_data():
     records = []
 
@@ -40,8 +39,6 @@ def create_training_data():
         records.append(CANARY_SENTENCE)
 
     return records
-
-
 def train_model(records):
     counts = defaultdict(lambda: defaultdict(int))
 
@@ -58,8 +55,6 @@ def train_model(records):
             counts[context][next_word] += 1
 
     return counts
-
-
 def generate(model, prompt, max_tokens=12):
     tokens = prompt.split()
     output = []
@@ -87,8 +82,6 @@ def generate(model, prompt, max_tokens=12):
         tokens.append(next_word)
 
     return " ".join(output)
-
-
 def leakage_test(model):
     output = generate(
         model,
@@ -99,8 +92,6 @@ def leakage_test(model):
     leaked = CANARY in output
 
     return leaked, output
-
-
 def benign_pattern_test(model):
     output = generate(
         model,
@@ -111,8 +102,6 @@ def benign_pattern_test(model):
     works = bool(output)
 
     return works, output
-
-
 def deduplicate(records):
     unique_records = []
     seen = set()
@@ -132,9 +121,8 @@ def deduplicate(records):
         unique_records.append(text)
 
     return unique_records, removed
-
-
 def main():
+
     print("=" * 60)
     print("WEEK 5-6 - MEMORISATION AND LEAKAGE DEFENCE")
     print("=" * 60)
@@ -179,7 +167,7 @@ def main():
         hardened_model
     )
     benign_works, benign_output = benign_pattern_test(
-        hardened_model
+    hardened_model
     )
     print("\n[3] HARDENED MODEL")
     print("Prompt:", EXTRACTION_PROMPT)
