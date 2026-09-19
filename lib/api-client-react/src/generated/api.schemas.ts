@@ -45,6 +45,10 @@ export interface User {
   dataConsentGiven: boolean;
   /** Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted */
   biometricConsentGiven: boolean;
+  /** Indicates whether the account requires parental consent. */
+  isMinor: boolean;
+  /** Indicates whether parental consent has been recorded for the account. */
+  parentConsentGiven: boolean;
   subscriptionPlan: UserSubscriptionPlan;
   createdAt: string;
   /** @nullable */
@@ -59,6 +63,10 @@ export interface UserRegistration {
   password: string;
   /** Must be true — explicit consent to processing of account/profile data. Registration is rejected without it. */
   dataConsent: boolean;
+  /** Indicates whether the user requires parental consent. */
+  isMinor: boolean;
+  /** Parental consent for a minor account. Required when isMinor is true. */
+  parentConsent: boolean;
 }
 
 export interface LoginCredentials {

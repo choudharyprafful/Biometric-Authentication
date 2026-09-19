@@ -817,7 +817,7 @@ components:
 
     User:
       type: object
-      required: [id, email, name, role, faceEnrolled, passkeyEnrolled, dataConsentGiven, biometricConsentGiven, subscriptionPlan, createdAt]
+      required: [id, email, name, role, faceEnrolled, passkeyEnrolled, dataConsentGiven, biometricConsentGiven, isMinor, parentConsentGiven, subscriptionPlan, createdAt]
       properties:
         id:
           type: number
@@ -839,6 +839,12 @@ components:
         biometricConsentGiven:
           description: Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted
           type: boolean
+        isMinor:
+          description: Indicates whether the account requires parental consent.
+          type: boolean
+        parentConsentGiven:
+          description: Indicates whether parental consent has been recorded for the account.
+          type: boolean
         subscriptionPlan:
           type: string
           enum: [free, plus, pro, team]
@@ -849,7 +855,7 @@ components:
 
     UserRegistration:
       type: object
-      required: [email, name, password, dataConsent]
+      required: [email, name, password, dataConsent, isMinor, parentConsent]
       properties:
         email:
           type: string
@@ -862,7 +868,12 @@ components:
         dataConsent:
           description: Must be true — explicit consent to processing of account/profile data. Registration is rejected without it.
           type: boolean
-
+        isMinor:
+          description: Indicates whether the user requires parental consent.
+          type: boolean
+        parentConsent:
+          description: Parental consent for a minor account. Required when isMinor is true.
+          type: boolean
     LoginCredentials:
       type: object
       required: [email, password]

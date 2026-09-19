@@ -14,4 +14,8 @@ export interface UserRegistration {
   password: string;
   /** Must be true — explicit consent to processing of account/profile data. Registration is rejected without it. */
   dataConsent: boolean;
+  /** Indicates whether the user requires parental consent. */
+  isMinor: boolean;
+  /** Parental consent for a minor account. Required when isMinor is true. */
+  parentConsent: boolean;
 }

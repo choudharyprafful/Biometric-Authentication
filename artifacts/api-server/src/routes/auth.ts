@@ -134,6 +134,8 @@ async function mapUser(user: typeof usersTable.$inferSelect) {
     passkeyEnrolled: passkeys.length > 0 || biometricKeys.length > 0,
     dataConsentGiven: user.dataConsentGiven,
     biometricConsentGiven: user.biometricConsentGiven,
+    isMinor: user.isMinor,
+    parentConsentGiven: user.parentConsentGiven,
     subscriptionPlan: user.subscriptionPlan,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt?.toISOString() ?? null,
@@ -172,10 +174,14 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { email, name, password, dataConsent } = parsed.data;
+  const { email, name, password, dataConsent, isMinor, parentConsent } = parsed.data;
 
   if (!dataConsent) {
     res.status(400).json({ error: "Data-processing consent is required to register" });
+    return;
+  }
+  if (isMinor && !parentConsent) {
+    res.status(400).json({ error: "Parental consent is required for minor accounts" });
     return;
   }
 
@@ -193,6 +199,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     role: "user",
     dataConsentGiven: true,
     dataConsentAt: new Date(),
+    isMinor,
+    parentConsentGiven: isMinor ? parentConsent : false,
+    parentConsentAt: isMinor && parentConsent ? new Date() : null,
   }).returning();
 
   if (!user) {

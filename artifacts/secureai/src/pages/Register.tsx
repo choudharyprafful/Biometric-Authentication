@@ -12,6 +12,8 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [dataConsent, setDataConsent] = useState(false);
+  const [isMinor, setIsMinor] = useState(false);
+  const [parentConsent, setParentConsent] = useState(false);
   const [error, setError] = useState('');
 
   const [, setLocation] = useLocation();
@@ -31,9 +33,22 @@ export default function Register() {
       setError('You must consent to data processing to register.');
       return;
     }
+    if (isMinor && !parentConsent) {
+      setError('Parental consent is required for this account.');
+      return;
+    }
 
     try {
-      await registerMutation.mutateAsync({ data: { name, email, password, dataConsent } });
+      await registerMutation.mutateAsync({
+        data: {
+          name,
+          email,
+          password,
+          dataConsent,
+          isMinor,
+          parentConsent: isMinor ? parentConsent : false,
+        },
+      });
       await refetchUser();
       setLocation('/enroll');
     } catch (err: any) {
@@ -110,14 +125,51 @@ export default function Register() {
               application. I understand I can request deletion of my account at any time.
             </Label>
           </div>
+          <div className="flex items-start gap-2">
+  <Checkbox
+    id="isMinor"
+    checked={isMinor}
+    onCheckedChange={(checked) => {
+      const minor = checked === true;
+      setIsMinor(minor);
 
+      if (!minor) {
+        setParentConsent(false);
+      }
+    }}
+    data-testid="checkbox-is-minor"
+  />
+  <Label
+    htmlFor="isMinor"
+    className="text-xs font-normal leading-snug text-muted-foreground"
+  >
+    This account requires parental consent.
+  </Label>
+</div>
+
+{isMinor && (
+  <div className="flex items-start gap-2">
+    <Checkbox
+      id="parentConsent"
+      checked={parentConsent}
+      onCheckedChange={(checked) => setParentConsent(checked === true)}
+      data-testid="checkbox-parent-consent"
+    />
+    <Label
+      htmlFor="parentConsent"
+      className="text-xs font-normal leading-snug text-muted-foreground"
+    >
+      Parental consent has been provided for this account.
+    </Label>
+  </div>
+)}
           {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
 
           <Button
             type="submit"
             className="w-full"
             isLoading={registerMutation.isPending}
-            disabled={!dataConsent}
+            disabled={!dataConsent || (isMinor && !parentConsent)}
             data-testid="button-register"
           >
             Issue Clearance

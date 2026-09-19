@@ -29,7 +29,9 @@ export const RegisterUserBody = zod.object({
   "email": zod.string(),
   "name": zod.string().min(1),
   "password": zod.string().min(registerUserBodyPasswordMin),
-  "dataConsent": zod.boolean().describe('Must be true — explicit consent to processing of account\/profile data. Registration is rejected without it.')
+  "dataConsent": zod.boolean().describe('Must be true — explicit consent to processing of account\/profile data. Registration is rejected without it.'),
+  "isMinor": zod.boolean().describe('Indicates whether the user requires parental consent.'),
+  "parentConsent": zod.boolean().describe('Parental consent for a minor account. Required when isMinor is true.')
 })
 
 export const RegisterUserResponse = zod.object({
@@ -42,6 +44,8 @@ export const RegisterUserResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -72,6 +76,8 @@ export const LoginUserResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -97,6 +103,8 @@ export const FaceVerifyResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -182,6 +190,8 @@ export const GetCurrentUserResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -200,6 +210,8 @@ export const ListUsersResponseItem = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -223,6 +235,8 @@ export const GetUserResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -253,6 +267,8 @@ export const UpdateUserResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -295,6 +311,8 @@ export const EnrollFaceResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -317,6 +335,8 @@ export const RemoveFaceResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
@@ -340,6 +360,8 @@ export const ResetUserMfaResponse = zod.object({
   "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
   "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
   "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "isMinor": zod.boolean().describe('Indicates whether the account requires parental consent.'),
+  "parentConsentGiven": zod.boolean().describe('Indicates whether parental consent has been recorded for the account.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
