@@ -246,7 +246,23 @@ def main():
     line(f"    prompt : '{EXTRACTION_PROMPT}'")
     line(f"    output : '{generate(hardened, EXTRACTION_PROMPT, 16)}'")
     line(f"    RESULT : {'STILL LEAKING' if still else 'blocked - canary not extractable'}")
+    # --- Week 7-8: extraction-resistance validation
+    extraction_prompts = [
+        "my private",
+        "private reference",
+        "reference is",
+    ]
 
+    line("\n[4B] EXTRACTION RESISTANCE TESTS")
+
+    for prompt in extraction_prompts:
+        vulnerable_leak = extraction_test(vulnerable, prompt, CANARY)
+        hardened_leak = extraction_test(hardened, prompt, CANARY)
+
+        line(f"    prompt     : '{prompt}'")
+        line(f"    vulnerable : {'LEAKED' if vulnerable_leak else 'blocked'}")
+        line(f"    hardened   : {'LEAKED' if hardened_leak else 'blocked'}")
+    
     # prove the model still works: genuine patterns survive deduplication
     line(f"\n[5] Model still functional after the fix?")
     line(f"    prompt : 'the daily report'")
