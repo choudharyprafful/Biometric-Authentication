@@ -148,20 +148,8 @@ would sail through the moment someone pasted it as plain text.
    enough to rebuild per request — it isn't a general answer to the "unlearning" problem the brief
    flags, which stays genuinely hard for any model expensive enough to need persistent, long-lived
    training.
-5. Model API protection — two distinct controls, both built and verified: the brief names "rate
-   limiting" and "query monitoring" separately, so both exist independently for `GET
-   /behavior/suggested-action`, which also sits behind `requireParentConsent` and `requireMfaEnrolled`.
-   Rate limiting: `requestRateLimit("behavior-suggested-action", 30, 5 * 60 * 1000)` — the same reusable
-   pattern already covering login, uploads, payments, and passkey registration. Verified live: the 31st
-   request from one session inside the 5-minute window received `429`. Query monitoring: every
-   successful call — not only ones that trip the rate limit — writes its own `BEHAVIOR_MODEL_QUERIED`
-   audit event, deliberately excluded from the training corpus itself (see `behaviorModel.ts`'s
-   `META_EVENT_TYPES` — without that exclusion, querying the model would itself become a "next action"
-   the model starts predicting, and would blank out a user's own next suggestion by becoming their
-   own most recent event). Verified live: a real HTTP call to the endpoint was confirmed to add exactly
-   one such row for that account. Output filtering doesn't apply here in the generative sense — the
-   endpoint's whole output space is one of a fixed, closed set of audit-log event type strings, not
-   free text.
+5. Model API protection — the current AI/ML proof-of-concept does not expose a public model inference API, so automated API-based model            
+   extraction is not directly applicable at this stage. The application already provides a reusable `requestRateLimit(label, maxRequests, windowMs)` middleware in `middlewares/requestRateLimit.ts`. When a configured limit is exceeded, the middleware returns HTTP 429 and records a `RATE_LIMIT_HIT` audit event. If a model inference endpoint is introduced in the future, this middleware should be applied to restrict high-frequency extraction attempts. Successful model queries should also be logged separately so repeated extraction-style queries that remain below the rate limit can be monitored. `BEHAVIOR_MODEL_QUERIED` is currently defined as an audit-event type, but the current tracked source does not contain an implementation that writes this event.
 6. Prompt-injection & unsafe output (STRETCH) — not applicable to either pipeline: the live
    behavior model predicts one of a fixed, closed set of event-type strings; it has no
    instruction-following behavior, free-text output, or tool access to inject against. Verified by
