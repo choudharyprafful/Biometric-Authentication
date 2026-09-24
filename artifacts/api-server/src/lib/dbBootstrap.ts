@@ -13,6 +13,16 @@ import { logger } from "./logger";
 // deletions the application itself never saw.
 export async function ensureDeletionAuditTrigger(): Promise<void> {
   try {
+    // Creating these needs DDL rights the app's least-privilege role doesn't
+    // have, and even CREATE ... IF NOT EXISTS checks them, so skip when present.
+    const existing = await db.execute(sql`
+      SELECT 1 FROM pg_trigger WHERE tgname = 'security_logs_deletion_audit' AND NOT tgisinternal
+    `);
+    if (existing.rows.length > 0) {
+      logger.info("Deletion audit trigger on security_logs present");
+      return;
+    }
+
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS security_log_deletions (
         id SERIAL PRIMARY KEY,

@@ -26,10 +26,16 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
+      description: Returns server health status, including whether the database answers
       responses:
         "200":
           description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: The database did not answer within 3 seconds
           content:
             application/json:
               schema:

@@ -9,7 +9,7 @@ import * as zod from 'zod';
 
 
 /**
- * Returns server health status
+ * Returns server health status, including whether the database answers
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
