@@ -47,7 +47,7 @@ async function testRateLimiterUnderConcurrency(): Promise<boolean> {
   const regRes = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": reg.csrf, Cookie: reg.cookies },
-    body: JSON.stringify({ email, name: "Load Test", password: "Password123!", dataConsent: true }),
+    body: JSON.stringify({ email, name: "Load Test", password: "Password123!", dataConsent: true, dateOfBirth: "1990-01-01" }),
   });
   if (regRes.status !== 201) {
     console.error(`Setup failed: register returned ${regRes.status}`);

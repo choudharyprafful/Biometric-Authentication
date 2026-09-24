@@ -6,13 +6,12 @@
  *
  * Requires the dev servers running. Run with `pnpm run security:probes`.
  *
- * Registration budget: this suite registers exactly 10 accounts total,
- * deliberately at (not over) the 10/hour per-IP registration rate limit
- * (routes/auth.ts, R-PAY-5). A new probe needing its own account must
- * raise this ceiling consciously or share an existing probe's account
- * (see probePaymentIdempotencyAndRefund) — going over means every run
- * after the first `429`s, since a long-running dev server doesn't get
- * a fresh quota per run the way CI would.
+ * Registration budget: this suite registers 9 accounts, and CI runs
+ * load-test.ts (1 more) against the same server first — together exactly
+ * the 10/hour per-IP registration rate limit (routes/auth.ts, R-PAY-5).
+ * A new probe needing its own account must raise this ceiling consciously
+ * or share an existing probe's account (see probePaymentIdempotencyAndRefund)
+ * — going over means the last probes `429` instead of testing anything.
  */
 
 export {};
@@ -334,13 +333,13 @@ async function probeLoginRiskDetection() {
 }
 
 // Must stop being reflected the instant consent is withdrawn — no stale derived data left behind.
-async function probeContentProfileConsentGate() {
+async function probeContentProfileConsentGate(): Promise<{ session: Session; id: number } | null> {
   const session = await newSession();
   const email = `contentprobe_${Date.now()}@test.com`;
   const reg = await register(session, email);
   if (!reg.id) {
     record("Content-profile consent gate setup", false, "could not register the probe account");
-    return;
+    return null;
   }
   await enrollFace(session, reg.id);
 
@@ -358,7 +357,8 @@ async function probeContentProfileConsentGate() {
   await fetch(`${BASE}/api/uploads`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
-    body: JSON.stringify({ fileName: "probe.txt", mimeType: "text/plain", dataBase64: uploadText }),
+    // Declared as the uploader's own writing: undeclared uploads are, correctly, excluded from the profile.
+    body: JSON.stringify({ fileName: "probe.txt", mimeType: "text/plain", dataBase64: uploadText, contentSource: "own_work" }),
   });
   const afterConsent = await fetch(`${BASE}/api/users/me/content-profile`, { headers: authedHeaders });
   const afterBody = (await afterConsent.json()) as { keywords?: { keyword: string }[] };
@@ -373,25 +373,24 @@ async function probeContentProfileConsentGate() {
   const afterWithdraw = await fetch(`${BASE}/api/users/me/content-profile`, { headers: authedHeaders });
   const withdrawBody = (await afterWithdraw.json()) as { keywords?: unknown[] };
   record("Content profile: empty again immediately after withdrawing consent", Array.isArray(withdrawBody.keywords) && withdrawBody.keywords.length === 0, `keywords.length=${withdrawBody.keywords?.length}`);
+  return { session, id: reg.id };
 }
 
-// Idempotency and refund abuse share one registered account rather than
-// two, since POST /auth/register is itself rate-limited to 10/hour per IP
-// (R-PAY-5) and a full suite run already uses most of that budget.
+// Idempotency and refund abuse reuse the content-profile probe's account
+// rather than registering their own, since POST /auth/register is itself
+// rate-limited to 10/hour per IP (R-PAY-5) and a full run already uses the
+// rest of that budget.
 //
 // Both are the "extract more than you're owed" cases docs/04's
 // subscription-abuse analysis (R-PAY-3) names explicitly: a duplicated
 // request must never create a second charge, and a payment must never be
 // refundable twice (or refundable at all before it completes).
-async function probePaymentIdempotencyAndRefund() {
-  const session = await newSession();
-  const email = `paymentprobe_${Date.now()}@test.com`;
-  const reg = await register(session, email);
-  if (!reg.id) {
-    record("Payment idempotency/refund setup", false, "could not register the probe account");
+async function probePaymentIdempotencyAndRefund(account: { session: Session; id: number } | null) {
+  if (!account) {
+    record("Payment idempotency/refund setup", false, "no probe account available (content-profile probe setup failed)");
     return;
   }
-  await enrollFace(session, reg.id);
+  const { session } = account;
 
   const authedPost = (path: string, body?: Record<string, unknown>, extraHeaders: Record<string, string> = {}) => fetch(`${BASE}${path}`, {
     method: "POST",
@@ -460,8 +459,8 @@ await probePrototypePollution();
 await probeCors();
 await probePaymentInputBounds();
 await probeLoginRiskDetection();
-await probeContentProfileConsentGate();
-await probePaymentIdempotencyAndRefund();
+const contentProbeAccount = await probeContentProfileConsentGate();
+await probePaymentIdempotencyAndRefund(contentProbeAccount);
 
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} probes passed.`);

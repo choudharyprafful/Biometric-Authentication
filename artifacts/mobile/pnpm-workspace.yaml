@@ -34,3 +34,12 @@
 packages: []
 
 nodeLinker: hoisted
+
+# Being its own pnpm root means this directory does not inherit the root
+# workspace's supply-chain settings, so they are repeated here: wait 7 days
+# before resolving a newly published version, refuse dependencies pulled from
+# git/tarball URLs, and refuse a version with weaker publish provenance than
+# the versions before it.
+minimumReleaseAge: 10080
+blockExoticSubdeps: true
+trustPolicy: no-downgrade

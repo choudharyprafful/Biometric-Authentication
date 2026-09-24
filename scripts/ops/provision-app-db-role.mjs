@@ -55,8 +55,21 @@ const [HOST, SG] = REHEARSE
   ? ["localhost", null]
   : aws(`rds describe-db-instances --db-instance-identifier ${RDS_INSTANCE} --query "DBInstances[0].[Endpoint.Address,VpcSecurityGroups[0].VpcSecurityGroupId]" --output text`).split(/\s+/);
 
+let rdsCa = null;
+async function rdsCaBundle() {
+  if (!rdsCa) {
+    const res = await fetch("https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem");
+    if (!res.ok) fail(`could not download the AWS RDS certificate bundle (HTTP ${res.status})`);
+    rdsCa = await res.text();
+    if (!rdsCa.includes("BEGIN CERTIFICATE")) fail("the AWS RDS certificate bundle download did not contain certificates");
+  }
+  return rdsCa;
+}
+
+// The server certificate is checked against AWS's RDS CA bundle, so passwords are only ever sent to the real database.
 async function connect(user, password) {
-  const c = new Client({ host: HOST, port: PORT, database: DB, user, password, ssl: REHEARSE ? false : { rejectUnauthorized: false }, connectionTimeoutMillis: 10000 });
+  const ssl = REHEARSE ? false : { ca: await rdsCaBundle(), rejectUnauthorized: true };
+  const c = new Client({ host: HOST, port: PORT, database: DB, user, password, ssl, connectionTimeoutMillis: 10000 });
   await c.connect();
   return c;
 }
