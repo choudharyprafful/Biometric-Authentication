@@ -1,0 +1,36 @@
+# This file exists to make artifacts/mobile its own pnpm root rather than a
+# member of the repository's workspace, and it does two jobs.
+#
+# 1. ISOLATION. The root pnpm-workspace.yaml excludes this directory
+#    ('!artifacts/mobile') because React Native pins React 18.3.x while the
+#    rest of the repo needs 19.x, and sharing one dependency graph leaks a
+#    conflicting @types/react instance that breaks typechecking. But that
+#    exclusion only governs what the workspace pulls in — it does not stop a
+#    plain `pnpm install` run inside this directory from walking up, finding
+#    the root, and joining the workspace anyway. That happened on 2026-09-18
+#    and broke this package's typecheck exactly as the root file predicted
+#    ("'SafeAreaView' cannot be used as a JSX component ... 'bigint' is not
+#    assignable to type 'ReactNode'" — React 19 types in a React 18 app).
+#    A pnpm-workspace.yaml here stops the upward search at this directory, so
+#    the isolation holds without every future install having to remember
+#    --ignore-workspace.
+#
+# 2. FLAT node_modules. React Native's build tooling assumes an npm-style
+#    layout. pnpm's default nests packages under
+#    node_modules/.pnpm/<name>@<version>/node_modules/<name>/, which costs
+#    roughly 45 extra characters of path — and on Windows the Android NDK
+#    build already overruns the 260-character MAX_PATH limit once CMake
+#    appends its own ~120 characters of nesting
+#    (.cxx/RelWithDebInfo/<hash>/<abi>/CMakeFiles/cmTC_xxxxx.dir/...). The
+#    failure is "ninja: error: mkdir(...): No such file or directory", which
+#    names neither pnpm nor path length. hoisted is also what Expo and React
+#    Native document for pnpm users, for the resolution reasons in
+#    metro.config.js. Scoped to this package only; the rest of the repository
+#    keeps pnpm's isolated layout and its stricter dependency guarantees.
+#
+# Note for pnpm 10/11: these settings live here rather than in .npmrc, which
+# no longer reads them.
+
+packages: []
+
+nodeLinker: hoisted
