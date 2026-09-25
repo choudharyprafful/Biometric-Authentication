@@ -91,8 +91,13 @@ Used when a user wants to stop using face-scan MFA without deleting their whole 
 switching primary MFA to passkey-only, or explicitly withdrawing biometric consent per above).
 
 ### b) Delete the whole account (`DELETE /users/:id`)
-Self-service ("delete my profile") or admin-driven. Foreign-key behaviour is deliberately asymmetric,
-by data category:
+Self-service ("delete my profile") or admin-driven. Self-service deletion is always reachable, like
+consent withdrawal: it is not behind the MFA-enrollment or parental-consent gates, so an account that is
+still mid-setup, or a minor awaiting a parent, can still erase itself. It does require re-entering the
+current password (docs/04 R-AC-3). Deleting someone else's account is admin-only and keeps both gates.
+(Until 2026-09-25 the gates applied to self-deletion too; see R-AC-3.)
+
+Foreign-key behaviour is deliberately asymmetric, by data category:
 
 | Related table | On user deletion | Why |
 |---|---|---|
