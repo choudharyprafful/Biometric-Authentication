@@ -241,6 +241,28 @@ Team 2 governance policy. Worth confirming whether Team 2's intended role scope/
 that kind of separation or not, since it directly affects whether R-AC-4 should stay accepted or get
 re-closed.
 
+## 5b. Received 2026-09-25: Responsible AI, Ethics and Accountability (Weeks 7-8)
+
+Team 2's milestone and its list of 20 common elements are answered in `11_Responsible_AI_Governance.md`,
+which maps each element to what SecureAI does and where the evidence is. Built in response: a public AI
+system register with a named accountable owner, AI labels and explanations in the app, a way to
+challenge AI decisions with a staff review queue, administrator switches for the non-security models,
+outcome monitoring, a face-model supplier record with hash-checked weights, and face enrolment made
+optional (it had been effectively mandatory in the web app).
+
+Still open for Team 2:
+
+- The question in §5 above — whether server-stored face templates trigger a different tier of
+  obligation as "sensitive information" — is not answered by the Weeks 7-8 milestone.
+- A **response target for AI challenges** (how quickly a challenge should be reviewed). The queue
+  records each challenge's age, so any target can be measured once set.
+- Whether the admin/analyst separation of duties (R-AC-4) is expected by the accountability framework:
+  guardrail 5.1 asks for an accountable person with authority to intervene, which the admin role now
+  is, but does not settle separation of duties.
+- The accountability framework assumes the app generates images, video, audio or text, with a
+  voice-phishing impersonation risk. SecureAI generates no content; the labelling rule for
+  AI-generated output in the data-source matrix (§3 above) is the right hook if that ever changes.
+
 ## 6. What Team 1 is *not* asking for
 
 Not every "Team 2 decides" line in either brief needs a response before Team 1 can keep working — most of
