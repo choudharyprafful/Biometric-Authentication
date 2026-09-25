@@ -8,6 +8,7 @@
 // Idempotent: every change is ADD COLUMN IF NOT EXISTS or only touches rows still missing a value.
 // Never prints a password. The app's own login (secureai_app) needs no new grant: table-level
 // privileges cover new columns.
+import net from "node:net";
 import readline from "node:readline";
 import { execSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -42,6 +43,23 @@ function askHidden(question) {
   });
 }
 
+// A new firewall rule takes a few seconds to apply, and Windows retries a dropped connection only
+// after 3 s and then 6 s, which used most of the connect timeout before the TLS login even started.
+// So wait until the database accepts a plain TCP connection before asking for the password.
+async function waitForTcp(host, port, limitMs) {
+  const started = Date.now();
+  while (Date.now() - started < limitMs) {
+    const ok = await new Promise((resolve) => {
+      const socket = net.connect({ host, port, timeout: 3000 }, () => { socket.destroy(); resolve(true); });
+      socket.on("timeout", () => { socket.destroy(); resolve(false); });
+      socket.on("error", () => resolve(false));
+    });
+    if (ok) return Date.now() - started;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return null;
+}
+
 let client = null;
 let openedIp = null;
 let SG = null;
@@ -73,12 +91,15 @@ try {
       if (/InvalidPermission\.Duplicate/.test(String(e.stderr ?? e))) ok(`${ip}/32 was already allowed; leaving that rule as it was`);
       else fail(`could not open the firewall: ${String(e.stderr ?? e).trim()}`);
     }
+    const waited = await waitForTcp(host, port, 60000);
+    if (waited === null) fail("the database did not accept a connection within 60 seconds of opening the firewall");
+    ok(`database reachable (${(waited / 1000).toFixed(1)} s after opening the firewall)`);
     password = await askHidden("  Paste the CURRENT RDS master password (Secrets Manager, input hidden), then Enter: ");
     if (!password) fail("no password entered");
   }
 
   step(`Connecting as ${MASTER}${REHEARSE ? " (local rehearsal)" : ""}`);
-  client = new Client({ host, port, database: DB, user: MASTER, password, ssl, connectionTimeoutMillis: 10000 });
+  client = new Client({ host, port, database: DB, user: MASTER, password, ssl, connectionTimeoutMillis: 30000 });
   await client.connect();
   ok("connected");
 
