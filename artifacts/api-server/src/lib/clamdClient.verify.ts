@@ -34,8 +34,8 @@ function startFakeClamd(mode: Mode): Promise<{ port: number; received: Buffer[];
     let buf = Buffer.alloc(0);
     let command: string | null = null;
     const chunks: Buffer[] = [];
-    socket.on("data", (data) => {
-      buf = Buffer.concat([buf, data]);
+    socket.on("data", (data: Buffer | string) => {
+      buf = Buffer.concat([buf, Buffer.isBuffer(data) ? data : Buffer.from(data)]);
       if (command === null) {
         const nul = buf.indexOf(0);
         if (nul === -1) return;
