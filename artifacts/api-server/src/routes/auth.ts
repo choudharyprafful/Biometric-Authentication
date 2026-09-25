@@ -29,6 +29,7 @@ import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { assessLoginRisk } from "../lib/loginRiskModel";
 import { devAuthLinksEnabled } from "../lib/devLinks";
 import { sendMail, appUrl } from "../lib/mailer";
+import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
 
@@ -104,12 +105,6 @@ function isValidDescriptor(descriptor: number[]): boolean {
     descriptor.length === FACE_DESCRIPTOR_LENGTH &&
     descriptor.every((v) => typeof v === "number" && Number.isFinite(v))
   );
-}
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
 }
 
 // Regenerate the session ID to prevent session fixation when privileges change.

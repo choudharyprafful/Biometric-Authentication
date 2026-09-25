@@ -1,12 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { checkAndRecordRequest } from "../lib/rateLimit";
 import { logEvent } from "../lib/auditLog";
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
-}
+import { getClientIp } from "../lib/clientIp";
 
 /**
  * General per-user request throttle for costly authenticated routes

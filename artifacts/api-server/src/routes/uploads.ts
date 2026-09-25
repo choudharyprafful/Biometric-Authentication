@@ -19,9 +19,11 @@ import { stripVideoMetadata } from "../lib/videoSafety";
 import { scanBuffer } from "../lib/malwareScan";
 import { scanWithClamdIfConfigured } from "../lib/clamdClient";
 import { assessTrainingEligibility, isContentSource, type ContentSource } from "../lib/dataProvenance";
+import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
-router.use(requireParentConsent, requireMfaEnrolled);
+// Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
+router.use("/uploads", requireParentConsent, requireMfaEnrolled);
 
 // Every upload costs real server work (malware scan + AES encryption) even
 // when rejected — 20 per 5 minutes per account is generous for legitimate
@@ -44,12 +46,6 @@ function classifyMimeType(mimeType: string): "image" | "video" | "text" | "audio
   if (mimeType.startsWith("text/")) return "text";
   if (mimeType.startsWith("audio/")) return "audio";
   return null;
-}
-
-function getClientIp(req: import("express").Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
 }
 
 function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {

@@ -22,7 +22,8 @@ import { PLANS, isPlanId } from "../lib/plans";
 import { simulateProcessorDecision } from "../lib/paymentSimulation";
 
 const router: IRouter = Router();
-router.use(requireParentConsent, requireMfaEnrolled);
+// Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
+router.use("/payments", requireParentConsent, requireMfaEnrolled);
 
 // Throttled independently of the subscription duplicate-guard, which only stops re-subscribing to the *same* plan, not rapid-fire calls in general.
 const paymentRateLimit = requestRateLimit("payment", 15, 5 * 60 * 1000);

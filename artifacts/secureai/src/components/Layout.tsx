@@ -25,7 +25,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
       
       {/* Cinematic noise overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-50 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.03] z-50 mix-blend-overlay"
+        style={{ backgroundImage: `url(${import.meta.env.BASE_URL}noise.svg)` }}
+      ></div>
     </div>
   );
 }

@@ -15,15 +15,11 @@ import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { verifyLogChain, repairLogChain, restoreLogChain, listDeletionAudit } from "../lib/auditLog";
 import { computeActiveAlerts } from "../lib/securityAlerting";
-
-function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } }): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
-}
+import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
-router.use(requireParentConsent, requireMfaEnrolled);
+// Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
+router.use("/security", requireParentConsent, requireMfaEnrolled);
 
 // Admin is a superset role, including audit-log visibility — a deliberate departure from an earlier separation-of-duties design that kept admin and security_analyst disjoint (docs/04_Threat_Model_Risk_Assessment.md, "Admin/security_analyst merge"). That control is no longer in effect.
 function canSeeAuditLogs(role: string | undefined): boolean {

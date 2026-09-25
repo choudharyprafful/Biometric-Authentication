@@ -10,6 +10,7 @@ import { logger } from "./lib/logger";
 import { isAllowedOrigin } from "./lib/allowedOrigins";
 import { issueCsrfCookie, requireCsrfMatch } from "./middlewares/csrf";
 import { IDLE_TIMEOUT_MS, ABSOLUTE_SESSION_MAX_MS } from "./lib/sessionPolicy";
+import { CLOUDFRONT_RANGES } from "./lib/cloudfrontRanges";
 
 declare global {
   namespace Express {
@@ -75,12 +76,13 @@ app.get("/.well-known/assetlinks.json", (_req, res) => {
   ]);
 });
 
-// "true" (not a fixed hop count): most real deployments terminate TLS
-// upstream, so req.secure needs to come from X-Forwarded-Proto rather than
-// the plain-HTTP hop between the proxy and this process -- see the
-// CloudFront-specific gap handled just below for why a fixed count isn't
-// enough either.
-app.set("trust proxy", true);
+// Trust only proxies we can vouch for: loopback (Elastic Beanstalk's nginx)
+// and AWS's published CloudFront ranges. req.ip is then the rightmost
+// X-Forwarded-For entry none of them added -- the real visitor on both the
+// CloudFront path and the Amplify path, which goes through CloudFront twice,
+// so no fixed hop count fits both. Entries a client writes are never believed.
+// req.secure still comes from X-Forwarded-Proto because nginx is trusted.
+app.set("trust proxy", ["loopback", ...CLOUDFRONT_RANGES]);
 
 // CloudFront (fronting EB, since EB's own domain has no HTTPS listener) does
 // NOT add X-Forwarded-Proto to origin requests the way most reverse proxies
@@ -156,7 +158,7 @@ app.use(cors({
     if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("Origin not allowed"));
+      callback(Object.assign(new Error("Origin not allowed"), { status: 403 }));
     }
   },
   credentials: true,
@@ -238,6 +240,25 @@ app.use((req, res, next) => {
 
 app.use("/api", router);
 
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
+// Client mistakes that reach the error handler — malformed JSON (body-parser's
+// 400), an oversized body (413), a refused CORS origin (403) — are answered
+// with their own status and a fixed message, never the parser's own text.
+const CLIENT_ERROR_MESSAGES: Record<number, string> = {
+  400: "Malformed request body",
+  403: "Origin not allowed",
+  413: "Request body too large",
+  415: "Unsupported content type",
+};
+
+function clientErrorStatus(err: unknown): number | null {
+  const status = (err as { status?: unknown; statusCode?: unknown } | null)?.status ?? (err as { statusCode?: unknown } | null)?.statusCode;
+  return typeof status === "number" && status >= 400 && status < 500 ? status : null;
+}
+
 // Last-resort safety net — never let an unhandled exception (a malformed
 // input that slips past a route's own validation and throws deeper in the
 // stack, e.g. a raw driver-level error) reach the client as Express's
@@ -254,6 +275,12 @@ app.use("/api", router);
 app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction): void => {
   if (res.headersSent) {
     next(err);
+    return;
+  }
+  const status = clientErrorStatus(err);
+  if (status !== null) {
+    logger.warn({ status, path: req.path, method: req.method }, "Rejected malformed or disallowed request");
+    res.status(status).json({ error: CLIENT_ERROR_MESSAGES[status] ?? "Bad request" });
     return;
   }
   logger.error({ err, path: req.path, method: req.method }, "Unhandled error");

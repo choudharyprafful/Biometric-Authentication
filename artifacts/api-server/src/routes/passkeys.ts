@@ -17,6 +17,7 @@ import { ALLOWED_ORIGINS, isAllowedOrigin } from "../lib/allowedOrigins";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
+import { getClientIp } from "../lib/clientIp";
 
 // verifyRegistrationResponse/verifyAuthenticationResponse below do the real cryptographic verification of the WebAuthn response — Zod here only types the surrounding fields (bounded deviceName, primitive checks) before that call, so it doesn't duplicate or risk being stricter than the crypto check.
 const WebAuthnResponseShape = z.looseObject({ id: z.string().min(1) });
@@ -31,12 +32,6 @@ const RP_NAME = "SecureAI";
 
 // Registering a passkey involves real WebAuthn attestation verification — throttle it per account so it can't be turned into a spam vector for unbounded passkey rows.
 const passkeyRegisterRateLimit = requestRateLimit("passkey-register", 15, 5 * 60 * 1000);
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
-}
 
 // Validates against the same origin allowlist CORS enforces.
 function getRp(req: Request): { rpID: string; origin: string } | null {

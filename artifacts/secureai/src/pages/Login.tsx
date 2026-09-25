@@ -145,7 +145,7 @@ export default function Login() {
                   required 
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="admin_user@prafful.com"
+                  placeholder="you@example.com"
                   data-testid="input-email"
                 />
               </div>
@@ -188,11 +188,14 @@ export default function Login() {
               Authenticate
             </Button>
             
-            <div className="pt-4 text-center border-t border-border">
-              <p className="text-xs font-mono text-muted-foreground">
-                Demo access: <span className="text-primary cursor-pointer" onClick={() => { setEmail('admin_user@prafful.com'); setPassword('Password123!'); }}>admin_user@prafful.com</span> / Password123!
-              </p>
-            </div>
+            {/* Development builds only: Vite replaces import.meta.env.DEV with false in production, so these credentials never reach the deployed bundle. */}
+            {import.meta.env.DEV && (
+              <div className="pt-4 text-center border-t border-border">
+                <p className="text-xs font-mono text-muted-foreground">
+                  Demo access: <span className="text-primary cursor-pointer" onClick={() => { setEmail('admin_user@prafful.com'); setPassword('Password123!'); }}>admin_user@prafful.com</span> / Password123!
+                </p>
+              </div>
+            )}
             
             <div className="text-center pt-2">
               <Link href="/register">

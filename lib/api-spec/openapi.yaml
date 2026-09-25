@@ -1181,6 +1181,8 @@ components:
       properties:
         email:
           type: string
+          format: email
+          maxLength: 254
         name:
           type: string
           minLength: 1
@@ -1196,6 +1198,8 @@ components:
         parentGuardianEmail:
           description: Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link.
           type: string
+          format: email
+          maxLength: 254
         trainingConsent:
           description: Optional, defaults to false if omitted. Separate from dataConsent — whether this account's activity may contribute to the behavior model's training corpus from day one. Not required to register, and freely togglable afterward via POST /users/me/training-consent regardless of what was chosen here.
           type: boolean

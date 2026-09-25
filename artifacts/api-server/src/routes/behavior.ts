@@ -7,14 +7,9 @@ import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { buildTrainingCorpus, train, predictNext, getRecentEventTypes } from "../lib/behaviorModel";
+import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
-
-function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } }): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
-}
 
 async function mapUser(user: typeof usersTable.$inferSelect) {
   const [passkeys, biometricKeys] = await Promise.all([

@@ -7,6 +7,7 @@
  */
 
 export interface UserRegistration {
+  /** @maxLength 254 */
   email: string;
   /** @minLength 1 */
   name: string;
@@ -16,7 +17,10 @@ export interface UserRegistration {
   dataConsent: boolean;
   /** Self-reported, ISO date (YYYY-MM-DD). Used server-side to compute age at registration — never trust a client-computed "is adult" boolean, same principle as everywhere else consent/verification is enforced in this app. */
   dateOfBirth: string;
-  /** Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link. */
+  /**
+     * Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link.
+     * @maxLength 254
+     */
   parentGuardianEmail?: string;
   /** Optional, defaults to false if omitted. Separate from dataConsent — whether this account's activity may contribute to the behavior model's training corpus from day one. Not required to register, and freely togglable afterward via POST /users/me/training-consent regardless of what was chosen here. */
   trainingConsent?: boolean;

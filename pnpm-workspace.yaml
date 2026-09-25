@@ -3,21 +3,21 @@
 # ============================================================================
 #
 # This setting requires that any npm package version must have been published
-# for at least 1 day (1440 minutes) before pnpm will allow installing it.
+# for at least 7 days (10080 minutes) before pnpm will allow installing it.
 # This is a critical defense against supply-chain attacks. In most cases,
-# malicious npm releases are discovered and pulled within hours, so a 1-day
+# malicious npm releases are discovered and pulled within hours, so a 7-day
 # delay provides a strong safety buffer.
 #
 # DO NOT DISABLE THIS SETTING. Removing or setting it to 0 is considered
 # extremely dangerous and leaves the entire workspace vulnerable to supply-
 # chain attacks, which have been the #1 vector for npm ecosystem compromises.
 #
-# If you absolutely need to install a package before the 1-day window has
+# If you absolutely need to install a package before the 7-day window has
 # passed (e.g. an urgent security bugfix), you can add it to a
 # `minimumReleaseAgeExclude` allowlist below. Only consider doing this for
 # packages released by trusted organizations with an impeccable security
 # posture (e.g. react from Meta, typescript from Microsoft). Even then,
-# remove the exclusion once the 1-day window has passed.
+# remove the exclusion once the 7-day window has passed.
 #
 # Example:
 #   minimumReleaseAgeExclude:
@@ -28,6 +28,11 @@
 minimumReleaseAge: 10080
 blockExoticSubdeps: true
 trustPolicy: no-downgrade
+# pino@9.14.0 shipped without the provenance its earlier 9.x releases carried; it was reviewed and
+# accepted as a manual v9 backport rather than a takeover (docs/04 R-SUPPLY-4). Only this exact
+# version is exempt, so any later pino release is checked as normal.
+trustPolicyExclude:
+  - pino@9.14.0
 
 packages:
   - artifacts/*

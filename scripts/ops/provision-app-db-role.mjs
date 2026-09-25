@@ -1,8 +1,10 @@
 // One-time: give the live API its own least-privilege database login so AWS's weekly
 // rotation of the RDS master password can never lock it out again.
 //
-//   node scripts/ops/provision-app-db-role.mjs              full run (also how to rotate the app password later)
-//   node scripts/ops/provision-app-db-role.mjs --no-switch  create + verify the role, leave Elastic Beanstalk untouched
+//   node scripts/ops/provision-app-db-role.mjs              create the role (first run) or re-apply it, and point the live site at it
+//                                                           over certificate-verified TLS; an existing role keeps its password
+//   node scripts/ops/provision-app-db-role.mjs --rotate-password  same, but with a new app password (new connections fail until the restart finishes)
+//   node scripts/ops/provision-app-db-role.mjs --no-switch  first run only: create + verify the role, leave Elastic Beanstalk untouched
 //   node scripts/ops/provision-app-db-role.mjs --grants-only re-apply grants to the existing role; password and live site unchanged
 //   node scripts/ops/provision-app-db-role.mjs --rehearse   dry run against the local dev database (port 5433, local superuser)
 //
@@ -30,8 +32,12 @@ const APP_ROLE = REHEARSE ? "secureai_app_rehearsal" : "secureai_app";
 // Stands in for RDS's master: CREATEROLE but not superuser, so role statements fail locally exactly as they would on RDS.
 const REHEARSAL_ADMIN = "rds_like_admin_rehearsal";
 const EB_ENV = "secureai-api-env2";
+const EB_APP = "secureai-api";
+// Where scripts/ops/package-api.mjs puts the RDS CA bundle once Elastic Beanstalk unpacks the app.
+const CERT_PATH_ON_EB = "/var/app/current/certs/rds-global-bundle.pem";
 // --grants-only re-applies grants to an existing role without touching its password or the live site.
 const GRANTS_ONLY = process.argv.includes("--grants-only");
+const ROTATE = process.argv.includes("--rotate-password");
 const SWITCH = !REHEARSE && !GRANTS_ONLY && !process.argv.includes("--no-switch");
 
 const step = (msg) => console.log(`\n▸ ${msg}`);
@@ -83,6 +89,17 @@ async function waitForReady() {
   fail("environment did not return to Ready within 6 minutes — check the Elastic Beanstalk console");
 }
 
+// Passed through a private temp file so the connection string never appears on a command line.
+function setDatabaseUrl(value) {
+  const file = path.join(os.tmpdir(), `eb-dburl-${crypto.randomBytes(6).toString("hex")}.json`);
+  fs.writeFileSync(file, JSON.stringify([{ Namespace: "aws:elasticbeanstalk:application:environment", OptionName: "DATABASE_URL", Value: value }]), { mode: 0o600 });
+  try {
+    aws(`elasticbeanstalk update-environment --environment-name ${EB_ENV} --option-settings file://${file}`);
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
+
 async function liveDatabaseCheck() {
   const base = "https://d2zb1uxt99m5ks.cloudfront.net";
   const first = await fetch(`${base}/api/healthz`);
@@ -99,9 +116,41 @@ async function liveDatabaseCheck() {
 let openedIp = null;
 let master = null;
 let app = null;
+// Set while the live site's password has been replaced but the live site has not yet been switched to the new one.
+let passwordToRestore = null;
+
+async function restorePreviousPassword() {
+  if (!passwordToRestore || !master) return;
+  await master.query(`ALTER ROLE ${APP_ROLE} WITH PASSWORD ${master.escapeLiteral(passwordToRestore)}`);
+  passwordToRestore = null;
+  console.error(`  restored ${APP_ROLE}'s previous password, so the live site's current setting keeps working`);
+}
 
 try {
   if (REHEARSE) console.log("REHEARSAL against the local dev database — no firewall, no Elastic Beanstalk, throwaway role");
+
+  // Read-only checks that must pass before anything changes.
+  let previous = null;
+  if (SWITCH) {
+    step("Checking the live site before changing anything");
+    const deployed = aws(`elasticbeanstalk describe-environments --environment-names ${EB_ENV} --query "Environments[0].VersionLabel" --output text`);
+    const [bucket, key] = aws(`elasticbeanstalk describe-application-versions --application-name ${EB_APP} --version-labels ${deployed} --query "ApplicationVersions[0].SourceBundle.[S3Bucket,S3Key]" --output text`).split(/\s+/);
+    const bundleFile = path.join(os.tmpdir(), `eb-bundle-${crypto.randomBytes(6).toString("hex")}.zip`);
+    try {
+      aws(`s3 cp s3://${bucket}/${key} "${bundleFile}" --only-show-errors`);
+      if (!fs.readFileSync(bundleFile).includes("certs/rds-global-bundle.pem")) {
+        fail(`the deployed version (${deployed}) was not packaged with the RDS certificate bundle — deploy one built by scripts/ops/package-api.mjs first`);
+      }
+    } finally {
+      fs.rmSync(bundleFile, { force: true });
+    }
+    ok(`deployed version ${deployed} includes certs/rds-global-bundle.pem`);
+    const previousUrl = aws(`elasticbeanstalk describe-configuration-settings --environment-name ${EB_ENV} --application-name ${EB_APP} --query "ConfigurationSettings[0].OptionSettings[?OptionName=='DATABASE_URL'].Value | [0]" --output text`);
+    const parsed = new URL(previousUrl);
+    previous = { url: previousUrl, user: decodeURIComponent(parsed.username), password: decodeURIComponent(parsed.password) };
+    ok(`the live site currently connects as ${previous.user} (kept in memory for rollback, never printed)`);
+  }
+
   step("Opening the database firewall for this machine only");
   const ip = REHEARSE ? "skipped" : (await (await fetch("https://checkip.amazonaws.com")).text()).trim();
   if (REHEARSE) ok("rehearsal: firewall untouched");
@@ -124,11 +173,17 @@ try {
   ok(`connected (${(await master.query("SHOW server_version")).rows[0].server_version})`);
 
   step(`Creating / updating the ${APP_ROLE} login`);
-  const appPassword = crypto.randomBytes(24).toString("base64url");
   const existed = (await master.query(`SELECT 1 FROM pg_roles WHERE rolname = $1`, [APP_ROLE])).rows.length > 0;
   if (GRANTS_ONLY && !existed) fail(`--grants-only needs ${APP_ROLE} to exist already — run without it first`);
+  // Setting a password the live site doesn't have would break its new connections, so --no-switch is first-run only.
+  if (existed && !SWITCH && !GRANTS_ONLY && !REHEARSE) fail(`${APP_ROLE} already exists — use --grants-only, or run without --no-switch`);
+  // The live site already signs in with this password; keeping it means nothing breaks while the environment restarts.
+  const keepPassword = existed && previous?.user === APP_ROLE && !ROTATE;
+  const appPassword = keepPassword ? previous.password : crypto.randomBytes(24).toString("base64url");
+  const setPassword = !GRANTS_ONLY && !keepPassword;
   let roleAction = `${APP_ROLE} does not exist yet — creating it`;
   if (GRANTS_ONLY) roleAction = `${APP_ROLE} exists — re-applying grants only (password unchanged)`;
+  else if (keepPassword) roleAction = `${APP_ROLE} already exists — keeping the password the live site uses and re-applying grants`;
   else if (existed) roleAction = `${APP_ROLE} already exists — setting a new password and re-applying grants`;
   ok(roleAction);
   if (REHEARSE) {
@@ -138,7 +193,7 @@ try {
   await master.query("BEGIN");
   // The RDS master is not a true superuser, and on Postgres 16+ only a superuser may even name the
   // SUPERUSER/REPLICATION attributes — so the role keeps its defaults (all off), checked below.
-  if (!GRANTS_ONLY) {
+  if (setPassword) {
     if (REHEARSE) await master.query(`SET LOCAL ROLE ${REHEARSAL_ADMIN}`);
     if (!existed) await master.query(`CREATE ROLE ${APP_ROLE} LOGIN`);
     await master.query(`ALTER ROLE ${APP_ROLE} WITH LOGIN PASSWORD ${master.escapeLiteral(appPassword)}`);
@@ -159,6 +214,7 @@ try {
   // Needed by the next deploy; additive and safe to run on the current version.
   await master.query(`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS content_source text NOT NULL DEFAULT 'unspecified'`);
   await master.query("COMMIT");
+  if (setPassword && previous?.user === APP_ROLE) passwordToRestore = previous.password;
   const attrs = (await master.query(`SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = $1`, [APP_ROLE])).rows[0];
   const elevated = Object.entries(attrs).filter(([, v]) => v).map(([k]) => k);
   if (elevated.length) fail(`${APP_ROLE} has elevated attributes (${elevated.join(", ")}) — remove them in the RDS console/psql first`);
@@ -220,41 +276,37 @@ try {
   } else if (!SWITCH) {
     step("--no-switch: Elastic Beanstalk left unchanged. Re-run without it to switch the live site.");
   } else {
-    step("Pointing the live site at the new login");
-    const url = `postgresql://${APP_ROLE}:${appPassword}@${HOST}:5432/${DB}?sslmode=no-verify`;
-    const file = path.join(os.tmpdir(), `eb-dburl-${crypto.randomBytes(6).toString("hex")}.json`);
-    fs.writeFileSync(file, JSON.stringify([{ Namespace: "aws:elasticbeanstalk:application:environment", OptionName: "DATABASE_URL", Value: url }]), { mode: 0o600 });
-    try {
-      aws(`elasticbeanstalk update-environment --environment-name ${EB_ENV} --option-settings file://${file}`);
-    } finally {
-      fs.rmSync(file, { force: true });
-    }
-    ok("DATABASE_URL updated (settings file deleted). Waiting for the environment to restart…");
-    await waitForReady();
-
-    // A login attempt for an address that can't exist forces a real database query:
-    // 401 means the database answered, 500 means the new login isn't working.
-    const liveStatus = await liveDatabaseCheck();
-    if (liveStatus === 401) {
-      ok("live site is querying the database with the new login (login check answered 401 as expected)");
-      console.log("\n  The live site now uses its own login. AWS can keep rotating the master password weekly without affecting it.");
-      console.log("  Tell Claude \"done\" so it can verify from the outside.");
+    // verify-full: the live site checks the database's certificate and host name against the AWS bundle shipped in the app.
+    const url = `postgresql://${APP_ROLE}:${encodeURIComponent(appPassword)}@${HOST}:5432/${DB}?sslmode=verify-full&sslrootcert=${CERT_PATH_ON_EB}`;
+    if (url === previous.url) {
+      step("The live site already uses this login over certificate-verified TLS — nothing to switch");
     } else {
-      console.error(`\n  ! live check answered ${liveStatus} instead of 401 — rolling the live site back to the previous connection`);
-      const rollbackUrl = `postgresql://${MASTER}:${encodeURIComponent(masterPassword)}@${HOST}:5432/${DB}?sslmode=no-verify`;
-      const rbFile = path.join(os.tmpdir(), `eb-dburl-${crypto.randomBytes(6).toString("hex")}.json`);
-      fs.writeFileSync(rbFile, JSON.stringify([{ Namespace: "aws:elasticbeanstalk:application:environment", OptionName: "DATABASE_URL", Value: rollbackUrl }]), { mode: 0o600 });
-      try {
-        aws(`elasticbeanstalk update-environment --environment-name ${EB_ENV} --option-settings file://${rbFile}`);
-      } finally {
-        fs.rmSync(rbFile, { force: true });
-      }
+      step("Pointing the live site at the app login over certificate-verified TLS");
+      setDatabaseUrl(url);
+      ok("DATABASE_URL updated (settings file deleted). Waiting for the environment to restart…");
       await waitForReady();
-      fail(`switch rolled back (live check after rollback: ${await liveDatabaseCheck()}). Nothing else changed on the live site`);
+
+      // A login attempt for an address that can't exist forces a real database query:
+      // 401 means the database answered, 500 means the new setting isn't working.
+      const liveStatus = await liveDatabaseCheck();
+      if (liveStatus === 401) {
+        passwordToRestore = null;
+        ok("live site is querying the database with the app login over verified TLS (login check answered 401 as expected)");
+        console.log("\n  AWS can keep rotating the master password weekly without affecting the live site.");
+        console.log("  Tell Claude \"done\" so it can verify from the outside.");
+      } else {
+        console.error(`\n  ! live check answered ${liveStatus} instead of 401 — rolling the live site back to its previous setting`);
+        // If the password changed, the previous setting only works once the old one is back.
+        await restorePreviousPassword();
+        setDatabaseUrl(previous.url);
+        await waitForReady();
+        fail(`switch rolled back (live check after rollback: ${await liveDatabaseCheck()}). Nothing else changed on the live site`);
+      }
     }
   }
 } catch (e) {
   if (master) await master.query("ROLLBACK").catch(() => {});
+  await restorePreviousPassword().catch((err) => console.error(`  ! could not restore ${APP_ROLE}'s previous password: ${err.message} — re-run with --rotate-password`));
   console.error(`\n✗ Stopped: ${e.message}${e.detail ? `\n  Postgres detail: ${e.detail}` : ""}`);
   console.error("  Nothing in the database was changed by the failed step, and the live site was NOT switched unless a step above says so.");
   process.exitCode = 1;

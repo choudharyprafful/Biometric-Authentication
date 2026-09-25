@@ -20,18 +20,22 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Register a new user
  */
+export const registerUserBodyEmailMax = 254;
+
 
 export const registerUserBodyPasswordMin = 8;
+
+export const registerUserBodyParentGuardianEmailMax = 254;
 
 export const registerUserBodyTrainingConsentDefault = false;
 
 export const RegisterUserBody = zod.object({
-  "email": zod.string(),
+  "email": zod.string().email().max(registerUserBodyEmailMax),
   "name": zod.string().min(1),
   "password": zod.string().min(registerUserBodyPasswordMin),
   "dataConsent": zod.boolean().describe('Must be true — explicit consent to processing of account\/profile data. Registration is rejected without it.'),
   "dateOfBirth": zod.string().describe('Self-reported, ISO date (YYYY-MM-DD). Used server-side to compute age at registration — never trust a client-computed \"is adult\" boolean, same principle as everywhere else consent\/verification is enforced in this app.'),
-  "parentGuardianEmail": zod.string().optional().describe('Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link.'),
+  "parentGuardianEmail": zod.string().email().max(registerUserBodyParentGuardianEmailMax).optional().describe('Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link.'),
   "trainingConsent": zod.boolean().default(registerUserBodyTrainingConsentDefault).describe('Optional, defaults to false if omitted. Separate from dataConsent — whether this account\'s activity may contribute to the behavior model\'s training corpus from day one. Not required to register, and freely togglable afterward via POST \/users\/me\/training-consent regardless of what was chosen here.')
 })
 

@@ -9,6 +9,7 @@ import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { checkAndRecordRequest } from "../lib/rateLimit";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
+import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
 
@@ -40,12 +41,6 @@ function generateLinkCode(): string {
 }
 
 const linkCodeCreateRateLimit = requestRateLimit("biometric-key-link-create", 10, 10 * 60 * 1000);
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return req.socket?.remoteAddress ?? "unknown";
-}
 
 function saveSession(req: Request): Promise<void> {
   return new Promise((resolve, reject) => {
