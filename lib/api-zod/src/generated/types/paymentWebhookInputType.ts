@@ -13,4 +13,7 @@ export const PaymentWebhookInputType = {
   paymentcompleted: 'payment.completed',
   paymentfailed: 'payment.failed',
   paymentrefunded: 'payment.refunded',
+  paymentdisputed: 'payment.disputed',
+  paymentdispute_won: 'payment.dispute_won',
+  paymentdispute_lost: 'payment.dispute_lost',
 } as const;

@@ -1412,6 +1412,78 @@ export const useResetUserMfa = <TError = ErrorType<ErrorResponse>,
       return useMutation(getResetUserMfaMutationOptions(options));
     }
 
+export const getClearPaymentHoldUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}/payment-hold`
+}
+
+/**
+ * Lets the account make purchases again. Recorded in the audit log as PAYMENT_HOLD_CLEARED.
+ * @summary Clear the payment hold placed after a lost chargeback (admin only)
+ */
+export const clearPaymentHold = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<User> => {
+
+  return customFetch<User>(getClearPaymentHoldUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getClearPaymentHoldMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearPaymentHold>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearPaymentHold>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['clearPaymentHold'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearPaymentHold>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  clearPaymentHold(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearPaymentHoldMutationResult = NonNullable<Awaited<ReturnType<typeof clearPaymentHold>>>
+
+    export type ClearPaymentHoldMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Clear the payment hold placed after a lost chargeback (admin only)
+ */
+export const useClearPaymentHold = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearPaymentHold>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearPaymentHold>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getClearPaymentHoldMutationOptions(options));
+    }
+
 export const getStaffResetPasswordUrl = (id: number,) => {
 
 

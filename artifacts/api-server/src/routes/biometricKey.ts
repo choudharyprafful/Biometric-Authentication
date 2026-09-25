@@ -10,6 +10,7 @@ import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { checkAndRecordRequest } from "../lib/rateLimit";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
+import { enforceSessionLimit } from "../lib/sessionLimit";
 import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
@@ -227,6 +228,8 @@ router.post("/auth/biometric-key/login-verify", async (req, res): Promise<void> 
     return;
   }
 
+  await enforceSessionLimit(req, user);
+
   await logEvent({ eventType: "LOGIN_PASSKEY_SUCCESS", details: `Biometric key MFA passed for ${user.email} — device-held key signed the server challenge`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
   res.json({ verified: true, user: await mapUser(user) });
@@ -312,6 +315,8 @@ router.post("/auth/biometric-key/redeem-link-code", async (req, res): Promise<vo
     res.status(500).json({ error: "Could not establish an authenticated session" });
     return;
   }
+
+  await enforceSessionLimit(req, user);
 
   await logEvent({
     eventType: "DEVICE_LINK_REDEEMED",

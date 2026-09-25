@@ -14,6 +14,8 @@ import { logEvent } from "./auditLog";
 import { logger } from "./logger";
 import { computeFaceVerificationAlerts } from "./faceVerificationAnomaly";
 import { computeUploadAnomalyAlerts } from "./uploadAnomalyDetector";
+import { computeAccountSharingAlerts } from "./sessionLimit";
+import { computePaymentAbuseAlerts } from "./paymentLifecycle";
 
 const ALERT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_SPIKE_THRESHOLD = 3;
@@ -88,8 +90,14 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
     }
   }
 
-  const [scannerAlerts, faceAlerts, uploadAlerts] = await Promise.all([computeScannerAlerts(since), computeFaceVerificationAlerts(), computeUploadAnomalyAlerts()]);
-  alerts.push(...scannerAlerts, ...faceAlerts, ...uploadAlerts);
+  const groups = await Promise.all([
+    computeScannerAlerts(since),
+    computeFaceVerificationAlerts(),
+    computeUploadAnomalyAlerts(),
+    computeAccountSharingAlerts(),
+    computePaymentAbuseAlerts(),
+  ]);
+  alerts.push(...groups.flat());
 
   return alerts.sort((a, b) => b.count - a.count);
 }

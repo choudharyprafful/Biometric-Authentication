@@ -8,4 +8,6 @@
 
 export interface PaymentWebhookResult {
   received: boolean;
+  /** False when the event was a replay or out of order for the payment's current status, and changed nothing */
+  applied?: boolean;
 }

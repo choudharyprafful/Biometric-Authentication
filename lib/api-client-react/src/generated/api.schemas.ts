@@ -106,6 +106,8 @@ export interface User {
   /** A third, distinct consent purpose — whether this account's own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST /users/me/content-personalization-consent. */
   contentPersonalizationConsentGiven: boolean;
   subscriptionPlan: UserSubscriptionPlan;
+  /** True after the account lost a chargeback. New purchases are refused until an admin clears it. */
+  paymentHold: boolean;
   createdAt: string;
   /** @nullable */
   updatedAt?: string | null;
@@ -329,6 +331,9 @@ export interface DeletionAuditEntry {
   currentlyRestored: boolean;
 }
 
+/**
+ * disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them
+ */
 export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus];
 
 
@@ -337,6 +342,8 @@ export const PaymentStatus = {
   completed: 'completed',
   failed: 'failed',
   refunded: 'refunded',
+  disputed: 'disputed',
+  charged_back: 'charged_back',
 } as const;
 
 export interface Payment {
@@ -350,8 +357,14 @@ export interface Payment {
   userEmail?: string | null;
   amount: number;
   currency: string;
+  /** disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them */
   status: PaymentStatus;
   description: string;
+  /**
+     * The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.
+     * @nullable
+     */
+  planId?: string | null;
   /**
      * Set only when status is "failed" — see lib/paymentSimulation.ts. Null otherwise.
      * @nullable
@@ -512,6 +525,9 @@ export const PaymentWebhookInputType = {
   paymentcompleted: 'payment.completed',
   paymentfailed: 'payment.failed',
   paymentrefunded: 'payment.refunded',
+  paymentdisputed: 'payment.disputed',
+  paymentdispute_won: 'payment.dispute_won',
+  paymentdispute_lost: 'payment.dispute_lost',
 } as const;
 
 export interface PaymentWebhookInput {
@@ -521,6 +537,8 @@ export interface PaymentWebhookInput {
 
 export interface PaymentWebhookResult {
   received: boolean;
+  /** False when the event was a replay or out of order for the payment's current status, and changed nothing */
+  applied?: boolean;
 }
 
 export type UploadMetaFileType = typeof UploadMetaFileType[keyof typeof UploadMetaFileType];

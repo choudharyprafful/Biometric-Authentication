@@ -18,8 +18,14 @@ export interface Payment {
   userEmail?: string | null;
   amount: number;
   currency: string;
+  /** disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them */
   status: PaymentStatus;
   description: string;
+  /**
+     * The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.
+     * @nullable
+     */
+  planId?: string | null;
   /**
      * Set only when status is "failed" — see lib/paymentSimulation.ts. Null otherwise.
      * @nullable

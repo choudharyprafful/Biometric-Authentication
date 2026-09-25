@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from 'wouter';
-import { useListUsers, useDeleteUser, useUpdateUser, useResetUserMfa, useStaffResetPassword, getListUsersQueryKey } from '@workspace/api-client-react';
+import { useListUsers, useDeleteUser, useUpdateUser, useResetUserMfa, useStaffResetPassword, useClearPaymentHold, getListUsersQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button } from '../components/ui';
 import { Loader2, Trash2, Fingerprint, KeyRound, ShieldOff } from 'lucide-react';
@@ -34,6 +34,7 @@ export default function Users() {
   const deleteMutation = useDeleteUser();
   const updateMutation = useUpdateUser();
   const resetMfaMutation = useResetUserMfa();
+  const clearHoldMutation = useClearPaymentHold();
   const resetPasswordMutation = useStaffResetPassword();
 
   // Redirect if neither admin nor it_support
@@ -65,6 +66,16 @@ export default function Users() {
     if (!confirm(`Clear face + passkey enrollment for ${email}? They'll need to re-enroll from scratch.`)) return;
     try {
       await resetMfaMutation.mutateAsync({ id });
+      queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClearHold = async (id: number, email: string) => {
+    if (!confirm(`Clear the payment hold on ${email}? They'll be able to make purchases again.`)) return;
+    try {
+      await clearHoldMutation.mutateAsync({ id });
       queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
     } catch (err) {
       console.error(err);
@@ -117,6 +128,9 @@ export default function Users() {
                   >
                     {u.role}
                   </Badge>
+                  {u.paymentHold && (
+                    <Badge variant="destructive" className="ml-2" data-testid={`badge-payment-hold-${u.id}`}>payment hold</Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {u.faceEnrolled ? (
@@ -164,6 +178,18 @@ export default function Users() {
                     >
                       <ShieldOff className="w-4 h-4" />
                     </Button>
+                    {isAdmin && u.paymentHold && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="Clear the payment hold placed after a lost chargeback"
+                        onClick={() => handleClearHold(u.id, u.email)}
+                        disabled={clearHoldMutation.isPending}
+                        data-testid={`button-clear-hold-${u.id}`}
+                      >
+                        Clear hold
+                      </Button>
+                    )}
                     {isAdmin && (
                       <Button
                         variant="destructive"

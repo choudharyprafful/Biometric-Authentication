@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them
+ */
 export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus];
 
 
@@ -14,4 +17,6 @@ export const PaymentStatus = {
   completed: 'completed',
   failed: 'failed',
   refunded: 'refunded',
+  disputed: 'disputed',
+  charged_back: 'charged_back',
 } as const;

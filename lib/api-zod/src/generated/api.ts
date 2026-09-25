@@ -53,6 +53,7 @@ export const RegisterUserResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
@@ -104,6 +105,7 @@ export const LoginUserResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
@@ -133,6 +135,7 @@ export const FaceVerifyResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
@@ -222,6 +225,7 @@ export const GetCurrentUserResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -243,6 +247,7 @@ export const ListUsersResponseItem = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -273,6 +278,7 @@ export const GetUserResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -310,6 +316,7 @@ export const UpdateUserResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -363,6 +370,7 @@ export const EnrollFaceResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -392,6 +400,7 @@ export const RemoveFaceResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -422,6 +431,38 @@ export const ResetUserMfaResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().nullish()
+})
+
+
+/**
+ * Lets the account make purchases again. Recorded in the audit log as PAYMENT_HOLD_CLEARED.
+ * @summary Clear the payment hold placed after a lost chargeback (admin only)
+ */
+export const clearPaymentHoldPathIdMax = 2147483647;
+
+
+
+export const ClearPaymentHoldParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(clearPaymentHoldPathIdMax)
+})
+
+export const ClearPaymentHoldResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['user', 'admin', 'security_analyst', 'it_support']),
+  "faceEnrolled": zod.boolean(),
+  "passkeyEnrolled": zod.boolean().describe('True when the account has at least one registered passkey'),
+  "dataConsentGiven": zod.boolean().describe('General data-processing consent, captured at registration'),
+  "biometricConsentGiven": zod.boolean().describe('Consent for biometric (face) data specifically — cleared whenever the stored face descriptor is deleted'),
+  "parentConsentPending": zod.boolean().describe('True when this account was registered under the minor-consent age threshold and a parent\/guardian has not yet confirmed via their emailed link — the account cannot use protected features until this clears'),
+  "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
+  "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
+  "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -602,6 +643,7 @@ export const SetTrainingConsentResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -953,6 +995,7 @@ export const SetContentPersonalizationConsentResponse = zod.object({
   "trainingConsentGiven": zod.boolean().describe('Separate from dataConsentGiven — whether this account\'s activity may contribute to the behavior model\'s training corpus. Toggleable any time, unlike dataConsentGiven.'),
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
+  "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -981,8 +1024,9 @@ export const ListPaymentsResponseItem = zod.object({
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
-  "status": zod.enum(['pending', 'completed', 'failed', 'refunded']),
+  "status": zod.enum(['pending', 'completed', 'failed', 'refunded', 'disputed', 'charged_back']).describe('disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them'),
   "description": zod.string(),
+  "planId": zod.string().nullish().describe('The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.'),
   "declineCode": zod.string().nullish().describe('Set only when status is \"failed\" — see lib\/paymentSimulation.ts. Null otherwise.'),
   "declineMessage": zod.string().nullish().describe('A user-facing explanation of the decline. Null unless status is \"failed\".'),
   "providerToken": zod.string(),
@@ -1020,8 +1064,9 @@ export const CreatePaymentResponse = zod.object({
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
-  "status": zod.enum(['pending', 'completed', 'failed', 'refunded']),
+  "status": zod.enum(['pending', 'completed', 'failed', 'refunded', 'disputed', 'charged_back']).describe('disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them'),
   "description": zod.string(),
+  "planId": zod.string().nullish().describe('The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.'),
   "declineCode": zod.string().nullish().describe('Set only when status is \"failed\" — see lib\/paymentSimulation.ts. Null otherwise.'),
   "declineMessage": zod.string().nullish().describe('A user-facing explanation of the decline. Null unless status is \"failed\".'),
   "providerToken": zod.string(),
@@ -1047,8 +1092,9 @@ export const RefundPaymentResponse = zod.object({
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
-  "status": zod.enum(['pending', 'completed', 'failed', 'refunded']),
+  "status": zod.enum(['pending', 'completed', 'failed', 'refunded', 'disputed', 'charged_back']).describe('disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them'),
   "description": zod.string(),
+  "planId": zod.string().nullish().describe('The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.'),
   "declineCode": zod.string().nullish().describe('Set only when status is \"failed\" — see lib\/paymentSimulation.ts. Null otherwise.'),
   "declineMessage": zod.string().nullish().describe('A user-facing explanation of the decline. Null unless status is \"failed\".'),
   "providerToken": zod.string(),
@@ -1073,8 +1119,9 @@ export const GetPaymentResponse = zod.object({
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
-  "status": zod.enum(['pending', 'completed', 'failed', 'refunded']),
+  "status": zod.enum(['pending', 'completed', 'failed', 'refunded', 'disputed', 'charged_back']).describe('disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them'),
   "description": zod.string(),
+  "planId": zod.string().nullish().describe('The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.'),
   "declineCode": zod.string().nullish().describe('Set only when status is \"failed\" — see lib\/paymentSimulation.ts. Null otherwise.'),
   "declineMessage": zod.string().nullish().describe('A user-facing explanation of the decline. Null unless status is \"failed\".'),
   "providerToken": zod.string(),
@@ -1121,8 +1168,9 @@ export const SubscribeResponse = zod.object({
   "userEmail": zod.string().nullish(),
   "amount": zod.number(),
   "currency": zod.string(),
-  "status": zod.enum(['pending', 'completed', 'failed', 'refunded']),
+  "status": zod.enum(['pending', 'completed', 'failed', 'refunded', 'disputed', 'charged_back']).describe('disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them'),
   "description": zod.string(),
+  "planId": zod.string().nullish().describe('The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.'),
   "declineCode": zod.string().nullish().describe('Set only when status is \"failed\" — see lib\/paymentSimulation.ts. Null otherwise.'),
   "declineMessage": zod.string().nullish().describe('A user-facing explanation of the decline. Null unless status is \"failed\".'),
   "providerToken": zod.string(),
@@ -1137,12 +1185,13 @@ export const SubscribeResponse = zod.object({
  * @summary Receive a signed payment-status update from the (simulated) payment provider
  */
 export const PaymentWebhookBody = zod.object({
-  "type": zod.enum(['payment.completed', 'payment.failed', 'payment.refunded']),
+  "type": zod.enum(['payment.completed', 'payment.failed', 'payment.refunded', 'payment.disputed', 'payment.dispute_won', 'payment.dispute_lost']),
   "paymentId": zod.number()
 })
 
 export const PaymentWebhookResponse = zod.object({
-  "received": zod.boolean()
+  "received": zod.boolean(),
+  "applied": zod.boolean().optional().describe('False when the event was a replay or out of order for the payment\'s current status, and changed nothing')
 })
 
 

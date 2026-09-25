@@ -26,6 +26,7 @@ import { mapUser } from "../lib/mapUser";
 import { faceMatchDistance, FACE_MATCH_THRESHOLD } from "../lib/faceUtils";
 import { decryptJson } from "../lib/fileEncryption";
 import { checkAndRecordRequest, releaseAttempt, clearAttempts } from "../lib/rateLimit";
+import { enforceSessionLimit } from "../lib/sessionLimit";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { assessLoginRisk, type LoginRiskCode } from "../lib/loginRiskModel";
 import { isAiSystemEnabled } from "../lib/aiGovernance";
@@ -431,6 +432,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       return;
     }
 
+    await enforceSessionLimit(req, user);
+
     await logEvent({ eventType: "LOGIN_SUCCESS", details: `Login successful for ${email} (no face MFA)`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 
     res.json(LoginUserResponse.parse({
@@ -553,6 +556,8 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Could not establish an authenticated session" });
     return;
   }
+
+  await enforceSessionLimit(req, user);
 
   await logEvent({ eventType: "LOGIN_FACE_SUCCESS", details: `Biometric MFA passed for ${user.email} (dist=${distance.toFixed(4)})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 

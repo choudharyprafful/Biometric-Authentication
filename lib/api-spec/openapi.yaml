@@ -482,6 +482,40 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/{id}/payment-hold:
+    delete:
+      operationId: clearPaymentHold
+      tags: [users]
+      summary: Clear the payment hold placed after a lost chargeback (admin only)
+      description: Lets the account make purchases again. Recorded in the audit log as PAYMENT_HOLD_CLEARED.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      responses:
+        "200":
+          description: Hold cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/{id}/reset-password:
     post:
       operationId: staffResetPassword
@@ -1034,6 +1068,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: The account is on a payment hold after a lost chargeback; an admin must clear it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /payments/{id}/refund:
     post:
@@ -1070,6 +1110,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The payment is in, or was reversed by, a chargeback; or the account has used its self-service subscription refund for the year
           content:
             application/json:
               schema:
@@ -1144,6 +1190,12 @@ paths:
                 $ref: "#/components/schemas/SubscribeResult"
         "400":
           description: Unknown plan or already subscribed to it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: The account is on a payment hold after a lost chargeback; an admin must clear it
           content:
             application/json:
               schema:
@@ -1366,7 +1418,7 @@ components:
 
     User:
       type: object
-      required: [id, email, name, role, faceEnrolled, passkeyEnrolled, dataConsentGiven, biometricConsentGiven, parentConsentPending, trainingConsentGiven, contentPersonalizationConsentGiven, subscriptionPlan, createdAt]
+      required: [id, email, name, role, faceEnrolled, passkeyEnrolled, dataConsentGiven, biometricConsentGiven, parentConsentPending, trainingConsentGiven, contentPersonalizationConsentGiven, subscriptionPlan, paymentHold, createdAt]
       properties:
         id:
           type: number
@@ -1400,6 +1452,9 @@ components:
         subscriptionPlan:
           type: string
           enum: [free, plus, pro, team]
+        paymentHold:
+          description: True after the account lost a chargeback. New purchases are refused until an admin clears it.
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -1704,10 +1759,14 @@ components:
         currency:
           type: string
         status:
+          description: disputed = the cardholder opened a chargeback; charged_back = the dispute was lost and the money returned to them
           type: string
-          enum: [pending, completed, failed, refunded]
+          enum: [pending, completed, failed, refunded, disputed, charged_back]
         description:
           type: string
+        planId:
+          description: The plan a subscription payment bought; null for one-off payments. Reversing the payment takes the plan back.
+          type: ["string", "null"]
         declineCode:
           description: Set only when status is "failed" — see lib/paymentSimulation.ts. Null otherwise.
           type: ["string", "null"]
@@ -1872,7 +1931,7 @@ components:
       properties:
         type:
           type: string
-          enum: [payment.completed, payment.failed, payment.refunded]
+          enum: [payment.completed, payment.failed, payment.refunded, payment.disputed, payment.dispute_won, payment.dispute_lost]
         paymentId:
           type: number
 
@@ -1881,6 +1940,9 @@ components:
       required: [received]
       properties:
         received:
+          type: boolean
+        applied:
+          description: False when the event was a replay or out of order for the payment's current status, and changed nothing
           type: boolean
 
     UploadMeta:

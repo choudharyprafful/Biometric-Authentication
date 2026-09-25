@@ -11,7 +11,15 @@ export const paymentsTable = pgTable("payments", {
   userEmail: text("user_email"),
   amount: real("amount").notNull(),
   currency: text("currency").notNull().default("USD"),
-  status: text("status", { enum: ["pending", "completed", "failed", "refunded"] }).notNull().default("pending"),
+  // disputed: the cardholder opened a chargeback; charged_back: the dispute was lost and the money
+  // returned to them. Allowed transitions are in lib/paymentLifecycle.ts.
+  status: text("status", { enum: ["pending", "completed", "failed", "refunded", "disputed", "charged_back"] }).notNull().default("pending"),
+  // The plan this payment bought, for subscription payments only. After a refund or chargeback the
+  // account is put on the plan of its latest subscription payment that still stands (see
+  // lib/paymentLifecycle.ts); without this link a refunded subscription kept its paid tier.
+  planId: text("plan_id", { enum: ["plus", "pro", "team"] }),
+  // When a refund was granted; limits self-service subscription refunds per account per year.
+  refundedAt: timestamp("refunded_at", { withTimezone: true }),
   description: text("description").notNull(),
   // Populated only when status = "failed" — see lib/paymentSimulation.ts.
   // Both null on every successful or still-pending payment.

@@ -54,7 +54,14 @@ export type AuditEventType =
   | "TRAINING_SOURCE_REJECTED"
   | "AI_SYSTEM_TOGGLED"
   | "AI_DECISION_CHALLENGED"
-  | "AI_CHALLENGE_RESOLVED";
+  | "AI_CHALLENGE_RESOLVED"
+  | "PAYMENT_DISPUTED"
+  | "PAYMENT_DISPUTE_WON"
+  | "PAYMENT_CHARGED_BACK"
+  | "PAYMENT_HOLD_PLACED"
+  | "PAYMENT_HOLD_CLEARED"
+  | "PAYMENT_WEBHOOK_IGNORED"
+  | "SESSION_LIMIT_ENFORCED";
 
 // Fixed anchor for the first row, so "no previous hash" is a checkable
 // value instead of null.

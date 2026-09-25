@@ -19,6 +19,8 @@ import {
   ListUsersResponse,
   ResetUserMfaParams,
   ResetUserMfaResponse,
+  ClearPaymentHoldParams,
+  ClearPaymentHoldResponse,
   StaffResetPasswordParams,
   StaffResetPasswordResponse,
 } from "@workspace/api-zod";
@@ -289,6 +291,36 @@ router.delete("/users/:id/face", async (req, res): Promise<void> => {
 
   await logEvent({ eventType: "FACE_REMOVED", details: `Face enrollment removed (biometric consent withdrawn) for ${user.email}`, userId: sessionUserId, userEmail: user.email });
   res.json(RemoveFaceResponse.parse(await mapUser(user)));
+});
+
+// An admin decision, not IT support's: the hold follows a lost chargeback (lib/paymentLifecycle.ts).
+router.delete("/users/:id/payment-hold", requireParentConsent, requireMfaEnrolled, async (req, res): Promise<void> => {
+  const sessionUserId = requireAuth(req, res);
+  if (!sessionUserId) return;
+
+  const rawId = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"];
+  const params = ClearPaymentHoldParams.safeParse({ id: Number(rawId) });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [sessionUser] = await db.select({ role: usersTable.role, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, sessionUserId));
+  if (sessionUser?.role !== "admin") {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+
+  const [before] = await db.select({ paymentHold: usersTable.paymentHold }).from(usersTable).where(eq(usersTable.id, params.data.id));
+  const [user] = await db.update(usersTable).set({ paymentHold: false }).where(eq(usersTable.id, params.data.id)).returning();
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (before?.paymentHold) {
+    await logEvent({ eventType: "PAYMENT_HOLD_CLEARED", details: `Payment hold cleared for ${user.email} by admin ${sessionUser.email}`, userId: sessionUserId, userEmail: sessionUser.email });
+  }
+  res.json(ClearPaymentHoldResponse.parse(await mapUser(user)));
 });
 
 router.post("/users/:id/reset-mfa", requireParentConsent, requireMfaEnrolled, async (req, res): Promise<void> => {

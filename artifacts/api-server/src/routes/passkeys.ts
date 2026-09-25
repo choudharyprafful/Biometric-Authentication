@@ -19,6 +19,7 @@ import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { getClientIp } from "../lib/clientIp";
+import { enforceSessionLimit } from "../lib/sessionLimit";
 
 // verifyRegistrationResponse/verifyAuthenticationResponse below do the real cryptographic verification of the WebAuthn response — Zod here only types the surrounding fields (bounded deviceName, primitive checks) before that call, so it doesn't duplicate or risk being stricter than the crypto check.
 const WebAuthnResponseShape = z.looseObject({ id: z.string().min(1) });
@@ -355,6 +356,8 @@ router.post("/auth/passkey/login-verify", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Could not establish an authenticated session" });
     return;
   }
+
+  await enforceSessionLimit(req, user);
 
   await logEvent({ eventType: "LOGIN_PASSKEY_SUCCESS", details: `Passkey MFA passed for ${user.email} — device-held key signed the server challenge`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
 

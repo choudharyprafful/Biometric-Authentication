@@ -56,10 +56,12 @@ export const usersTable = pgTable("users", {
   contentPersonalizationConsentGiven: boolean("content_personalization_consent_given").notNull().default(false),
   contentPersonalizationConsentAt: timestamp("content_personalization_consent_at", { withTimezone: true }),
   subscriptionPlan: text("subscription_plan", { enum: ["free", "plus", "pro", "team"] }).notNull().default("free"),
+  // Set when the account loses a chargeback: new purchases are refused until an admin clears it.
+  paymentHold: boolean("payment_hold").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
-export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true, faceDescriptorCiphertext: true, faceDescriptorIv: true, faceDescriptorAuthTag: true, faceEnrolled: true, subscriptionPlan: true, dataConsentGiven: true, dataConsentAt: true, biometricConsentGiven: true, biometricConsentAt: true, parentGuardianEmail: true, parentConsentGiven: true, parentConsentAt: true, trainingConsentGiven: true, trainingConsentAt: true, contentPersonalizationConsentGiven: true, contentPersonalizationConsentAt: true });
+export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true, faceDescriptorCiphertext: true, faceDescriptorIv: true, faceDescriptorAuthTag: true, faceEnrolled: true, subscriptionPlan: true, paymentHold: true, dataConsentGiven: true, dataConsentAt: true, biometricConsentGiven: true, biometricConsentAt: true, parentGuardianEmail: true, parentConsentGiven: true, parentConsentAt: true, trainingConsentGiven: true, trainingConsentAt: true, contentPersonalizationConsentGiven: true, contentPersonalizationConsentAt: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

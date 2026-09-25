@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { db, paymentsTable, usersTable } from "@workspace/db";
 import {
   CreatePaymentBody,
@@ -20,6 +20,7 @@ import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { encryptFile, decryptFile } from "../lib/fileEncryption";
 import { PLANS, isPlanId } from "../lib/plans";
 import { simulateProcessorDecision } from "../lib/paymentSimulation";
+import { SELF_SERVICE_SUBSCRIPTION_REFUNDS_PER_YEAR, reconcileSubscription, subscriptionRefundsInLastYear } from "../lib/paymentLifecycle";
 
 const router: IRouter = Router();
 // Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
@@ -56,6 +57,7 @@ function mapPayment(p: typeof paymentsTable.$inferSelect) {
     description: p.description,
     declineCode: p.declineCode ?? null,
     declineMessage: p.declineMessage ?? null,
+    planId: p.planId ?? null,
     providerToken,
     createdAt: p.createdAt.toISOString(),
   };
@@ -63,6 +65,9 @@ function mapPayment(p: typeof paymentsTable.$inferSelect) {
 
 // Bounds only the self-service path — an admin can still refund an older payment. Matches the threat model's requirement (docs/04_Threat_Model_Risk_Assessment.md, R-PAY-3) for time-boxed + status-gated eligibility, not an unconditional refund button.
 const SELF_SERVICE_REFUND_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+// Set when the account lost a chargeback (lib/paymentLifecycle.ts); cleared only by an admin.
+const PAYMENT_HOLD_MESSAGE = "Payments are on hold for this account after a chargeback. Contact support to have the hold reviewed.";
 
 // Fixed, server-defined catalog — no auth-specific data, so no session check.
 router.get("/payments/plans", async (_req, res): Promise<void> => {
@@ -85,6 +90,10 @@ router.post("/payments/subscribe", paymentRateLimit, async (req, res): Promise<v
   const plan = PLANS[parsed.data.planId];
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (user?.paymentHold) {
+    res.status(403).json({ error: PAYMENT_HOLD_MESSAGE });
+    return;
+  }
   if (user?.subscriptionPlan === plan.id) {
     res.status(400).json({ error: `Already subscribed to ${plan.name}` });
     return;
@@ -105,6 +114,7 @@ router.post("/payments/subscribe", paymentRateLimit, async (req, res): Promise<v
       amount: plan.amount,
       currency: plan.currency,
       description: plan.description,
+      planId: plan.id,
       providerTokenCiphertext: encryptedToken.ciphertext,
       providerTokenIv: encryptedToken.iv,
       providerTokenAuthTag: encryptedToken.authTag,
@@ -194,7 +204,11 @@ router.post("/payments", paymentRateLimit, async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, userId));
+  const [user] = await db.select({ email: usersTable.email, paymentHold: usersTable.paymentHold }).from(usersTable).where(eq(usersTable.id, userId));
+  if (user?.paymentHold) {
+    res.status(403).json({ error: PAYMENT_HOLD_MESSAGE });
+    return;
+  }
 
   // Idempotency-Key: a client retrying after a network blip gets back the original payment instead of a duplicate charge. Scoped globally via the column's unique constraint — client-generated keys are expected to be fresh UUIDs per attempt (see isIdempotencyKeyConflict above for why the constraint itself, not an upfront SELECT, enforces this).
   const rawIdempotencyKey = req.headers["idempotency-key"];
@@ -295,6 +309,10 @@ router.post("/payments/:id/refund", async (req, res): Promise<void> => {
     return;
   }
 
+  if (payment.status === "disputed" || payment.status === "charged_back") {
+    res.status(409).json({ error: payment.status === "disputed" ? "This payment is in a chargeback dispute with the card issuer, so it can't also be refunded here." : "This payment was already returned to the cardholder through a chargeback." });
+    return;
+  }
   if (payment.status !== "completed") {
     res.status(400).json({ error: `Only a completed payment can be refunded (current status: ${payment.status})` });
     return;
@@ -306,12 +324,28 @@ router.post("/payments/:id/refund", async (req, res): Promise<void> => {
     return;
   }
 
-  // The WHERE clause below, not the status check above, is what actually prevents a double refund: folding the status check into the UPDATE makes check-and-transition one atomic operation, so only the first of several concurrent requests can ever match status = "completed". No row returned means someone else's request already won; the lookup below is just to report an accurate message.
-  const [updated] = await db
-    .update(paymentsTable)
-    .set({ status: "refunded" })
-    .where(and(eq(paymentsTable.id, payment.id), eq(paymentsTable.status, "completed")))
-    .returning();
+  // Self-service subscription refunds are limited per account per year, or subscribe -> use ->
+  // refund -> resubscribe is a free subscription. The count and the refund run under a per-account
+  // advisory lock so two concurrent refunds of different payments can't both pass the count.
+  const limitApplies = !isAdmin && payment.planId !== null && payment.userId !== null;
+  // The WHERE clause, not the status check above, is what actually prevents a double refund: folding the status check into the UPDATE makes check-and-transition one atomic operation, so only the first of several concurrent requests can ever match status = "completed". No row returned means someone else's request already won; the lookup below is just to report an accurate message.
+  const outcome = await db.transaction(async (tx) => {
+    if (limitApplies) {
+      await tx.execute(sql`select pg_advisory_xact_lock(${7261}, ${payment.userId})`);
+      if ((await subscriptionRefundsInLastYear(payment.userId as number, tx)) >= SELF_SERVICE_SUBSCRIPTION_REFUNDS_PER_YEAR) return "limit" as const;
+    }
+    const [row] = await tx
+      .update(paymentsTable)
+      .set({ status: "refunded", refundedAt: new Date() })
+      .where(and(eq(paymentsTable.id, payment.id), eq(paymentsTable.status, "completed")))
+      .returning();
+    return row;
+  });
+  if (outcome === "limit") {
+    res.status(409).json({ error: `Only ${SELF_SERVICE_SUBSCRIPTION_REFUNDS_PER_YEAR} subscription refund per year can be made here. Contact support to ask for another.` });
+    return;
+  }
+  const updated = outcome;
 
   if (!updated) {
     const [current] = await db.select({ status: paymentsTable.status }).from(paymentsTable).where(eq(paymentsTable.id, payment.id));
@@ -325,6 +359,8 @@ router.post("/payments/:id/refund", async (req, res): Promise<void> => {
     userId,
     userEmail: sessionUser?.email ?? payment.userEmail,
   });
+
+  if (updated.planId && updated.userId) await reconcileSubscription(updated.userId, `subscription payment ${updated.id} refunded`);
 
   res.json(RefundPaymentResponse.parse(mapPayment(updated)));
 });

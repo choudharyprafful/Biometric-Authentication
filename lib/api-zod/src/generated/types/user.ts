@@ -27,6 +27,8 @@ export interface User {
   /** A third, distinct consent purpose — whether this account's own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST /users/me/content-personalization-consent. */
   contentPersonalizationConsentGiven: boolean;
   subscriptionPlan: UserSubscriptionPlan;
+  /** True after the account lost a chargeback. New purchases are refused until an admin clears it. */
+  paymentHold: boolean;
   createdAt: string;
   /** @nullable */
   updatedAt?: string | null;
