@@ -22,4 +22,6 @@ export interface SuggestedActionResult {
      * @nullable
      */
   contextDepth: SuggestedActionResultContextDepth;
+  /** True when an administrator has switched suggestions off (see GET /ai/systems) */
+  disabled: boolean;
 }

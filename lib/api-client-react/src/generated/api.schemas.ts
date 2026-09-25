@@ -32,6 +32,8 @@ export interface ContentProfileResult {
   keywords: KeywordScore[];
   /** How many of this account's own text uploads contributed to this profile */
   documentsConsidered: number;
+  /** True when an administrator has switched personalisation off (see GET /ai/systems) */
+  disabled: boolean;
 }
 
 /**
@@ -61,6 +63,8 @@ export interface SuggestedActionResult {
      * @nullable
      */
   contextDepth: SuggestedActionResultContextDepth;
+  /** True when an administrator has switched suggestions off (see GET /ai/systems) */
+  disabled: boolean;
 }
 
 export type UserRole = typeof UserRole[keyof typeof UserRole];
@@ -777,6 +781,162 @@ export interface AiPocReport {
 export interface AiSecurityReport {
   live: AiLiveModelValidation;
   poc: AiPocReport;
+}
+
+export type AiSystemId = typeof AiSystemId[keyof typeof AiSystemId];
+
+
+export const AiSystemId = {
+  'face-recognition': 'face-recognition',
+  liveness: 'liveness',
+  'login-risk': 'login-risk',
+  'behaviour-suggestions': 'behaviour-suggestions',
+  'content-personalisation': 'content-personalisation',
+  'anomaly-alerts': 'anomaly-alerts',
+} as const;
+
+export interface AiSystemEntry {
+  id: AiSystemId;
+  name: string;
+  kind: string;
+  purpose: string;
+  whyAi: string;
+  decides: string;
+  dataUsed: string;
+  runsWhere: string;
+  humanOversight: string;
+  howToChallenge: string;
+  knownLimits: string[];
+  riskRefs: string[];
+  accountableOwner: string;
+  oversightRole: string;
+  switchable: boolean;
+  switchNote: string;
+  enabled: boolean;
+  /** @nullable */
+  stateChangedAt: string | null;
+}
+
+export interface AiSystemsResponse {
+  accountableOwner: string;
+  systems: AiSystemEntry[];
+}
+
+export interface SetAiSystemStateInput {
+  enabled: boolean;
+  /**
+     * Why — recorded in the audit log
+     * @minLength 10
+     * @maxLength 500
+     */
+  reason: string;
+}
+
+export interface AiSystemStaffState {
+  id: AiSystemId;
+  name: string;
+  switchable: boolean;
+  switchNote: string;
+  enabled: boolean;
+  /** @nullable */
+  changedAt: string | null;
+  /** @nullable */
+  changedBy: string | null;
+  /** @nullable */
+  reason: string | null;
+}
+
+export interface AiChallengeInput {
+  systemId: AiSystemId;
+  /**
+     * What the AI decided and why you think it was wrong
+     * @minLength 10
+     * @maxLength 1000
+     */
+  message: string;
+  /**
+     * Optional pointer to the decision, e.g. the date and time of the sign-in
+     * @maxLength 120
+     * @pattern ^[A-Za-z0-9 _:.,/-]*$
+     */
+  reference?: string;
+}
+
+export type ResolveAiChallengeInputOutcome = typeof ResolveAiChallengeInputOutcome[keyof typeof ResolveAiChallengeInputOutcome];
+
+
+export const ResolveAiChallengeInputOutcome = {
+  upheld: 'upheld',
+  'not-upheld': 'not-upheld',
+} as const;
+
+export interface ResolveAiChallengeInput {
+  outcome: ResolveAiChallengeInputOutcome;
+  /**
+     * What was found and done — shown to the person who raised it
+     * @minLength 5
+     * @maxLength 1000
+     */
+  note: string;
+}
+
+export type AiChallengeStatus = typeof AiChallengeStatus[keyof typeof AiChallengeStatus];
+
+
+export const AiChallengeStatus = {
+  open: 'open',
+  resolved: 'resolved',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AiChallengeOutcome = typeof AiChallengeOutcome[keyof typeof AiChallengeOutcome] | null;
+
+
+export const AiChallengeOutcome = {
+  upheld: 'upheld',
+  'not-upheld': 'not-upheld',
+} as const;
+
+export interface AiChallenge {
+  id: number;
+  systemId: AiSystemId;
+  systemName: string;
+  /** @nullable */
+  reference: string | null;
+  message: string;
+  submittedAt: string;
+  /** @nullable */
+  submittedBy: string | null;
+  status: AiChallengeStatus;
+  /** @nullable */
+  outcome: AiChallengeOutcome;
+  /** @nullable */
+  resolutionNote: string | null;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @nullable */
+  resolvedBy: string | null;
+}
+
+export interface AiOutcomeWindow {
+  days: number;
+  faceScans: number;
+  faceScanFailures: number;
+  passwordSignIns: number;
+  signInsFlagged: number;
+  suggestionQueries: number;
+  suggestionsShown: number;
+  profileQueries: number;
+  securityAlerts: number;
+  challengesFiled: number;
+}
+
+export interface AiOversight {
+  systems: AiSystemStaffState[];
+  outcomes: AiOutcomeWindow[];
+  openChallenges: number;
 }
 
 export type ListSecurityLogsParams = {

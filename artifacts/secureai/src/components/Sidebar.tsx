@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { useLogoutUser, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Shield, LayoutDashboard, Users, Activity, AlertTriangle, CreditCard, Lock, ShieldCheck, BrainCircuit, Settings, LogOut, Menu, X } from 'lucide-react';
+import { Shield, LayoutDashboard, Users, Activity, AlertTriangle, CreditCard, Lock, ShieldCheck, BrainCircuit, Bot, Eye, Settings, LogOut, Menu, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 // `roles` restricts a nav item to specific roles; omitted means everyone.
@@ -21,6 +21,8 @@ const navItems = [
   { href: '/uploads', label: 'Data Vault', icon: Lock },
   { href: '/data-protection', label: 'Data Protection', icon: ShieldCheck },
   { href: '/ai-security', label: 'AI Security', icon: BrainCircuit },
+  { href: '/ai', label: 'How We Use AI', icon: Bot },
+  { href: '/ai-oversight', label: 'AI Oversight', icon: Eye, roles: ['security_analyst', 'admin'] },
   { href: '/enroll', label: 'Security Settings', icon: Settings },
 ];
 

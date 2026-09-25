@@ -18,7 +18,9 @@ import { MAX_CONTRIBUTED_TRANSITIONS_PER_USER } from "./behaviorModelPrivacy";
 // would make querying the model become the new "last event" (the widget
 // would go permanently blank after the first call) and would teach the
 // model to predict "query the model" as a next action.
-const META_EVENT_TYPES: string[] = ["BEHAVIOR_MODEL_QUERIED"];
+// The AI governance events are excluded for the same reason: challenging a suggestion or switching a
+// model off is a reaction to the model, not behaviour for it to learn and suggest.
+const META_EVENT_TYPES: string[] = ["BEHAVIOR_MODEL_QUERIED", "AI_SYSTEM_TOGGLED", "AI_DECISION_CHALLENGED", "AI_CHALLENGE_RESOLVED"];
 
 // Anti-poisoning cap: limits how many of one user's transitions can enter
 // a single training-corpus build, so a hyperactive account can't dominate

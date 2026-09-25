@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, Card } from '../components/ui';
 import { Loader2, Lock, FileText, ImageIcon, Video, Music, Upload as UploadIcon, Download, Trash2, Eye, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { AiLabel } from '../components/AiLabel';
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // must match artifacts/api-server/src/routes/uploads.ts
 const ACCEPTED_TYPES = 'image/*,video/*,audio/*,text/plain';
@@ -190,6 +191,10 @@ export default function Uploads() {
           </h1>
           <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">
             Text, image, video &amp; audio files — AES-256-GCM encrypted at rest, visible only to you
+          </p>
+          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-2 flex-wrap">
+            <AiLabel system="anomaly-alerts" text="Automated monitoring" />
+            Upload activity is watched for unusual bursts, which alert security staff. It never reads, blocks or deletes your files.
           </p>
         </div>
 

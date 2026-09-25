@@ -32,18 +32,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // - Authenticated users on public routes → dashboard
   // - Authenticated users with neither factor enrolled → /enroll
   //   (either face or passkey satisfies MFA — see requireMfaEnrolled.ts)
+  // - /ai (how SecureAI uses AI, and challenging a decision) is open to everyone: signed out, signed in,
+  //   and mid-setup, since someone the face model fails is exactly who needs it
   useEffect(() => {
     if (!isLoading) {
       const isPublicRoute = location === '/' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || location === '/parent-consent';
+      const isOpenRoute = location === '/ai';
       const isEnrollRoute = location === '/enroll';
       const mfaComplete = !!user && (user.faceEnrolled || user.passkeyEnrolled);
 
-      if (!user && !isPublicRoute && !requiresFaceVerification) {
+      if (!user && !isPublicRoute && !isOpenRoute && !requiresFaceVerification) {
         setLocation('/');
       } else if (user && isPublicRoute && !requiresFaceVerification) {
         // Always send freshly-logged-in, not-fully-enrolled users to enroll first
         setLocation(mfaComplete ? '/dashboard' : '/enroll');
-      } else if (user && !mfaComplete && !isEnrollRoute && !isPublicRoute) {
+      } else if (user && !mfaComplete && !isEnrollRoute && !isPublicRoute && !isOpenRoute) {
         // Authenticated but MFA enrollment incomplete — block access to all other routes
         setLocation('/enroll');
       }

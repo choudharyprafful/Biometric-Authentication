@@ -20,7 +20,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AiChallenge,
+  AiChallengeInput,
+  AiOversight,
   AiSecurityReport,
+  AiSystemId,
+  AiSystemStaffState,
+  AiSystemsResponse,
   AuthResponse,
   ChainRepairResult,
   ChainRestoreResult,
@@ -45,8 +51,10 @@ import type {
   Plan,
   ResetPasswordFaceInput,
   ResetPasswordResult,
+  ResolveAiChallengeInput,
   SecurityDashboard,
   SecurityLog,
+  SetAiSystemStateInput,
   SetContentPersonalizationConsentInput,
   SetTrainingConsentInput,
   SubscribeInput,
@@ -2226,6 +2234,531 @@ export function useGetAiSecurityReport<TData = Awaited<ReturnType<typeof getAiSe
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAiSecurityReportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAiSystemsUrl = () => {
+
+
+
+
+  return `/api/ai/systems`
+}
+
+/**
+ * Public, so the transparency page works before sign-in. Who switched a system off, and why, is only in the staff view (GET /ai/oversight).
+ * @summary The AI system register — every place SecureAI uses AI, what it decides, who is accountable, and whether it is switched on
+ */
+export const getAiSystems = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiSystemsResponse> => {
+
+  return customFetch<AiSystemsResponse>(getGetAiSystemsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiSystemsQueryKey = () => {
+    return [
+    `/api/ai/systems`
+    ] as const;
+    }
+
+
+export const getGetAiSystemsQueryOptions = <TData = Awaited<ReturnType<typeof getAiSystems>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiSystems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiSystemsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiSystems>>> = ({ signal }) => getAiSystems({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiSystems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiSystemsQueryResult = NonNullable<Awaited<ReturnType<typeof getAiSystems>>>
+export type GetAiSystemsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The AI system register — every place SecureAI uses AI, what it decides, who is accountable, and whether it is switched on
+ */
+
+export function useGetAiSystems<TData = Awaited<ReturnType<typeof getAiSystems>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiSystems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiSystemsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetAiSystemStateUrl = (id: AiSystemId,) => {
+
+
+
+
+  return `/api/ai/systems/${id}/state`
+}
+
+/**
+ * @summary Switch an AI system on or off (administrators only; recorded in the audit log with the reason)
+ */
+export const setAiSystemState = async (id: AiSystemId,
+    setAiSystemStateInput: SetAiSystemStateInput, options?: Parameters<typeof customFetch>[1]): Promise<AiSystemStaffState> => {
+
+  return customFetch<AiSystemStaffState>(getSetAiSystemStateUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setAiSystemStateInput)
+  }
+);}
+
+
+
+
+
+export const getSetAiSystemStateMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAiSystemState>>, TError,{id: AiSystemId;data: BodyType<SetAiSystemStateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setAiSystemState>>, TError,{id: AiSystemId;data: BodyType<SetAiSystemStateInput>}, TContext> => {
+
+const mutationKey = ['setAiSystemState'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setAiSystemState>>, {id: AiSystemId;data: BodyType<SetAiSystemStateInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setAiSystemState(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetAiSystemStateMutationResult = NonNullable<Awaited<ReturnType<typeof setAiSystemState>>>
+    export type SetAiSystemStateMutationBody = BodyType<SetAiSystemStateInput>
+    export type SetAiSystemStateMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Switch an AI system on or off (administrators only; recorded in the audit log with the reason)
+ */
+export const useSetAiSystemState = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAiSystemState>>, TError,{id: AiSystemId;data: BodyType<SetAiSystemStateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setAiSystemState>>,
+        TError,
+        {id: AiSystemId;data: BodyType<SetAiSystemStateInput>},
+        TContext
+      > => {
+      return useMutation(getSetAiSystemStateMutationOptions(options));
+    }
+
+export const getSubmitAiChallengeUrl = () => {
+
+
+
+
+  return `/api/ai/challenges`
+}
+
+/**
+ * Open to any signed-in account, including one that has not finished MFA setup, since a person the face model fails is exactly who needs this.
+ * @summary Challenge an AI decision — reviewed by a security analyst
+ */
+export const submitAiChallenge = async (aiChallengeInput: AiChallengeInput, options?: Parameters<typeof customFetch>[1]): Promise<AiChallenge> => {
+
+  return customFetch<AiChallenge>(getSubmitAiChallengeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiChallengeInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitAiChallengeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAiChallenge>>, TError,{data: BodyType<AiChallengeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitAiChallenge>>, TError,{data: BodyType<AiChallengeInput>}, TContext> => {
+
+const mutationKey = ['submitAiChallenge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitAiChallenge>>, {data: BodyType<AiChallengeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitAiChallenge(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitAiChallengeMutationResult = NonNullable<Awaited<ReturnType<typeof submitAiChallenge>>>
+    export type SubmitAiChallengeMutationBody = BodyType<AiChallengeInput>
+    export type SubmitAiChallengeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Challenge an AI decision — reviewed by a security analyst
+ */
+export const useSubmitAiChallenge = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAiChallenge>>, TError,{data: BodyType<AiChallengeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitAiChallenge>>,
+        TError,
+        {data: BodyType<AiChallengeInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitAiChallengeMutationOptions(options));
+    }
+
+export const getListAiChallengesUrl = () => {
+
+
+
+
+  return `/api/ai/challenges`
+}
+
+/**
+ * @summary Every challenge, newest first (security analysts and administrators)
+ */
+export const listAiChallenges = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiChallenge[]> => {
+
+  return customFetch<AiChallenge[]>(getListAiChallengesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAiChallengesQueryKey = () => {
+    return [
+    `/api/ai/challenges`
+    ] as const;
+    }
+
+
+export const getListAiChallengesQueryOptions = <TData = Awaited<ReturnType<typeof listAiChallenges>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAiChallenges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAiChallengesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAiChallenges>>> = ({ signal }) => listAiChallenges({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAiChallenges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAiChallengesQueryResult = NonNullable<Awaited<ReturnType<typeof listAiChallenges>>>
+export type ListAiChallengesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Every challenge, newest first (security analysts and administrators)
+ */
+
+export function useListAiChallenges<TData = Awaited<ReturnType<typeof listAiChallenges>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAiChallenges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAiChallengesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListMyAiChallengesUrl = () => {
+
+
+
+
+  return `/api/ai/challenges/mine`
+}
+
+/**
+ * @summary This account's own challenges and their outcomes
+ */
+export const listMyAiChallenges = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiChallenge[]> => {
+
+  return customFetch<AiChallenge[]>(getListMyAiChallengesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyAiChallengesQueryKey = () => {
+    return [
+    `/api/ai/challenges/mine`
+    ] as const;
+    }
+
+
+export const getListMyAiChallengesQueryOptions = <TData = Awaited<ReturnType<typeof listMyAiChallenges>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyAiChallenges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyAiChallengesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyAiChallenges>>> = ({ signal }) => listMyAiChallenges({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyAiChallenges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyAiChallengesQueryResult = NonNullable<Awaited<ReturnType<typeof listMyAiChallenges>>>
+export type ListMyAiChallengesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary This account's own challenges and their outcomes
+ */
+
+export function useListMyAiChallenges<TData = Awaited<ReturnType<typeof listMyAiChallenges>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyAiChallenges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyAiChallengesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getResolveAiChallengeUrl = (id: number,) => {
+
+
+
+
+  return `/api/ai/challenges/${id}/resolve`
+}
+
+/**
+ * @summary Record the outcome of a challenge (security analysts and administrators)
+ */
+export const resolveAiChallenge = async (id: number,
+    resolveAiChallengeInput: ResolveAiChallengeInput, options?: Parameters<typeof customFetch>[1]): Promise<AiChallenge> => {
+
+  return customFetch<AiChallenge>(getResolveAiChallengeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resolveAiChallengeInput)
+  }
+);}
+
+
+
+
+
+export const getResolveAiChallengeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveAiChallenge>>, TError,{id: number;data: BodyType<ResolveAiChallengeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveAiChallenge>>, TError,{id: number;data: BodyType<ResolveAiChallengeInput>}, TContext> => {
+
+const mutationKey = ['resolveAiChallenge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveAiChallenge>>, {id: number;data: BodyType<ResolveAiChallengeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  resolveAiChallenge(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveAiChallengeMutationResult = NonNullable<Awaited<ReturnType<typeof resolveAiChallenge>>>
+    export type ResolveAiChallengeMutationBody = BodyType<ResolveAiChallengeInput>
+    export type ResolveAiChallengeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record the outcome of a challenge (security analysts and administrators)
+ */
+export const useResolveAiChallenge = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveAiChallenge>>, TError,{id: number;data: BodyType<ResolveAiChallengeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveAiChallenge>>,
+        TError,
+        {id: number;data: BodyType<ResolveAiChallengeInput>},
+        TContext
+      > => {
+      return useMutation(getResolveAiChallengeMutationOptions(options));
+    }
+
+export const getGetAiOversightUrl = () => {
+
+
+
+
+  return `/api/ai/oversight`
+}
+
+/**
+ * @summary Switch states with who changed them and why, outcome monitoring, and the open-challenge count (security analysts and administrators)
+ */
+export const getAiOversight = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiOversight> => {
+
+  return customFetch<AiOversight>(getGetAiOversightUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiOversightQueryKey = () => {
+    return [
+    `/api/ai/oversight`
+    ] as const;
+    }
+
+
+export const getGetAiOversightQueryOptions = <TData = Awaited<ReturnType<typeof getAiOversight>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiOversight>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiOversightQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiOversight>>> = ({ signal }) => getAiOversight({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiOversight>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiOversightQueryResult = NonNullable<Awaited<ReturnType<typeof getAiOversight>>>
+export type GetAiOversightQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Switch states with who changed them and why, outcome monitoring, and the open-challenge count (security analysts and administrators)
+ */
+
+export function useGetAiOversight<TData = Awaited<ReturnType<typeof getAiOversight>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiOversight>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiOversightQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

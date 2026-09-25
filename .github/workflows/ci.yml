@@ -28,6 +28,9 @@ jobs:
       # The AI Security page serves results recorded from the team's Python
       # proof-of-concepts; fail if a PoC changed without them being regenerated.
       - run: python3 artifacts/ai-model/ai_security_report.py --check
+      # Supplier integrity for the vendored face-api.js model weights: a
+      # silently swapped model file fails the build (docs/11, element 15).
+      - run: sha256sum -c artifacts/secureai/face-model-weights.sha256
 
   semgrep-sast:
     name: Semgrep SAST scan (real tool, not the adversarial-probe substitute)

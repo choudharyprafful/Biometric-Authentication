@@ -6,8 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiChallenge';
+export * from './aiChallengeInput';
+export * from './aiChallengeOutcome';
+export * from './aiChallengeStatus';
 export * from './aiLiveModelValidation';
 export * from './aiLiveModelValidationThresholds';
+export * from './aiOutcomeWindow';
+export * from './aiOversight';
 export * from './aiPocMemorisation';
 export * from './aiPocMemorisationBenign';
 export * from './aiPocMemorisationVerdict';
@@ -23,6 +29,10 @@ export * from './aiPocStarterKitExtractionTestsItem';
 export * from './aiPocStarterKitHardened';
 export * from './aiPocStarterKitVulnerable';
 export * from './aiSecurityReport';
+export * from './aiSystemEntry';
+export * from './aiSystemId';
+export * from './aiSystemsResponse';
+export * from './aiSystemStaffState';
 export * from './aiValidationOutcome';
 export * from './aiValidationTest';
 export * from './aiValidationTestProbesItem';
@@ -56,10 +66,13 @@ export * from './plan';
 export * from './planId';
 export * from './resetPasswordFaceInput';
 export * from './resetPasswordResult';
+export * from './resolveAiChallengeInput';
+export * from './resolveAiChallengeInputOutcome';
 export * from './securityAlert';
 export * from './securityAlertSeverity';
 export * from './securityDashboard';
 export * from './securityLog';
+export * from './setAiSystemStateInput';
 export * from './setContentPersonalizationConsentInput';
 export * from './setTrainingConsentInput';
 export * from './subscribeInput';

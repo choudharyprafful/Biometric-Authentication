@@ -748,6 +748,194 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /ai/systems:
+    get:
+      operationId: getAiSystems
+      tags: [ai-governance]
+      summary: The AI system register — every place SecureAI uses AI, what it decides, who is accountable, and whether it is switched on
+      description: Public, so the transparency page works before sign-in. Who switched a system off, and why, is only in the staff view (GET /ai/oversight).
+      security: []
+      responses:
+        "200":
+          description: The register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSystemsResponse"
+
+  /ai/systems/{id}/state:
+    put:
+      operationId: setAiSystemState
+      tags: [ai-governance]
+      summary: Switch an AI system on or off (administrators only; recorded in the audit log with the reason)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: "#/components/schemas/AiSystemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAiSystemStateInput"
+      responses:
+        "200":
+          description: New state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSystemStaffState"
+        "400":
+          description: Invalid input, or this system cannot be switched off
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Administrators only
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/challenges:
+    post:
+      operationId: submitAiChallenge
+      tags: [ai-governance]
+      summary: Challenge an AI decision — reviewed by a security analyst
+      description: Open to any signed-in account, including one that has not finished MFA setup, since a person the face model fails is exactly who needs this.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChallengeInput"
+      responses:
+        "201":
+          description: Challenge recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChallenge"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: listAiChallenges
+      tags: [ai-governance]
+      summary: Every challenge, newest first (security analysts and administrators)
+      responses:
+        "200":
+          description: Challenges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiChallenge"
+        "403":
+          description: Staff only
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/challenges/mine:
+    get:
+      operationId: listMyAiChallenges
+      tags: [ai-governance]
+      summary: This account's own challenges and their outcomes
+      responses:
+        "200":
+          description: Challenges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiChallenge"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/challenges/{id}/resolve:
+    post:
+      operationId: resolveAiChallenge
+      tags: [ai-governance]
+      summary: Record the outcome of a challenge (security analysts and administrators)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveAiChallengeInput"
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChallenge"
+        "404":
+          description: No such challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/oversight:
+    get:
+      operationId: getAiOversight
+      tags: [ai-governance]
+      summary: Switch states with who changed them and why, outcome monitoring, and the open-challenge count (security analysts and administrators)
+      responses:
+        "200":
+          description: Oversight view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiOversight"
+        "403":
+          description: Staff only
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/me/content-personalization-consent:
     post:
       operationId: setContentPersonalizationConsent
@@ -1135,7 +1323,7 @@ components:
 
     ContentProfileResult:
       type: object
-      required: [keywords, documentsConsidered]
+      required: [keywords, documentsConsidered, disabled]
       properties:
         keywords:
           description: Top keywords by frequency, highest first. Empty if consent isn't given or no text uploads exist.
@@ -1145,10 +1333,13 @@ components:
         documentsConsidered:
           description: How many of this account's own text uploads contributed to this profile
           type: number
+        disabled:
+          description: True when an administrator has switched personalisation off (see GET /ai/systems)
+          type: boolean
 
     SuggestedActionResult:
       type: object
-      required: [suggestion, distinctUsersSupporting, modelTrainedFromUsers, contextDepth]
+      required: [suggestion, distinctUsersSupporting, modelTrainedFromUsers, contextDepth, disabled]
       properties:
         suggestion:
           description: Predicted next event type, or null if nothing cleared the minimum-distinct-users threshold (or the account has no activity yet)
@@ -1163,6 +1354,9 @@ components:
           description: Whether the prediction came from the 2-event context (2, more specific/accurate) or fell back to the single-last-event table (1). Null if suggestion is null.
           type: ["number", "null"]
           enum: [1, 2, null]
+        disabled:
+          description: True when an administrator has switched suggestions off (see GET /ai/systems)
+          type: boolean
 
     User:
       type: object
@@ -1999,3 +2193,191 @@ components:
         console:
           description: The script's own console output, captured verbatim
           type: string
+    AiSystemId:
+      type: string
+      enum: [face-recognition, liveness, login-risk, behaviour-suggestions, content-personalisation, anomaly-alerts]
+    AiSystemEntry:
+      type: object
+      required: [id, name, kind, purpose, whyAi, decides, dataUsed, runsWhere, humanOversight, howToChallenge, knownLimits, riskRefs, accountableOwner, oversightRole, switchable, switchNote, enabled, stateChangedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/AiSystemId"
+        name:
+          type: string
+        kind:
+          type: string
+        purpose:
+          type: string
+        whyAi:
+          type: string
+        decides:
+          type: string
+        dataUsed:
+          type: string
+        runsWhere:
+          type: string
+        humanOversight:
+          type: string
+        howToChallenge:
+          type: string
+        knownLimits:
+          type: array
+          items:
+            type: string
+        riskRefs:
+          type: array
+          items:
+            type: string
+        accountableOwner:
+          type: string
+        oversightRole:
+          type: string
+        switchable:
+          type: boolean
+        switchNote:
+          type: string
+        enabled:
+          type: boolean
+        stateChangedAt:
+          type: ["string", "null"]
+          format: date-time
+    AiSystemsResponse:
+      type: object
+      required: [accountableOwner, systems]
+      properties:
+        accountableOwner:
+          type: string
+        systems:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiSystemEntry"
+    SetAiSystemStateInput:
+      type: object
+      required: [enabled, reason]
+      properties:
+        enabled:
+          type: boolean
+        reason:
+          description: Why — recorded in the audit log
+          type: string
+          minLength: 10
+          maxLength: 500
+    AiSystemStaffState:
+      type: object
+      required: [id, name, switchable, switchNote, enabled, changedAt, changedBy, reason]
+      properties:
+        id:
+          $ref: "#/components/schemas/AiSystemId"
+        name:
+          type: string
+        switchable:
+          type: boolean
+        switchNote:
+          type: string
+        enabled:
+          type: boolean
+        changedAt:
+          type: ["string", "null"]
+          format: date-time
+        changedBy:
+          type: ["string", "null"]
+        reason:
+          type: ["string", "null"]
+    AiChallengeInput:
+      type: object
+      required: [systemId, message]
+      properties:
+        systemId:
+          $ref: "#/components/schemas/AiSystemId"
+        message:
+          description: What the AI decided and why you think it was wrong
+          type: string
+          minLength: 10
+          maxLength: 1000
+        reference:
+          description: Optional pointer to the decision, e.g. the date and time of the sign-in
+          type: string
+          maxLength: 120
+          pattern: "^[A-Za-z0-9 _:.,/-]*$"
+    ResolveAiChallengeInput:
+      type: object
+      required: [outcome, note]
+      properties:
+        outcome:
+          type: string
+          enum: [upheld, not-upheld]
+        note:
+          description: What was found and done — shown to the person who raised it
+          type: string
+          minLength: 5
+          maxLength: 1000
+    AiChallenge:
+      type: object
+      required: [id, systemId, systemName, reference, message, submittedAt, submittedBy, status, outcome, resolutionNote, resolvedAt, resolvedBy]
+      properties:
+        id:
+          type: number
+        systemId:
+          $ref: "#/components/schemas/AiSystemId"
+        systemName:
+          type: string
+        reference:
+          type: ["string", "null"]
+        message:
+          type: string
+        submittedAt:
+          type: string
+          format: date-time
+        submittedBy:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [open, resolved]
+        outcome:
+          type: ["string", "null"]
+          enum: [upheld, not-upheld, null]
+        resolutionNote:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+          format: date-time
+        resolvedBy:
+          type: ["string", "null"]
+    AiOutcomeWindow:
+      type: object
+      required: [days, faceScans, faceScanFailures, passwordSignIns, signInsFlagged, suggestionQueries, suggestionsShown, profileQueries, securityAlerts, challengesFiled]
+      properties:
+        days:
+          type: number
+        faceScans:
+          type: number
+        faceScanFailures:
+          type: number
+        passwordSignIns:
+          type: number
+        signInsFlagged:
+          type: number
+        suggestionQueries:
+          type: number
+        suggestionsShown:
+          type: number
+        profileQueries:
+          type: number
+        securityAlerts:
+          type: number
+        challengesFiled:
+          type: number
+    AiOversight:
+      type: object
+      required: [systems, outcomes, openChallenges]
+      properties:
+        systems:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiSystemStaffState"
+        outcomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiOutcomeWindow"
+        openChallenges:
+          type: number

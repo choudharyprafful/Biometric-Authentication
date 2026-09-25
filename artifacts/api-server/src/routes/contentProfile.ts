@@ -9,6 +9,7 @@ import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { buildContentProfile } from "../lib/contentPersonalizationModel";
 import { getClientIp } from "../lib/clientIp";
+import { isAiSystemEnabled } from "../lib/aiGovernance";
 
 const router: IRouter = Router();
 
@@ -57,12 +58,19 @@ const contentProfileRateLimit = requestRateLimit("content-profile", 30, 5 * 60 *
 router.get("/users/me/content-profile", requireParentConsent, requireMfaEnrolled, contentProfileRateLimit, async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
 
+  // An administrator's off switch (lib/aiGovernance.ts): no uploads are decrypted or read.
+  if (!(await isAiSystemEnabled("content-personalisation"))) {
+    res.json(GetContentProfileResponse.parse({ keywords: [], documentsConsidered: 0, disabled: true }));
+    return;
+  }
+
   const profile = await buildContentProfile(userId);
 
   await logQuery(req, userId, `${profile.keywords.length} keyword(s) from ${profile.documentsConsidered} document(s)`);
   res.json(GetContentProfileResponse.parse({
     keywords: profile.keywords,
     documentsConsidered: profile.documentsConsidered,
+    disabled: false,
   }));
 });
 

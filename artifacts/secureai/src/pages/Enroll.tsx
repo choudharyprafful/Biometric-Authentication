@@ -7,6 +7,7 @@ import { Card, Button, Label, Input } from '../components/ui';
 import { Checkbox } from '../components/ui/checkbox';
 import { ScanFace, CheckCircle2, ChevronRight, KeyRound, Trash2, ShieldCheck, RefreshCw, Settings, LogOut, AlertTriangle, Smartphone, Users as UsersIcon, BrainCircuit, Tags } from 'lucide-react';
 import { FaceCamera } from '../components/FaceCamera';
+import { AiLabel } from '../components/AiLabel';
 import { enrollPasskey, listPasskeys, deletePasskey, type PasskeyInfo } from '../lib/passkey';
 import { createDeviceLinkCode } from '../lib/deviceLink';
 
@@ -197,10 +198,12 @@ export default function Enroll() {
   const [trainingConsentError, setTrainingConsentError] = useState('');
   const [contentConsentError, setContentConsentError] = useState('');
 
-  // 'face' then 'passkey' for a not-yet-fully-enrolled account; 'settings'
-  // once both are done and the page is visited to manage/re-enroll.
+  // 'face' then 'passkey' for an account with no second factor yet; 'settings' once it has a passkey.
+  // Face is optional once a passkey exists: a person the face model can't enrol, who has no camera, or
+  // who doesn't consent to biometrics can use a passkey alone (Team 2: fairness; requireMfaEnrolled.ts
+  // has always accepted either factor).
   const [mode, setMode] = useState<Mode>(() => {
-    if (!user?.faceEnrolled) return 'face';
+    if (!user?.faceEnrolled && !user?.passkeyEnrolled) return 'face';
     if (!user?.passkeyEnrolled) return 'passkey';
     return 'settings';
   });
@@ -386,36 +389,55 @@ export default function Enroll() {
           <div className="flex items-center gap-3">
             <ScanFace className="w-5 h-5 text-primary" />
             <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Face Biometric</h2>
+            <AiLabel system="face-recognition" />
           </div>
-          <p className="text-sm font-mono text-green-400 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" /> Enrolled
-          </p>
-          <p className="text-sm font-mono text-muted-foreground">
-            Re-enrolling replaces your stored facial signature — useful if lighting, a new
-            camera, or a hairstyle/glasses change is causing verification mismatches.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="outline"
-              onClick={() => { setReEnrollingFace(true); setStep(1); setDescriptor(null); setError(''); }}
-              data-testid="button-reenroll-face"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" /> Re-enroll Face
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleWithdrawConsent}
-              isLoading={removeFaceMutation.isPending}
-              data-testid="button-withdraw-biometric-consent"
-            >
-              <Trash2 className="w-4 h-4 mr-2" /> Withdraw Consent &amp; Delete Face Data
-            </Button>
-          </div>
-          <p className="text-xs font-mono text-muted-foreground/80">
-            Withdrawing permanently deletes your stored facial template and blocks access to the
-            app again until you consent and re-enroll — mandatory MFA can't be bypassed by
-            withdrawing one factor.
-          </p>
+          {user.faceEnrolled ? (
+            <>
+              <p className="text-sm font-mono text-green-400 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" /> Enrolled
+              </p>
+              <p className="text-sm font-mono text-muted-foreground">
+                Re-enrolling replaces your stored facial signature — useful if lighting, a new
+                camera, or a hairstyle/glasses change is causing verification mismatches.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => { setReEnrollingFace(true); setStep(1); setDescriptor(null); setError(''); }}
+                  data-testid="button-reenroll-face"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" /> Re-enroll Face
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleWithdrawConsent}
+                  isLoading={removeFaceMutation.isPending}
+                  data-testid="button-withdraw-biometric-consent"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Withdraw Consent &amp; Delete Face Data
+                </Button>
+              </div>
+              <p className="text-xs font-mono text-muted-foreground/80">
+                {user.passkeyEnrolled
+                  ? 'Withdrawing permanently deletes your stored facial template. Your passkey keeps protecting your account, and you can add your face again at any time.'
+                  : "Withdrawing permanently deletes your stored facial template and blocks access to the app again until you set up a passkey or re-enroll — a second factor can't be bypassed by withdrawing one."}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-mono text-muted-foreground">
+                Not set up — optional. Your passkey already protects your account; a face scan is an
+                extra way to sign in. It is checked by an AI face-matching model.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => { setReEnrollingFace(true); setStep(1); setDescriptor(null); setError(''); }}
+                data-testid="button-add-face"
+              >
+                <ScanFace className="w-4 h-4 mr-2" /> Add Face Sign-in
+              </Button>
+            </>
+          )}
           {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
         </Card>
 
@@ -439,6 +461,7 @@ export default function Enroll() {
           <div className="flex items-center gap-3">
             <BrainCircuit className="w-5 h-5 text-primary" />
             <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Behavior Model Training</h2>
+            <AiLabel system="behaviour-suggestions" />
           </div>
           <p className="text-sm font-mono text-muted-foreground">
             Let your account's activity — which actions you take, never what you upload — contribute
@@ -467,6 +490,7 @@ export default function Enroll() {
           <div className="flex items-center gap-3">
             <Tags className="w-5 h-5 text-primary" />
             <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Content Personalization</h2>
+            <AiLabel system="content-personalisation" />
           </div>
           <p className="text-sm font-mono text-muted-foreground">
             A separate, third consent from both your account data and behavior-model training above.
@@ -495,6 +519,9 @@ export default function Enroll() {
             const keywords = contentProfileQuery.data?.keywords ?? [];
             if (contentProfileQuery.isLoading) {
               return <p className="text-xs font-mono text-muted-foreground">Building your profile…</p>;
+            }
+            if (contentProfileQuery.data?.disabled) {
+              return <p className="text-xs font-mono text-muted-foreground">Personalisation is switched off by an administrator; your files are not being read.</p>;
             }
             if (keywords.length === 0) {
               return (
@@ -609,19 +636,31 @@ export default function Enroll() {
         <div className="mb-8">
           <h1 className="font-mono text-3xl font-bold uppercase tracking-widest text-foreground flex items-center gap-4">
             <KeyRound className="w-8 h-8 text-primary" />
-            Device Passkey Required
+            {user.faceEnrolled ? 'Device Passkey Required' : 'Set Up a Passkey'}
           </h1>
           <p className="font-mono text-sm text-muted-foreground mt-2 uppercase tracking-wider">
-            Second mandatory factor for operator {user.name}
+            {user.faceEnrolled ? `Second mandatory factor for operator ${user.name}` : `Second factor for operator ${user.name}`}
           </p>
         </div>
 
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-6">
-          <div className="border border-destructive/40 bg-destructive/5 p-3 inline-block text-left">
-            <p className="font-mono text-xs text-destructive uppercase tracking-wider">
-              Mandatory — a face scan alone doesn't sign a server challenge. Access is blocked until a passkey is registered too.
-            </p>
-          </div>
+          {user.faceEnrolled ? (
+            <div className="border border-destructive/40 bg-destructive/5 p-3 inline-block text-left">
+              <p className="font-mono text-xs text-destructive uppercase tracking-wider">
+                Mandatory — a face scan alone doesn't sign a server challenge. Access is blocked until a passkey is registered too.
+              </p>
+            </div>
+          ) : (
+            <div className="border border-primary/30 bg-primary/5 p-3 text-left space-y-2">
+              <p className="font-mono text-xs text-foreground">
+                A passkey on its own secures your account: your device signs a one-time challenge after you unlock it.
+                You can add face sign-in later in Security Settings if you want to.
+              </p>
+              <Button variant="ghost" size="sm" onClick={() => setMode('face')} data-testid="button-back-to-face">
+                <ScanFace className="w-4 h-4 mr-2" /> Use a face scan instead
+              </Button>
+            </div>
+          )}
           <PasskeySection onEnrolled={handlePasskeyEnrolled} />
         </Card>
       </div>
@@ -630,12 +669,14 @@ export default function Enroll() {
 
   // ---- Face capture wizard: used for first-time mandatory enrollment AND
   // voluntary re-enrollment from settings mode. ----
+  let wizardTitle = 'Biometric Enrollment';
+  if (reEnrollingFace) wizardTitle = user.faceEnrolled ? 'Re-enroll Face' : 'Add Face Sign-in';
   return (
     <div className="max-w-3xl mx-auto py-12">
       <div className="mb-8">
         <h1 className="font-mono text-3xl font-bold uppercase tracking-widest text-foreground flex items-center gap-4">
           <ScanFace className="w-8 h-8 text-primary" />
-          {reEnrollingFace ? 'Re-enroll Face' : 'Biometric Enrollment'}
+          {wizardTitle}
         </h1>
         <p className="font-mono text-sm text-muted-foreground mt-2 uppercase tracking-wider">
           {reEnrollingFace ? `Replacing stored facial signature for ${user.name}` : `Multi-factor security protocol setup for operator ${user.name}`}
@@ -667,16 +708,26 @@ export default function Enroll() {
               {reEnrollingFace ? 'Recapture Facial Signature' : 'Biometric Enrollment Required'}
             </h2>
             <p className="text-muted-foreground font-mono max-w-lg mx-auto">
-              SecureAI requires facial biometrics for multi-factor authentication.
+              SecureAI uses facial biometrics for multi-factor authentication.
               The system will capture a mathematical map of your face.
               No visual image is stored.
             </p>
+            <p className="text-xs text-muted-foreground max-w-lg mx-auto flex items-center justify-center gap-2 flex-wrap">
+              <AiLabel system="face-recognition" /> Your face is matched by an AI model, which works less well for some people and in some conditions.
+            </p>
 
             {!reEnrollingFace && (
-              <div className="border border-destructive/40 bg-destructive/5 p-3 inline-block text-left mt-2">
-                <p className="font-mono text-xs text-destructive uppercase tracking-wider">
-                  Mandatory — access is blocked until enrollment is complete. A device passkey is required next.
-                </p>
+              <div className="space-y-3 mt-2">
+                <div className="border border-destructive/40 bg-destructive/5 p-3 inline-block text-left">
+                  <p className="font-mono text-xs text-destructive uppercase tracking-wider">
+                    A second factor is required before you can continue: a face scan here, or a passkey instead.
+                  </p>
+                </div>
+                <div>
+                  <Button variant="outline" onClick={() => setMode('passkey')} data-testid="button-passkey-instead">
+                    <KeyRound className="w-4 h-4 mr-2" /> Can't use a face scan? Set up a passkey instead
+                  </Button>
+                </div>
               </div>
             )}
 

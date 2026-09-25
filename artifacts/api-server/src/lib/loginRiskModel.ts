@@ -30,9 +30,13 @@ import { db, securityLogsTable } from "@workspace/db";
 
 export type RiskLevel = "low" | "medium" | "high";
 
+/** Stable identifiers for each signal, so callers can explain a flag to the account owner without parsing `reasons`. */
+export type LoginRiskCode = "new_network" | "new_device" | "rapid_network_change" | "unusual_time";
+
 export interface LoginRiskAssessment {
   level: RiskLevel;
   reasons: string[];
+  codes: LoginRiskCode[];
   isNewIp: boolean;
   isNewDevice: boolean;
   priorLoginsConsidered: number;
@@ -141,7 +145,7 @@ export async function assessLoginRisk(userId: number, currentIp: string, current
       .limit(MAX_HISTORY_ROWS);
 
     if (history.length < MIN_HISTORY_FOR_SCORING) {
-      return { level: "low", reasons: [], isNewIp: false, isNewDevice: false, priorLoginsConsidered: history.length };
+      return { level: "low", reasons: [], codes: [], isNewIp: false, isNewDevice: false, priorLoginsConsidered: history.length };
     }
 
     const knownIps = new Set(history.map((h) => h.ipAddress).filter((ip): ip is string => ip !== null));
@@ -164,21 +168,26 @@ export async function assessLoginRisk(userId: number, currentIp: string, current
     }
 
     const reasons: string[] = [];
+    const codes: LoginRiskCode[] = [];
     let weight = 0;
     if (isNewIp) {
       reasons.push("first login from this IP address for this account");
+      codes.push("new_network");
       weight += WEIGHT_NEW_IP;
     }
     if (isNewDevice) {
       reasons.push("first login from this browser/device for this account");
+      codes.push("new_device");
       weight += WEIGHT_NEW_DEVICE;
     }
     if (recentDifferentIp) {
       reasons.push(`a different IP address logged in successfully for this account within the last ${RAPID_IP_CHANGE_WINDOW_MS / 60000} minutes`);
+      codes.push("rapid_network_change");
       weight += WEIGHT_RAPID_IP_CHANGE;
     }
     if (isOffHours) {
       reasons.push("this login's time of day is well outside this account's usual pattern");
+      codes.push("unusual_time");
       weight += WEIGHT_OFF_HOURS;
     }
 
@@ -186,9 +195,9 @@ export async function assessLoginRisk(userId: number, currentIp: string, current
     if (weight >= HIGH_RISK_THRESHOLD) level = "high";
     else if (weight >= MEDIUM_RISK_THRESHOLD) level = "medium";
 
-    return { level, reasons, isNewIp, isNewDevice, priorLoginsConsidered: history.length };
+    return { level, reasons, codes, isNewIp, isNewDevice, priorLoginsConsidered: history.length };
   } catch {
     // Scoring must never be able to break the login path it's observing.
-    return { level: "low", reasons: [], isNewIp: false, isNewDevice: false, priorLoginsConsidered: 0 };
+    return { level: "low", reasons: [], codes: [], isNewIp: false, isNewDevice: false, priorLoginsConsidered: 0 };
   }
 }

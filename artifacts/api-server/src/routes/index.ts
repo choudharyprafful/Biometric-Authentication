@@ -11,6 +11,7 @@ import uploadsRouter from "./uploads";
 import behaviorRouter from "./behavior";
 import contentProfileRouter from "./contentProfile";
 import aiSecurityRouter from "./aiSecurity";
+import aiGovernanceRouter from "./aiGovernance";
 
 const router: IRouter = Router();
 
@@ -27,5 +28,6 @@ router.use(uploadsRouter);
 router.use(behaviorRouter);
 router.use(contentProfileRouter);
 router.use(aiSecurityRouter);
+router.use(aiGovernanceRouter);
 
 export default router;

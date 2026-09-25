@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGetSecurityDashboard, useGetSuggestedAction } from '@workspace/api-client-react';
-import { Card, Badge } from '../components/ui';
+import { Card, Badge, Button } from '../components/ui';
+import { AiLabel } from '../components/AiLabel';
+import { readSecurityNotice, clearSecurityNotice } from '../lib/securityNotice';
 import { Users, Fingerprint, Activity, AlertTriangle, Loader2, Shield, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation } from 'wouter';
@@ -10,6 +12,31 @@ import { useAuth } from '../contexts/AuthContext';
 // Degrades quietly (no error banner) on 403/429/no-data: this is a nice-to-have
 // hint, not something worth interrupting the dashboard over if MFA/parent-consent
 // gating blocks it or the model has too little consented data yet.
+// The sign-in risk check's warning, carried over from the password step (lib/securityNotice.ts). Shown once
+// per sign-in, labelled as automated, with a way to challenge it (Team 2: transparency, contestability).
+function SecurityNoticeBanner() {
+  const [notice, setNotice] = useState<string | null>(() => readSecurityNotice());
+  if (!notice) return null;
+  const dismiss = () => {
+    clearSecurityNotice();
+    setNotice(null);
+  };
+  return (
+    <div role="alert" className="border border-yellow-500/40 bg-yellow-500/5 p-4 space-y-2 [overflow-wrap:anywhere]" data-testid="security-notice">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
+          <p className="font-mono text-xs uppercase tracking-widest text-yellow-400">Unusual sign-in</p>
+          <AiLabel system="login-risk" text="Automated check" />
+        </div>
+        <Button variant="ghost" size="sm" onClick={dismiss} data-testid="button-dismiss-notice">Dismiss</Button>
+      </div>
+      <p className="text-sm text-foreground">{notice}</p>
+      <a href="/ai?challenge=login-risk#challenge" className="text-xs text-primary underline underline-offset-2">This was me: challenge the check</a>
+    </div>
+  );
+}
+
 function SuggestedActionCard() {
   const { data, isLoading, error } = useGetSuggestedAction();
 
@@ -18,9 +45,12 @@ function SuggestedActionCard() {
       <div className="flex items-center gap-3">
         <Sparkles className="w-5 h-5 text-primary" />
         <h3 className="font-mono text-sm uppercase tracking-widest text-foreground">Suggested Next Action</h3>
+        <AiLabel system="behaviour-suggestions" text="AI suggestion" />
       </div>
       {isLoading ? (
         <p className="font-mono text-xs text-muted-foreground">Loading…</p>
+      ) : data?.disabled ? (
+        <p className="font-mono text-xs text-muted-foreground">AI suggestions are switched off by an administrator.</p>
       ) : error || !data?.suggestion ? (
         <p className="font-mono text-xs text-muted-foreground">
           Not enough shared, opted-in activity yet to suggest anything — this needs a pattern
@@ -114,6 +144,8 @@ export default function Dashboard() {
           <span className="font-mono text-xs text-green-500 uppercase tracking-widest">System Nominal</span>
         </div>
       </div>
+
+      <SecurityNoticeBanner />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat) => (

@@ -615,7 +615,8 @@ export const GetSuggestedActionResponse = zod.object({
   "suggestion": zod.string().nullable().describe('Predicted next event type, or null if nothing cleared the minimum-distinct-users threshold (or the account has no activity yet)'),
   "distinctUsersSupporting": zod.number().describe('How many distinct consented users\' activity supports this specific prediction — 0 if suggestion is null'),
   "modelTrainedFromUsers": zod.number().describe('Total number of consented users the model was trained from on this call'),
-  "contextDepth": zod.union([zod.literal(1),zod.literal(2),zod.literal(null)]).nullable().describe('Whether the prediction came from the 2-event context (2, more specific\/accurate) or fell back to the single-last-event table (1). Null if suggestion is null.')
+  "contextDepth": zod.union([zod.literal(1),zod.literal(2),zod.literal(null)]).nullable().describe('Whether the prediction came from the 2-event context (2, more specific\/accurate) or fell back to the single-last-event table (1). Null if suggestion is null.'),
+  "disabled": zod.boolean().describe('True when an administrator has switched suggestions off (see GET \/ai\/systems)')
 })
 
 
@@ -732,6 +733,206 @@ export const GetAiSecurityReportResponse = zod.object({
 
 
 /**
+ * Public, so the transparency page works before sign-in. Who switched a system off, and why, is only in the staff view (GET /ai/oversight).
+ * @summary The AI system register — every place SecureAI uses AI, what it decides, who is accountable, and whether it is switched on
+ */
+export const GetAiSystemsResponse = zod.object({
+  "accountableOwner": zod.string(),
+  "systems": zod.array(zod.object({
+  "id": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "name": zod.string(),
+  "kind": zod.string(),
+  "purpose": zod.string(),
+  "whyAi": zod.string(),
+  "decides": zod.string(),
+  "dataUsed": zod.string(),
+  "runsWhere": zod.string(),
+  "humanOversight": zod.string(),
+  "howToChallenge": zod.string(),
+  "knownLimits": zod.array(zod.string()),
+  "riskRefs": zod.array(zod.string()),
+  "accountableOwner": zod.string(),
+  "oversightRole": zod.string(),
+  "switchable": zod.boolean(),
+  "switchNote": zod.string(),
+  "enabled": zod.boolean(),
+  "stateChangedAt": zod.coerce.date().nullable()
+}))
+})
+
+
+/**
+ * @summary Switch an AI system on or off (administrators only; recorded in the audit log with the reason)
+ */
+export const SetAiSystemStateParams = zod.object({
+  "id": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts'])
+})
+
+export const setAiSystemStateBodyReasonMin = 10;
+export const setAiSystemStateBodyReasonMax = 500;
+
+
+
+export const SetAiSystemStateBody = zod.object({
+  "enabled": zod.boolean(),
+  "reason": zod.string().min(setAiSystemStateBodyReasonMin).max(setAiSystemStateBodyReasonMax).describe('Why — recorded in the audit log')
+})
+
+export const SetAiSystemStateResponse = zod.object({
+  "id": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "name": zod.string(),
+  "switchable": zod.boolean(),
+  "switchNote": zod.string(),
+  "enabled": zod.boolean(),
+  "changedAt": zod.coerce.date().nullable(),
+  "changedBy": zod.string().nullable(),
+  "reason": zod.string().nullable()
+})
+
+
+/**
+ * Open to any signed-in account, including one that has not finished MFA setup, since a person the face model fails is exactly who needs this.
+ * @summary Challenge an AI decision — reviewed by a security analyst
+ */
+export const submitAiChallengeBodyMessageMin = 10;
+export const submitAiChallengeBodyMessageMax = 1000;
+
+export const submitAiChallengeBodyReferenceMax = 120;
+
+
+export const submitAiChallengeBodyReferenceRegExp = new RegExp('^[A-Za-z0-9 _:.,/-]*$');
+
+
+export const SubmitAiChallengeBody = zod.object({
+  "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "message": zod.string().min(submitAiChallengeBodyMessageMin).max(submitAiChallengeBodyMessageMax).describe('What the AI decided and why you think it was wrong'),
+  "reference": zod.string().max(submitAiChallengeBodyReferenceMax).regex(submitAiChallengeBodyReferenceRegExp).optional().describe('Optional pointer to the decision, e.g. the date and time of the sign-in')
+})
+
+export const SubmitAiChallengeResponse = zod.object({
+  "id": zod.number(),
+  "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "systemName": zod.string(),
+  "reference": zod.string().nullable(),
+  "message": zod.string(),
+  "submittedAt": zod.coerce.date(),
+  "submittedBy": zod.string().nullable(),
+  "status": zod.enum(['open', 'resolved']),
+  "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
+  "resolutionNote": zod.string().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable()
+})
+
+
+/**
+ * @summary Every challenge, newest first (security analysts and administrators)
+ */
+export const ListAiChallengesResponseItem = zod.object({
+  "id": zod.number(),
+  "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "systemName": zod.string(),
+  "reference": zod.string().nullable(),
+  "message": zod.string(),
+  "submittedAt": zod.coerce.date(),
+  "submittedBy": zod.string().nullable(),
+  "status": zod.enum(['open', 'resolved']),
+  "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
+  "resolutionNote": zod.string().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable()
+})
+export const ListAiChallengesResponse = zod.array(ListAiChallengesResponseItem)
+
+
+/**
+ * @summary This account's own challenges and their outcomes
+ */
+export const ListMyAiChallengesResponseItem = zod.object({
+  "id": zod.number(),
+  "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "systemName": zod.string(),
+  "reference": zod.string().nullable(),
+  "message": zod.string(),
+  "submittedAt": zod.coerce.date(),
+  "submittedBy": zod.string().nullable(),
+  "status": zod.enum(['open', 'resolved']),
+  "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
+  "resolutionNote": zod.string().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable()
+})
+export const ListMyAiChallengesResponse = zod.array(ListMyAiChallengesResponseItem)
+
+
+/**
+ * @summary Record the outcome of a challenge (security analysts and administrators)
+ */
+export const resolveAiChallengePathIdMax = 2147483647;
+
+
+
+export const ResolveAiChallengeParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(resolveAiChallengePathIdMax)
+})
+
+export const resolveAiChallengeBodyNoteMin = 5;
+export const resolveAiChallengeBodyNoteMax = 1000;
+
+
+
+export const ResolveAiChallengeBody = zod.object({
+  "outcome": zod.enum(['upheld', 'not-upheld']),
+  "note": zod.string().min(resolveAiChallengeBodyNoteMin).max(resolveAiChallengeBodyNoteMax).describe('What was found and done — shown to the person who raised it')
+})
+
+export const ResolveAiChallengeResponse = zod.object({
+  "id": zod.number(),
+  "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "systemName": zod.string(),
+  "reference": zod.string().nullable(),
+  "message": zod.string(),
+  "submittedAt": zod.coerce.date(),
+  "submittedBy": zod.string().nullable(),
+  "status": zod.enum(['open', 'resolved']),
+  "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
+  "resolutionNote": zod.string().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable()
+})
+
+
+/**
+ * @summary Switch states with who changed them and why, outcome monitoring, and the open-challenge count (security analysts and administrators)
+ */
+export const GetAiOversightResponse = zod.object({
+  "systems": zod.array(zod.object({
+  "id": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "name": zod.string(),
+  "switchable": zod.boolean(),
+  "switchNote": zod.string(),
+  "enabled": zod.boolean(),
+  "changedAt": zod.coerce.date().nullable(),
+  "changedBy": zod.string().nullable(),
+  "reason": zod.string().nullable()
+})),
+  "outcomes": zod.array(zod.object({
+  "days": zod.number(),
+  "faceScans": zod.number(),
+  "faceScanFailures": zod.number(),
+  "passwordSignIns": zod.number(),
+  "signInsFlagged": zod.number(),
+  "suggestionQueries": zod.number(),
+  "suggestionsShown": zod.number(),
+  "profileQueries": zod.number(),
+  "securityAlerts": zod.number(),
+  "challengesFiled": zod.number()
+})),
+  "openChallenges": zod.number()
+})
+
+
+/**
  * A third, distinct consent purpose from dataConsent and trainingConsent — see the User schema's contentPersonalizationConsentGiven field. Toggleable any time.
  * @summary Opt in or out of having this account's own uploaded text content read to build a private personalization profile
  */
@@ -766,7 +967,8 @@ export const GetContentProfileResponse = zod.object({
   "keyword": zod.string(),
   "score": zod.number().describe('Relative frequency within this account\'s own text-upload corpus — not a probability, not comparable across accounts')
 })).describe('Top keywords by frequency, highest first. Empty if consent isn\'t given or no text uploads exist.'),
-  "documentsConsidered": zod.number().describe('How many of this account\'s own text uploads contributed to this profile')
+  "documentsConsidered": zod.number().describe('How many of this account\'s own text uploads contributed to this profile'),
+  "disabled": zod.boolean().describe('True when an administrator has switched personalisation off (see GET \/ai\/systems)')
 })
 
 

@@ -12,4 +12,6 @@ export interface ContentProfileResult {
   keywords: KeywordScore[];
   /** How many of this account's own text uploads contributed to this profile */
   documentsConsidered: number;
+  /** True when an administrator has switched personalisation off (see GET /ai/systems) */
+  disabled: boolean;
 }

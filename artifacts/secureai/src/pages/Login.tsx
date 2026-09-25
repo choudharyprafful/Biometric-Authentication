@@ -7,6 +7,8 @@ import { Shield, Fingerprint } from 'lucide-react';
 import { FaceCamera } from '../components/FaceCamera';
 import { KeyRound } from 'lucide-react';
 import { loginWithPasskey } from '../lib/passkey';
+import { rememberSecurityNotice } from '../lib/securityNotice';
+import { AiLabel } from '../components/AiLabel';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -32,7 +34,8 @@ export default function Login() {
     
     try {
       const res = await loginMutation.mutateAsync({ data: { email, password } });
-      
+      rememberSecurityNotice(res.securityNotice);
+
       if (res.requiresFaceVerification && res.tempToken) {
         setTempToken(res.tempToken);
         setFaceAvailable(res.faceAvailable);
@@ -41,8 +44,8 @@ export default function Login() {
         setScanAttempt(0);
       } else {
         await refetchUser();
-        // Send not-fully-enrolled users straight to mandatory enrollment
-        if (res.user && (!res.user.faceEnrolled || !res.user.passkeyEnrolled)) {
+        // Accounts without a passkey go to enrollment (a passkey alone is enough; face is optional)
+        if (res.user && !res.user.passkeyEnrolled) {
           setLocation('/enroll');
         } else {
           setLocation('/dashboard');
@@ -70,7 +73,7 @@ export default function Login() {
       setRequiresFaceVerification(false);
       await refetchUser();
       // If passkey MFA passed but enrollment isn't fully complete, go to enroll
-      if (result?.user && (!result.user.faceEnrolled || !result.user.passkeyEnrolled)) {
+      if (result?.user && !result.user.passkeyEnrolled) {
         setLocation('/enroll');
       } else {
         setLocation('/dashboard');
@@ -104,7 +107,7 @@ export default function Login() {
       // Face verify passed — user.faceEnrolled must be true at this point,
       // but guard anyway so we never land on dashboard before enrollment
       // (face + passkey) is fully complete.
-      if (result?.user && (!result.user.faceEnrolled || !result.user.passkeyEnrolled)) {
+      if (result?.user && !result.user.passkeyEnrolled) {
         setLocation('/enroll');
       } else {
         setLocation('/dashboard');
@@ -197,10 +200,15 @@ export default function Login() {
               </div>
             )}
             
-            <div className="text-center pt-2">
+            <div className="text-center pt-2 space-y-2">
               <Link href="/register">
-                <span className="text-xs font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider">
+                <span className="block text-xs font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider">
                   Request New Clearance (Register)
+                </span>
+              </Link>
+              <Link href="/ai">
+                <span className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider" data-testid="link-how-we-use-ai">
+                  How SecureAI uses AI
                 </span>
               </Link>
             </div>
@@ -219,6 +227,9 @@ export default function Login() {
                     {showFaceCamera ? (
                       <>
                         <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
+                        <p className="text-[10px] font-mono text-muted-foreground flex items-center justify-center gap-2 flex-wrap">
+                          <AiLabel system="face-recognition" text="AI face matching" /> If it doesn't recognise you, use your passkey instead.
+                        </p>
                         <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                           Camera permission is required. The scan starts automatically once your face is detected.
                         </p>

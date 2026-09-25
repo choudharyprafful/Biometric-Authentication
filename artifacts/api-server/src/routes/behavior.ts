@@ -9,6 +9,7 @@ import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { buildTrainingCorpus, train, predictNext, getRecentEventTypes } from "../lib/behaviorModel";
 import { getClientIp } from "../lib/clientIp";
+import { isAiSystemEnabled } from "../lib/aiGovernance";
 
 const router: IRouter = Router();
 
@@ -57,10 +58,16 @@ const suggestedActionRateLimit = requestRateLimit("behavior-suggested-action", 3
 router.get("/behavior/suggested-action", requireParentConsent, requireMfaEnrolled, suggestedActionRateLimit, async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
 
+  // An administrator's off switch (lib/aiGovernance.ts): the model isn't trained or queried at all.
+  if (!(await isAiSystemEnabled("behaviour-suggestions"))) {
+    res.json(GetSuggestedActionResponse.parse({ suggestion: null, distinctUsersSupporting: 0, modelTrainedFromUsers: 0, contextDepth: null, disabled: true }));
+    return;
+  }
+
   const { lastEvent, previousEvent } = await getRecentEventTypes(userId);
   if (!lastEvent) {
     await logQuery(req, userId, "no prior activity to predict from");
-    res.json(GetSuggestedActionResponse.parse({ suggestion: null, distinctUsersSupporting: 0, modelTrainedFromUsers: 0, contextDepth: null }));
+    res.json(GetSuggestedActionResponse.parse({ suggestion: null, distinctUsersSupporting: 0, modelTrainedFromUsers: 0, contextDepth: null, disabled: false }));
     return;
   }
 
@@ -74,6 +81,7 @@ router.get("/behavior/suggested-action", requireParentConsent, requireMfaEnrolle
     distinctUsersSupporting: prediction?.distinctUsers ?? 0,
     modelTrainedFromUsers: model.usersIncluded,
     contextDepth: prediction?.contextDepth ?? null,
+    disabled: false,
   }));
 });
 

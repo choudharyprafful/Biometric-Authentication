@@ -50,7 +50,10 @@ export type AuditEventType =
   | "CONTENT_PROFILE_QUERIED"
   | "PAYMENT_REFUNDED"
   | "PAYMENT_IDEMPOTENT_REPLAY"
-  | "TRAINING_SOURCE_REJECTED";
+  | "TRAINING_SOURCE_REJECTED"
+  | "AI_SYSTEM_TOGGLED"
+  | "AI_DECISION_CHALLENGED"
+  | "AI_CHALLENGE_RESOLVED";
 
 // Fixed anchor for the first row, so "no previous hash" is a checkable
 // value instead of null.
@@ -80,58 +83,67 @@ function computeHash(prevHash: string, content: LogContent): string {
 // Serializes writes so two concurrent logEvent calls can't both read the
 // same prevHash and fork the chain. doLogEvent swallows its own errors,
 // so this promise chain never ends up permanently rejected.
-let writeQueue: Promise<void> = Promise.resolve();
+let writeQueue: Promise<unknown> = Promise.resolve();
 
-export function logEvent(params: {
+interface LogEventParams {
   eventType: AuditEventType;
   details: string;
   userId?: number | null;
   userEmail?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
-}): Promise<void> {
+}
+
+export function logEvent(params: LogEventParams): Promise<void> {
   const next = writeQueue.then(() => doLogEvent(params));
   writeQueue = next;
   return next;
 }
 
-async function doLogEvent(params: {
-  eventType: AuditEventType;
-  details: string;
-  userId?: number | null;
-  userEmail?: string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}): Promise<void> {
+/** Same chained write as logEvent, for events that ARE the record (an AI challenge, a model switched
+ *  off): resolves to the new row's id and rejects if the write failed, so the caller never reports
+ *  success for something that was not stored. */
+export function recordEvent(params: LogEventParams): Promise<number> {
+  const next = writeQueue.then(() => insertEvent(params));
+  writeQueue = next.catch(() => {});
+  return next;
+}
+
+async function doLogEvent(params: LogEventParams): Promise<void> {
   try {
-    const [lastRow] = await db.select({ hash: securityLogsTable.hash }).from(securityLogsTable).orderBy(desc(securityLogsTable.id)).limit(1);
-    const prevHash = lastRow?.hash ?? GENESIS_HASH;
-
-    const content: LogContent = {
-      eventType: params.eventType,
-      details: params.details,
-      userId: params.userId ?? null,
-      userEmail: params.userEmail ?? null,
-      ipAddress: params.ipAddress ?? null,
-      userAgent: params.userAgent ?? null,
-      timestamp: new Date().toISOString(),
-    };
-    const hash = computeHash(prevHash, content);
-
-    await db.insert(securityLogsTable).values({
-      eventType: content.eventType,
-      details: content.details,
-      userId: content.userId,
-      userEmail: content.userEmail,
-      ipAddress: content.ipAddress,
-      userAgent: content.userAgent,
-      timestamp: new Date(content.timestamp),
-      prevHash,
-      hash,
-    });
+    await insertEvent(params);
   } catch {
     // Never let audit logging crash the main flow
   }
+}
+
+async function insertEvent(params: LogEventParams): Promise<number> {
+  const [lastRow] = await db.select({ hash: securityLogsTable.hash }).from(securityLogsTable).orderBy(desc(securityLogsTable.id)).limit(1);
+  const prevHash = lastRow?.hash ?? GENESIS_HASH;
+
+  const content: LogContent = {
+    eventType: params.eventType,
+    details: params.details,
+    userId: params.userId ?? null,
+    userEmail: params.userEmail ?? null,
+    ipAddress: params.ipAddress ?? null,
+    userAgent: params.userAgent ?? null,
+    timestamp: new Date().toISOString(),
+  };
+  const hash = computeHash(prevHash, content);
+
+  const [inserted] = await db.insert(securityLogsTable).values({
+    eventType: content.eventType,
+    details: content.details,
+    userId: content.userId,
+    userEmail: content.userEmail,
+    ipAddress: content.ipAddress,
+    userAgent: content.userAgent,
+    timestamp: new Date(content.timestamp),
+    prevHash,
+    hash,
+  }).returning({ id: securityLogsTable.id });
+  return inserted!.id;
 }
 
 export interface ChainVerificationResult {
