@@ -20,7 +20,7 @@ flowchart LR
     subgraph Real["Built and running in this PoC"]
         direction TB
         U["User"] -->|text/image/video| Upload["POST /uploads<br/>(base64 JSON, 15MB cap)"]
-        Upload --> Scan["malwareScan.ts + clamdClient.ts<br/>EICAR/magic-bytes/SVG-script always-on,<br/>+ optional real clamd scan"]
+        Upload --> Scan["clamdClient.ts: ClamAV on the API instance (127.0.0.1) first,<br/>upload refused (503) if it doesn't answer;<br/>then malwareScan.ts: EICAR/magic-bytes/SVG-script, always on"]
         Scan --> ImgStrip["imageSafety.ts (images)<br/>videoSafety.ts (MP4/MOV)<br/>strip EXIF/GPS location metadata"]
         ImgStrip --> Enc["AES-256-GCM encrypt"]
         Enc --> UploadsDB[("uploads table<br/>ciphertext + iv + authTag")]

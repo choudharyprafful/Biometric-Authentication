@@ -19,7 +19,7 @@ export function directoryEntries(dir) {
   return out;
 }
 
-/** Writes [name, Buffer] entries to a zip file at `out`. */
+/** Writes [name, Buffer, mode?] entries to a zip file at `out`. Mode defaults to 0o644. */
 export function writeZip(out, entries) {
   const now = new Date();
   const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
@@ -28,7 +28,7 @@ export function writeZip(out, entries) {
   const locals = [];
   const centrals = [];
   let offset = 0;
-  for (const [name, data] of entries) {
+  for (const [name, data, mode = 0o644] of entries) {
     const nameBuf = Buffer.from(name, "utf8");
     const compressed = zlib.deflateRawSync(data);
     const crc = zlib.crc32(data) >>> 0;
@@ -58,7 +58,7 @@ export function writeZip(out, entries) {
     central.writeUInt32LE(compressed.length, 20);
     central.writeUInt32LE(data.length, 24);
     central.writeUInt16LE(nameBuf.length, 28);
-    central.writeUInt32LE((0o100644 << 16) >>> 0, 38); // regular file, rw-r--r--
+    central.writeUInt32LE(((0o100000 | mode) << 16) >>> 0, 38); // regular file with these permission bits
     central.writeUInt32LE(offset, 42);
     centrals.push(central, nameBuf);
 

@@ -1214,7 +1214,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/UploadMeta"
         "400":
-          description: Bad request (unsupported type or too large)
+          description: Bad request (unsupported type, too large, or rejected by the virus scan)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: The virus scanner is configured but not answering, so the file was not stored. Retry-After gives the wait in seconds.
           content:
             application/json:
               schema:

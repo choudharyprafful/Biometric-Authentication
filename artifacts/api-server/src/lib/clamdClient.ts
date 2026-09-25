@@ -1,36 +1,22 @@
 /**
- * Real AV-engine integration — the drop-in the malwareScan.ts module
- * comment always pointed at: "a production deployment should replace/
- * augment scanBuffer with a call to ClamAV (clamd, via a TCP/Unix-socket
- * client)... the upload route doesn't need to change, only this function's
- * body." That call was never made because no clamd daemon (or Docker/WSL to
- * run one) is available to provision in this dev environment — confirmed,
- * not assumed: no clamd/clamscan/docker/wsl binary exists on this machine.
- * A cloud-API alternative (VirusTotal etc.) was deliberately NOT used
- * instead: sending a user's actual uploaded file content to a third-party
- * service before it's ever encrypted is a real privacy regression against
- * this app's whole "never process plaintext unnecessarily" posture, and
- * needs an explicit, provisioned API key and account this project doesn't
- * have — not something to wire up silently with a placeholder.
+ * Real AV-engine integration: a from-scratch client for clamd's documented
+ * wire protocol (INSTREAM, PING, VERSION — see clamd(8)), speakable to any
+ * clamd reachable over TCP once CLAMD_HOST is set.
  *
- * What's real here instead: a correct, from-scratch implementation of
- * clamd's own documented wire protocol (INSTREAM — see ClamAV's
- * clamd.conf(5)/the protocol section of the ClamAV manual), speakable to
- * ANY clamd instance reachable over TCP — local or remote, this machine or
- * a container/managed service elsewhere — the moment CLAMD_HOST is set.
- * Until then, scanBuffer's signature-only checks are what actually run
- * (unchanged), and this stays an inert, tested-but-unconnected layer —
- * exactly the "implemented, not proven in THIS environment" honesty this
- * whole project already applies elsewhere, not a claim that real malware
- * scanning is happening today.
+ * In production clamd runs on the API's own instance, bound to 127.0.0.1
+ * and installed by the deploy hook in .platform/hooks/prebuild/10_clamav.sh
+ * (Amazon Linux 2023's ClamAV 1.4 LTS packages, signatures kept current by
+ * freshclam). Local development has no clamd, leaves CLAMD_HOST unset, and
+ * gets the signature-only checks in malwareScan.ts.
  *
- * "Tested" above means what it can actually mean without a real ClamAV
- * install: a minimal fake clamd server (this file's own test only, not
- * shipped) that speaks just enough of INSTREAM to prove this client frames
- * chunks correctly and parses OK/FOUND responses correctly. That validates
- * the wire-protocol client is not buggy; it does not and cannot validate
- * that ClamAV's actual virus definitions would catch anything, since no
- * real ClamAV instance exists to test against here.
+ * A cloud-API alternative (VirusTotal etc.) was deliberately NOT used:
+ * sending a user's uploaded file to a third party before it's ever
+ * encrypted would be a privacy regression against this app's "never
+ * process plaintext unnecessarily" posture.
+ *
+ * lib/clamdClient.verify.ts checks the framing and response parsing against
+ * a fake clamd; the deploy hook checks the real engine by streaming the
+ * EICAR test file through it before the API starts.
  */
 
 import net from "node:net";
@@ -119,12 +105,66 @@ export function scanWithClamd(buffer: Buffer, host: string | undefined, port: nu
   });
 }
 
-/** Reads CLAMD_HOST/CLAMD_PORT from the environment on each call — not a
- *  cached module-level constant — so tests (and a future ops toggle) can
- *  flip it without a process restart. Defaults to clamd's own standard
- *  port, 3310, when CLAMD_HOST is set but CLAMD_PORT isn't. */
-export function scanWithClamdIfConfigured(buffer: Buffer): Promise<ClamdResult> {
+/**
+ * Sends one short clamd command ("PING", "VERSION") and returns its reply
+ * line, or null if clamd is unreachable or silent.
+ */
+export function clamdCommand(command: string, host: string, port: number, timeoutMs = CONNECT_TIMEOUT_MS): Promise<string | null> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let reply = Buffer.alloc(0);
+    let settled = false;
+    const finish = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once("timeout", () => finish(null));
+    socket.once("error", () => finish(null));
+    socket.once("connect", () => socket.write(`z${command}\0`));
+    socket.on("data", (data: Buffer | string) => {
+      reply = Buffer.concat([reply, Buffer.isBuffer(data) ? data : Buffer.from(data)]);
+      if (reply.includes(0)) finish(reply.toString("utf8").replace(/\0/g, "").trim());
+    });
+    socket.once("end", () => finish(reply.length ? reply.toString("utf8").replace(/\0/g, "").trim() : null));
+    socket.connect(port, host);
+  });
+}
+
+/** CLAMD_HOST/CLAMD_PORT, read on each call so tests can flip them without a
+ *  restart. Port defaults to clamd's standard 3310. Null when unset. */
+export function clamdTarget(): { host: string; port: number } | null {
   const host = process.env["CLAMD_HOST"];
-  const port = Number(process.env["CLAMD_PORT"] ?? 3310);
-  return scanWithClamd(buffer, host, port);
+  if (!host) return null;
+  return { host, port: Number(process.env["CLAMD_PORT"] ?? 3310) };
+}
+
+export function scanWithClamdIfConfigured(buffer: Buffer): Promise<ClamdResult> {
+  const target = clamdTarget();
+  return scanWithClamd(buffer, target?.host, target?.port ?? 3310);
+}
+
+/**
+ * Logs whether the configured clamd answers, and which engine and signature
+ * version it runs. Retries for a while because clamd can still be loading
+ * its signatures when the API starts. Informational only: uploads decide
+ * per request.
+ */
+export async function logClamdStatusAtStartup(log: { info: (o: object, m: string) => void; warn: (o: object, m: string) => void }): Promise<void> {
+  const target = clamdTarget();
+  if (!target) {
+    log.info({}, "Upload scanning: signature checks only (CLAMD_HOST not set)");
+    return;
+  }
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    const version = await clamdCommand("VERSION", target.host, target.port);
+    if (version) {
+      log.info({ clamd: version }, "Upload scanning: ClamAV reachable");
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 10_000));
+  }
+  log.warn(target, "Upload scanning: ClamAV not reachable; uploads are refused until it answers");
 }

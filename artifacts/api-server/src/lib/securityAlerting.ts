@@ -27,6 +27,25 @@ export interface SecurityAlert {
   windowMinutes: number;
 }
 
+/**
+ * Any upload refused because ClamAV didn't answer means nobody can upload,
+ * so one is enough to raise it. It's an outage, not an attack.
+ */
+async function computeScannerAlerts(since: Date): Promise<SecurityAlert[]> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(securityLogsTable)
+    .where(and(eq(securityLogsTable.eventType, "UPLOAD_SCAN_UNAVAILABLE"), gte(securityLogsTable.timestamp, since)));
+  if (!row || row.count === 0) return [];
+  return [{
+    id: "upload-scanner-unavailable",
+    severity: "high",
+    message: `${row.count} upload${row.count === 1 ? "" : "s"} refused in the last ${ALERT_WINDOW_MINUTES} minutes because the virus scanner (ClamAV) didn't answer`,
+    count: row.count,
+    windowMinutes: ALERT_WINDOW_MINUTES,
+  }];
+}
+
 /** Recomputed fresh from security_logs on every call — no cached alert state. */
 export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
   const since = new Date(Date.now() - ALERT_WINDOW_MINUTES * 60 * 1000);
@@ -69,8 +88,8 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
     }
   }
 
-  const [faceAlerts, uploadAlerts] = await Promise.all([computeFaceVerificationAlerts(), computeUploadAnomalyAlerts()]);
-  alerts.push(...faceAlerts, ...uploadAlerts);
+  const [scannerAlerts, faceAlerts, uploadAlerts] = await Promise.all([computeScannerAlerts(since), computeFaceVerificationAlerts(), computeUploadAnomalyAlerts()]);
+  alerts.push(...scannerAlerts, ...faceAlerts, ...uploadAlerts);
 
   return alerts.sort((a, b) => b.count - a.count);
 }

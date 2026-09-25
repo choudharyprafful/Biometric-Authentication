@@ -17,7 +17,7 @@ import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { stripImageMetadata, detectImageFormat } from "../lib/imageSafety";
 import { stripVideoMetadata } from "../lib/videoSafety";
 import { scanBuffer } from "../lib/malwareScan";
-import { scanWithClamdIfConfigured } from "../lib/clamdClient";
+import { clamdTarget, scanWithClamdIfConfigured } from "../lib/clamdClient";
 import { assessTrainingEligibility, isContentSource, type ContentSource } from "../lib/dataProvenance";
 import { getClientIp } from "../lib/clientIp";
 
@@ -114,8 +114,40 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
     return;
   }
 
-  // Signature-based scan (EICAR test file + masquerading-executable
-  // detection) — applies to every type, not just images. See
+  // ClamAV first, when CLAMD_HOST is configured (production), so a known
+  // sample is attributed to the engine that actually recognised it. When it
+  // is configured but doesn't answer, the upload is refused rather than
+  // stored unscanned: a scanner that is silently down must not look the
+  // same as a clean file. See lib/clamdClient.ts.
+  if (clamdTarget()) {
+    const clamdScan = await scanWithClamdIfConfigured(plaintext);
+    if (!clamdScan.available) {
+      await logEvent({
+        eventType: "UPLOAD_SCAN_UNAVAILABLE",
+        details: `Upload refused, virus scanner unavailable: ${fileName} — ${clamdScan.reason ?? "no response"}`,
+        userId,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers["user-agent"],
+      });
+      res.set("Retry-After", "60");
+      res.status(503).json({ error: "Virus scanning is temporarily unavailable, so the file wasn't saved. Try again in a minute." });
+      return;
+    }
+    if (!clamdScan.clean) {
+      await logEvent({
+        eventType: "UPLOAD_SCAN_REJECTED",
+        details: `Upload rejected by ClamAV: ${fileName} — ${clamdScan.reason}`,
+        userId,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers["user-agent"],
+      });
+      res.status(400).json({ error: `File rejected: ${clamdScan.reason}` });
+      return;
+    }
+  }
+
+  // Signature checks (EICAR test file, masquerading executables, shell
+  // scripts, scripted SVG) run on every upload, with or without ClamAV. See
   // lib/malwareScan.ts for exactly what this does and doesn't cover.
   const scan = scanBuffer(plaintext, mimeType);
   if (!scan.clean) {
@@ -127,25 +159,6 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
       userAgent: req.headers["user-agent"],
     });
     res.status(400).json({ error: `File rejected: ${scan.reason}` });
-    return;
-  }
-
-  // Second, optional layer — a real AV engine via clamd's wire protocol,
-  // active only when CLAMD_HOST is configured. No-ops (available: false)
-  // when it isn't, or if clamd is unreachable — an infrastructure outage
-  // degrades to signature-only scanning rather than blocking every upload.
-  // See lib/clamdClient.ts for why this couldn't be verified against a real
-  // ClamAV instance in this environment.
-  const clamdScan = await scanWithClamdIfConfigured(plaintext);
-  if (clamdScan.available && !clamdScan.clean) {
-    await logEvent({
-      eventType: "UPLOAD_SCAN_REJECTED",
-      details: `Upload rejected by clamd: ${fileName} — ${clamdScan.reason}`,
-      userId,
-      ipAddress: getClientIp(req),
-      userAgent: req.headers["user-agent"],
-    });
-    res.status(400).json({ error: `File rejected: ${clamdScan.reason}` });
     return;
   }
 

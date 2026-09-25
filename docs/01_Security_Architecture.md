@@ -28,6 +28,7 @@ flowchart TB
         Routes["Route handlers<br/>auth / users / passkeys / uploads /<br/>payments / security"]
         AuditLib["auditLog.ts<br/>hash-chained, serialized write queue"]
         Encrypt["fileEncryption.ts<br/>AES-256-GCM"]
+        Clamd["clamdClient.ts<br/>ClamAV scan first; upload refused (503) if the scanner is down"]
         Scan["malwareScan.ts<br/>signature-based (EICAR, exe magic bytes, SVG script)"]
         ImgSafety["imageSafety.ts<br/>EXIF/GPS strip + magic-byte MIME check"]
         WebhookSig["webhookSignature.ts<br/>HMAC-SHA256 + anti-replay"]
@@ -51,7 +52,8 @@ flowchart TB
     Routes --> AuditLib --> Logs
     Routes --> Encrypt --> Users
     Routes --> Encrypt --> Payments
-    Routes --> Scan --> ImgSafety --> Encrypt --> Uploads
+    Routes --> Clamd --> Scan --> ImgSafety --> Encrypt --> Uploads
+    Clamd -.->|"INSTREAM on 127.0.0.1:3310"| ClamAV["ClamAV 1.4 LTS (clamd + freshclam)<br/>same instance, unprivileged account"]
     Routes --> Passkeys
     Routes --> Sessions
     Routes -->|HMAC-verified webhook| WebhookSig
@@ -79,7 +81,7 @@ flowchart TB
 | Brief CORE area | Where it lives in this diagram |
  ---|---|
 | Authentication + MFA | `requireMfaEnrolled`, `auth`/`passkeys` routes, `users` table consent+descriptor columns |
-| Data protection | `fileEncryption.ts`, `imageSafety.ts`, `malwareScan.ts` |
+| Data protection | `fileEncryption.ts`, `imageSafety.ts`, `clamdClient.ts` (ClamAV), `malwareScan.ts` |
 | Access control | Route-level ownership checks inside each handler (not shown as a separate box — enforced per-route) |
 | Secure communication | Edge subgraph (HTTPS/HSTS, headers, CORS, CSRF) |
 | Logging | `auditLog.ts` → `security_logs` |

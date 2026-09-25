@@ -4,6 +4,7 @@ import { seedIfEmpty } from "./lib/seed";
 import { startRetentionJob } from "./lib/retention";
 import { startSecurityAlertingJob } from "./lib/securityAlerting";
 import { ensureDeletionAuditTrigger } from "./lib/dbBootstrap";
+import { logClamdStatusAtStartup } from "./lib/clamdClient";
 
 const rawPort = process.env["PORT"];
 
@@ -38,4 +39,5 @@ app.listen(port, async (err) => {
 
   startRetentionJob();
   startSecurityAlertingJob();
+  void logClamdStatusAtStartup(logger);
 });

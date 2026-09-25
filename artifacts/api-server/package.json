@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "verify:dp": "tsx ./src/lib/behaviorModelPrivacy.verify.ts",
     "verify:provenance": "tsx ./src/lib/dataProvenance.verify.ts",
+    "verify:clamd": "tsx ./src/lib/clamdClient.verify.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -31,6 +31,11 @@ jobs:
       # Supplier integrity for the vendored face-api.js model weights: a
       # silently swapped model file fails the build (docs/11, element 15).
       - run: sha256sum -c artifacts/secureai/face-model-weights.sha256
+      # The ClamAV client against a fake clamd: INSTREAM framing, and an
+      # unreachable or confused scanner never being read as "clean".
+      - run: pnpm --filter @workspace/api-server run verify:clamd
+      # The deploy hook that installs ClamAV on the API instance.
+      - run: shellcheck artifacts/api-server/.platform/hooks/prebuild/10_clamav.sh
 
   semgrep-sast:
     name: Semgrep SAST scan (real tool, not the adversarial-probe substitute)
