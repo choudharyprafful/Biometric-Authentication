@@ -18,7 +18,9 @@ import { useAuth } from '../context/AuthContext';
 import { Card, Button, Badge, Input, Label, Centered } from '../components/ui';
 import { colors, fonts } from '../theme';
 
-const CURRENCIES = ['USD', 'EUR', 'GBP'];
+// Must match PaymentInput.currency in lib/api-spec/openapi.yaml; the mobile app is outside the workspace,
+// so it can't import the generated enum the web form uses.
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
 
 const STATUS_TONE: Record<Payment['status'], 'success' | 'destructive' | 'warning' | 'outline'> = {
   completed: 'success',
@@ -273,7 +275,7 @@ const styles = StyleSheet.create({
   cardLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardRow: { flexDirection: 'row', gap: 10 },
   okText: { fontFamily: fonts.mono, color: colors.primary, fontSize: 11, marginTop: 10 },
-  currencyRow: { flexDirection: 'row', gap: 6 },
+  currencyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   paymentCard: { marginBottom: 10 },
   paymentTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   paymentDesc: { fontFamily: fonts.mono, color: colors.foreground, fontSize: 12, flex: 1, marginRight: 8 },

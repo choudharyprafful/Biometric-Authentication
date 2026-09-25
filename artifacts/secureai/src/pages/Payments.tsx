@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useListPayments, useCreatePayment, useListPlans, useSubscribe, useRefundPayment, getListPaymentsQueryKey, getGetCurrentUserQueryKey, type PaymentInputCurrency } from '@workspace/api-client-react';
+import { useListPayments, useCreatePayment, useListPlans, useSubscribe, useRefundPayment, getListPaymentsQueryKey, getGetCurrentUserQueryKey, PaymentInputCurrency } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, Card, Input, Label } from '../components/ui';
@@ -454,9 +454,10 @@ export default function Payments() {
                         onChange={e => setCurrency(e.target.value as PaymentInputCurrency)}
                         className="flex h-10 w-full border border-border bg-input px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary font-mono uppercase"
                       >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
+                        {/* Generated from the API spec's currency enum, so the form can't offer fewer (or more) than the API accepts. */}
+                        {Object.values(PaymentInputCurrency).map((code) => (
+                          <option key={code} value={code}>{code}</option>
+                        ))}
                       </select>
                     </div>
                   </div>

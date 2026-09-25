@@ -12,6 +12,7 @@ import {
   type AuthenticationResponseJSON,
 } from "@simplewebauthn/server";
 import { logEvent } from "../lib/auditLog";
+import { mapUser } from "../lib/mapUser";
 import { MFA_CHALLENGE_TTL_MS, loadUsableResetToken } from "./auth";
 import { ALLOWED_ORIGINS, isAllowedOrigin } from "../lib/allowedOrigins";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
@@ -83,26 +84,6 @@ function regenerateSession(req: Request): Promise<void> {
   return new Promise((resolve, reject) => {
     req.session.regenerate((error) => (error ? reject(error) : resolve()));
   });
-}
-
-async function mapUser(user: typeof usersTable.$inferSelect) {
-  const passkeys = await db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id)).limit(1);
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    faceEnrolled: user.faceEnrolled,
-    passkeyEnrolled: passkeys.length > 0,
-    dataConsentGiven: user.dataConsentGiven,
-    biometricConsentGiven: user.biometricConsentGiven,
-    parentConsentPending: user.parentGuardianEmail !== null && !user.parentConsentGiven,
-    trainingConsentGiven: user.trainingConsentGiven,
-    contentPersonalizationConsentGiven: user.contentPersonalizationConsentGiven,
-    subscriptionPlan: user.subscriptionPlan,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt?.toISOString() ?? null,
-  };
 }
 
 // Enrollment routes below require a fully authenticated session.

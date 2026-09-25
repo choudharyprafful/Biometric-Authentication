@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { eq, count } from "drizzle-orm";
@@ -23,6 +23,7 @@ import {
   StaffResetPasswordResponse,
 } from "@workspace/api-zod";
 import { logEvent } from "../lib/auditLog";
+import { mapUser } from "../lib/mapUser";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { encryptJson } from "../lib/fileEncryption";
@@ -47,23 +48,14 @@ function requireAuth(req: import("express").Request, res: import("express").Resp
   return userId;
 }
 
-async function mapUser(user: typeof usersTable.$inferSelect) {
-  const passkeys = await db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id)).limit(1);
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    faceEnrolled: user.faceEnrolled,
-    passkeyEnrolled: passkeys.length > 0,
-    dataConsentGiven: user.dataConsentGiven,
-    biometricConsentGiven: user.biometricConsentGiven,
-    parentConsentPending: user.parentGuardianEmail !== null && !user.parentConsentGiven,
-    trainingConsentGiven: user.trainingConsentGiven,
-    contentPersonalizationConsentGiven: user.contentPersonalizationConsentGiven,
-    subscriptionPlan: user.subscriptionPlan,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt?.toISOString() ?? null,
+// Deleting your own account must always be possible, like withdrawing consent (docs/05): an account that
+// hasn't enrolled MFA yet, or a minor awaiting a parent, can still erase itself, confirmed by password in
+// the handler. Deleting someone else is an admin action, so the gates still apply there.
+function unlessDeletingSelf(gate: RequestHandler): RequestHandler {
+  return (req, res, next) => {
+    const rawId = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"];
+    if (req.session.userId !== undefined && Number(rawId) === req.session.userId) return next();
+    return gate(req, res, next);
   };
 }
 
@@ -154,7 +146,7 @@ router.patch("/users/:id", requireParentConsent, requireMfaEnrolled, async (req,
 });
 
 // Uploads and passkeys cascade-delete; payments keep userId null (records outlive the account); security_logs keep userId as originally written — not a live FK, since mutating a hash-chained row after the fact breaks its hash (docs/04_Threat_Model_Risk_Assessment.md, R-LOG-3).
-router.delete("/users/:id", requireParentConsent, requireMfaEnrolled, async (req, res): Promise<void> => {
+router.delete("/users/:id", unlessDeletingSelf(requireParentConsent), unlessDeletingSelf(requireMfaEnrolled), async (req, res): Promise<void> => {
   const sessionUserId = requireAuth(req, res);
   if (!sessionUserId) return;
 

@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
-import { db, usersTable, passkeysTable, biometricKeysTable } from "@workspace/db";
+import { db, usersTable } from "@workspace/db";
 import { SetContentPersonalizationConsentBody, SetContentPersonalizationConsentResponse, GetContentProfileResponse } from "@workspace/api-zod";
 import { logEvent } from "../lib/auditLog";
+import { mapUser } from "../lib/mapUser";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
@@ -10,29 +11,6 @@ import { buildContentProfile } from "../lib/contentPersonalizationModel";
 import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
-
-async function mapUser(user: typeof usersTable.$inferSelect) {
-  const [passkeys, biometricKeys] = await Promise.all([
-    db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id)).limit(1),
-    db.select({ id: biometricKeysTable.id }).from(biometricKeysTable).where(eq(biometricKeysTable.userId, user.id)).limit(1),
-  ]);
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    faceEnrolled: user.faceEnrolled,
-    passkeyEnrolled: passkeys.length > 0 || biometricKeys.length > 0,
-    dataConsentGiven: user.dataConsentGiven,
-    biometricConsentGiven: user.biometricConsentGiven,
-    parentConsentPending: user.parentGuardianEmail !== null && !user.parentConsentGiven,
-    trainingConsentGiven: user.trainingConsentGiven,
-    contentPersonalizationConsentGiven: user.contentPersonalizationConsentGiven,
-    subscriptionPlan: user.subscriptionPlan,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt?.toISOString() ?? null,
-  };
-}
 
 // Same no-MFA-gate reasoning as POST /users/me/training-consent (routes/behavior.ts) — withdrawal must always be reachable even by an otherwise-gated account.
 router.post("/users/me/content-personalization-consent", async (req, res): Promise<void> => {
