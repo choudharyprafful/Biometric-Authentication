@@ -28,7 +28,7 @@ const assetRefs = (html) => [...html.matchAll(/(?:src|href)="(\/[^"]*)"/g)].map(
 
 try {
   step("Building the web app");
-  execSync("pnpm --filter @workspace/secureai run build", { cwd: root, stdio: "inherit", env: { ...process.env, PORT: "3000", BASE_PATH: "/" } });
+  execSync("pnpm --filter @workspace/secureai run build", { cwd: root, stdio: "inherit", env: { ...process.env, PORT: "3000", BASE_PATH: "/", VITE_CANONICAL_ORIGIN: LIVE } });
 
   step("Checking the build");
   const html = fs.readFileSync(path.join(dist, "index.html"), "utf8");
@@ -39,6 +39,8 @@ try {
   const js = fs.readdirSync(path.join(dist, "assets")).filter((f) => f.endsWith(".js")).map((f) => fs.readFileSync(path.join(dist, "assets", f), "utf8")).join("\n");
   if (js.includes("Demo access")) fail("the development-only demo credentials hint is in the production bundle");
   ok("no development-only demo credentials in the bundle");
+  if (!js.includes(LIVE)) fail(`the bundle does not contain ${LIVE}, so amplifyapp.com visitors would not be forwarded to it`);
+  ok(`amplifyapp.com visitors are forwarded to ${LIVE}`);
   for (const f of ["noise.svg", "models/tiny_face_detector_model-weights_manifest.json", "models/face_landmark_68_model-weights_manifest.json", "models/face_recognition_model-weights_manifest.json"]) {
     if (!fs.existsSync(path.join(dist, f))) fail(`${f} is missing from the build`);
   }
