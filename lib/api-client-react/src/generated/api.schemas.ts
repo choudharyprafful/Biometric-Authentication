@@ -614,6 +614,171 @@ export interface UploadInput {
   contentSource?: UploadInputContentSource;
 }
 
+export interface AiValidationOutcome {
+  outcome: string;
+  compromised: boolean;
+}
+
+export type AiValidationTestVerdict = typeof AiValidationTestVerdict[keyof typeof AiValidationTestVerdict];
+
+
+export const AiValidationTestVerdict = {
+  held: 'held',
+  residual: 'residual',
+} as const;
+
+export type AiValidationTestProbesItem = {
+  prompt: string;
+  /** @nullable */
+  baselineOutput: string | null;
+  /** @nullable */
+  secureaiOutput: string | null;
+};
+
+export interface AiValidationTest {
+  id: string;
+  title: string;
+  /** Which teammate's proof-of-concept attack this reproduces */
+  mirrors: string;
+  attack: string;
+  /** The same attack against the model with the defence removed; null where there is no meaningful undefended comparison */
+  baseline: AiValidationOutcome | null;
+  secureai: AiValidationOutcome;
+  probes: AiValidationTestProbesItem[];
+  verdict: AiValidationTestVerdict;
+  /** @nullable */
+  note: string | null;
+}
+
+export type AiLiveModelValidationThresholds = {
+  minDistinctUsers: number;
+  maxEventsPerUser: number;
+  maxDistinctTransitionsPerUser: number;
+};
+
+export interface AiLiveModelValidation {
+  ranAt: string;
+  model: string;
+  thresholds: AiLiveModelValidationThresholds;
+  tests: AiValidationTest[];
+}
+
+export type AiPocStarterKitCorpus = {
+  records: number;
+  canaryCopies: number;
+  traceabilityFields: string[];
+};
+
+export type AiPocStarterKitConsentGateBlockedItem = {
+  userId: string;
+  sourceId: string;
+  reason: string;
+};
+
+export type AiPocStarterKitConsentGate = {
+  allowed: number;
+  blocked: AiPocStarterKitConsentGateBlockedItem[];
+  perUserCap: number;
+};
+
+export type AiPocStarterKitVulnerable = {
+  docs: number;
+  prompt: string;
+  output: string;
+  canaryLeaked: boolean;
+};
+
+export type AiPocStarterKitHardened = {
+  duplicatesRemoved: number;
+  prompt: string;
+  output: string;
+  canaryLeaked: boolean;
+};
+
+export type AiPocStarterKitExtractionTestsItem = {
+  prompt: string;
+  vulnerableLeaked: boolean;
+  hardenedLeaked: boolean;
+};
+
+export type AiPocStarterKitBenign = {
+  prompt: string;
+  output: string;
+};
+
+export type AiPocStarterKitDeletion = {
+  userId: string;
+  recordsBefore: number;
+  recordsAfter: number;
+  retrainedDocs: number;
+};
+
+/**
+ * Yaseen's model_starter.py, run unmodified
+ */
+export interface AiPocStarterKit {
+  script: string;
+  author: string;
+  sha256: string;
+  corpus: AiPocStarterKitCorpus;
+  consentGate: AiPocStarterKitConsentGate;
+  vulnerable: AiPocStarterKitVulnerable;
+  hardened: AiPocStarterKitHardened;
+  extractionTests: AiPocStarterKitExtractionTestsItem[];
+  benign: AiPocStarterKitBenign;
+  deletion: AiPocStarterKitDeletion;
+  /** The script's own console output, captured verbatim */
+  console: string;
+}
+
+export interface AiPocModelRun {
+  prompt: string;
+  output: string;
+  canaryLeaked: boolean;
+}
+
+export type AiPocMemorisationVerdict = typeof AiPocMemorisationVerdict[keyof typeof AiPocMemorisationVerdict];
+
+
+export const AiPocMemorisationVerdict = {
+  PASS: 'PASS',
+  REVIEW: 'REVIEW',
+} as const;
+
+export type AiPocMemorisationBenign = {
+  prompt: string;
+  output: string;
+  works: boolean;
+};
+
+/**
+ * Sadhakshi's memorisation_leakage_model.py, run unmodified
+ */
+export interface AiPocMemorisation {
+  script: string;
+  author: string;
+  sha256: string;
+  records: number;
+  vulnerable: AiPocModelRun;
+  duplicatesRemoved: number;
+  hardened: AiPocModelRun;
+  benign: AiPocMemorisationBenign;
+  verdict: AiPocMemorisationVerdict;
+  /** The script's own console output, captured verbatim */
+  console: string;
+}
+
+export interface AiPocReport {
+  generator: string;
+  starterKit: AiPocStarterKit;
+  memorisation: AiPocMemorisation;
+}
+
+export interface AiSecurityReport {
+  live: AiLiveModelValidation;
+  poc: AiPocReport;
+}
+
 export type ListSecurityLogsParams = {
 limit?: number;
 offset?: number;

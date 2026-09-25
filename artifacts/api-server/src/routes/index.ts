@@ -10,6 +10,7 @@ import paymentsRouter from "./payments";
 import uploadsRouter from "./uploads";
 import behaviorRouter from "./behavior";
 import contentProfileRouter from "./contentProfile";
+import aiSecurityRouter from "./aiSecurity";
 
 const router: IRouter = Router();
 
@@ -25,5 +26,6 @@ router.use(paymentsRouter);
 router.use(uploadsRouter);
 router.use(behaviorRouter);
 router.use(contentProfileRouter);
+router.use(aiSecurityRouter);
 
 export default router;

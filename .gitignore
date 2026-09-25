@@ -62,3 +62,6 @@ Thumbs.db
 # source, never meant to be committed; a stray one (amplify-deploy2.zip)
 # was found sitting in the repo root and removed 2026-09-11.
 *.zip
+
+# Python bytecode (artifacts/ai-model)
+__pycache__/

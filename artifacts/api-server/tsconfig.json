@@ -4,6 +4,7 @@
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
     "outDir": "dist",
+    "resolveJsonModule": true,
     "rootDir": "src",
     "types": ["node"]
   },

@@ -66,9 +66,23 @@ export async function buildTrainingCorpus(): Promise<TrainingRecord[]> {
     // toward the MIN_DISTINCT_USERS bar.
     .orderBy(asc(securityLogsTable.timestamp), asc(securityLogsTable.id));
 
+  return assembleTrainingCorpus(rows, new Set(userIds));
+}
+
+export interface AuditEventRow {
+  userId: number | null;
+  eventType: string;
+}
+
+/** The consent gate, meta-event exclusion and per-user cap, applied to
+ *  audit rows already in chronological order. buildTrainingCorpus() filters
+ *  consent and meta events in SQL too; applying them here as well keeps this
+ *  the one place the corpus rules live, so lib/aiSecurityValidation.ts can
+ *  exercise exactly these rules with synthetic rows. */
+export function assembleTrainingCorpus(rows: AuditEventRow[], consentedUserIds: ReadonlySet<number>): TrainingRecord[] {
   const byUser = new Map<number, string[]>();
   for (const row of rows) {
-    if (row.userId === null) continue;
+    if (row.userId === null || !consentedUserIds.has(row.userId) || META_EVENT_TYPES.includes(row.eventType)) continue;
     const seq = byUser.get(row.userId) ?? [];
     if (seq.length >= MAX_TRANSITIONS_PER_USER) continue;
     seq.push(row.eventType);

@@ -1,10 +1,9 @@
 name: CI
 
-# Not yet run through an actual Actions runner in this environment — each
-# command has been verified locally, but the assembled workflow itself
-# hasn't been exercised end-to-end. drizzle-kit's normal `push` prompts
-# interactively on ambiguous schema changes, which hangs in CI — push-force
-# below skips that prompt (safe here since the CI database is always fresh).
+# All jobs have passed on GitHub Actions since 1b102b9 (2026-09-24).
+# drizzle-kit's normal `push` prompts interactively on ambiguous schema
+# changes, which hangs in CI — push-force below skips that prompt (safe here
+# since the CI database is always fresh).
 
 on:
   push:
@@ -26,6 +25,9 @@ jobs:
       # Typecheck + pnpm audit gated at --audit-level=critical (see
       # package.json's "ci" script and docs/04, Section 3).
       - run: pnpm run ci
+      # The AI Security page serves results recorded from the team's Python
+      # proof-of-concepts; fail if a PoC changed without them being regenerated.
+      - run: python3 artifacts/ai-model/ai_security_report.py --check
 
   semgrep-sast:
     name: Semgrep SAST scan (real tool, not the adversarial-probe substitute)

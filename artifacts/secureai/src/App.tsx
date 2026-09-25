@@ -16,6 +16,7 @@ import Threats from './pages/Threats';
 import Payments from './pages/Payments';
 import Uploads from './pages/Uploads';
 import DataProtection from './pages/DataProtection';
+import AiSecurity from './pages/AiSecurity';
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,9 @@ function Router() {
       </Route>
       <Route path="/data-protection">
         <Layout><DataProtection /></Layout>
+      </Route>
+      <Route path="/ai-security">
+        <Layout><AiSecurity /></Layout>
       </Route>
       <Route path="/enroll">
         <Layout><Enroll /></Layout>

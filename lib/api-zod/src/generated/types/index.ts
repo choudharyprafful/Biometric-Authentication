@@ -6,6 +6,27 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiLiveModelValidation';
+export * from './aiLiveModelValidationThresholds';
+export * from './aiPocMemorisation';
+export * from './aiPocMemorisationBenign';
+export * from './aiPocMemorisationVerdict';
+export * from './aiPocModelRun';
+export * from './aiPocReport';
+export * from './aiPocStarterKit';
+export * from './aiPocStarterKitBenign';
+export * from './aiPocStarterKitConsentGate';
+export * from './aiPocStarterKitConsentGateBlockedItem';
+export * from './aiPocStarterKitCorpus';
+export * from './aiPocStarterKitDeletion';
+export * from './aiPocStarterKitExtractionTestsItem';
+export * from './aiPocStarterKitHardened';
+export * from './aiPocStarterKitVulnerable';
+export * from './aiSecurityReport';
+export * from './aiValidationOutcome';
+export * from './aiValidationTest';
+export * from './aiValidationTestProbesItem';
+export * from './aiValidationTestVerdict';
 export * from './authResponse';
 export * from './chainRepairResult';
 export * from './chainRestoreResult';
