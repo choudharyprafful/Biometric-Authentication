@@ -33,7 +33,7 @@ export interface AiSystem {
   switchNote: string;
 }
 
-const CHALLENGE = "Use \"Challenge a decision\" on the How SecureAI uses AI page. A security analyst reviews it and you see the outcome there.";
+const CHALLENGE = "Use \"Challenge a decision\" on the How SecureAI uses AI page. A security analyst acknowledges it within 2 business days, tells you how it will be investigated, and you see the outcome there.";
 
 export const AI_SYSTEMS: readonly AiSystem[] = [
   {

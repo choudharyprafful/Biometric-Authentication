@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided
+ */
 export type AiChallengeStatus = typeof AiChallengeStatus[keyof typeof AiChallengeStatus];
 
 
 export const AiChallengeStatus = {
   open: 'open',
+  acknowledged: 'acknowledged',
   resolved: 'resolved',
 } as const;

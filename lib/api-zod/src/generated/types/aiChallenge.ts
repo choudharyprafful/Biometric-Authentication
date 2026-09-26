@@ -19,7 +19,24 @@ export interface AiChallenge {
   submittedAt: Date;
   /** @nullable */
   submittedBy: string | null;
+  /** open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided */
   status: AiChallengeStatus;
+  /**
+     * The calendar date (YYYY-MM-DD, Australia/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  acknowledgeBy: string;
+  /** True while it is still waiting to be acknowledged after the acknowledge-by date */
+  overdue: boolean;
+  /** @nullable */
+  acknowledgedAt: Date | null;
+  /** @nullable */
+  acknowledgedBy: string | null;
+  /**
+     * How it will be investigated — shown to the person who raised it
+     * @nullable
+     */
+  acknowledgementNote: string | null;
   /** @nullable */
   outcome: AiChallengeOutcome;
   /** @nullable */

@@ -1028,6 +1028,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /ai/challenges/{id}/acknowledge:
+    post:
+      operationId: acknowledgeAiChallenge
+      tags: [ai-governance]
+      summary: Acknowledge a challenge and tell the person how it will be investigated (security analysts and administrators)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcknowledgeAiChallengeInput"
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChallenge"
+        "404":
+          description: No such challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already acknowledged or resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /ai/oversight:
     get:
       operationId: getAiOversight
@@ -2473,6 +2512,16 @@ components:
           type: string
           maxLength: 120
           pattern: "^[A-Za-z0-9 _:.,/-]*$"
+    AcknowledgeAiChallengeInput:
+      type: object
+      required: [note]
+      properties:
+        note:
+          description: How the challenge will be investigated — shown to the person who raised it
+          type: string
+          minLength: 5
+          maxLength: 1000
+
     ResolveAiChallengeInput:
       type: object
       required: [outcome, note]
@@ -2487,7 +2536,7 @@ components:
           maxLength: 1000
     AiChallenge:
       type: object
-      required: [id, systemId, systemName, reference, message, submittedAt, submittedBy, status, outcome, resolutionNote, resolvedAt, resolvedBy]
+      required: [id, systemId, systemName, reference, message, submittedAt, submittedBy, status, acknowledgeBy, overdue, acknowledgedAt, acknowledgedBy, acknowledgementNote, outcome, resolutionNote, resolvedAt, resolvedBy]
       properties:
         id:
           type: number
@@ -2505,8 +2554,24 @@ components:
         submittedBy:
           type: ["string", "null"]
         status:
+          description: open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided
           type: string
-          enum: [open, resolved]
+          enum: [open, acknowledged, resolved]
+        acknowledgeBy:
+          description: The calendar date (YYYY-MM-DD, Australia/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        overdue:
+          description: True while it is still waiting to be acknowledged after the acknowledge-by date
+          type: boolean
+        acknowledgedAt:
+          type: ["string", "null"]
+          format: date-time
+        acknowledgedBy:
+          type: ["string", "null"]
+        acknowledgementNote:
+          description: How it will be investigated — shown to the person who raised it
+          type: ["string", "null"]
         outcome:
           type: ["string", "null"]
           enum: [upheld, not-upheld, null]

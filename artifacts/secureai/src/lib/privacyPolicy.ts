@@ -18,10 +18,10 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: '2026-09-26',
+  version: '2026-09-26.2',
   effectiveDate: '26 September 2026',
   status:
-    'Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today. Pending review by Team 2 and a legal adviser; not legal advice.',
+    'Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today and to add Team 2\'s answers on biometric information and challenge response times. Pending review by Team 2 and a legal adviser; not legal advice.',
   demoNotice:
     'SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead.',
   contact: 'privacy@secureai.example',
@@ -47,7 +47,7 @@ export const PRIVACY_POLICY = {
           rows: [
             ['Account', 'Name, email, date of birth, password (stored only as a one-way hash), subscription plan; a parent or guardian\'s email for under-18s', 'Low–medium', 'Running your account and checking age at sign-up'],
             ['Payments', 'Amount, currency, plan, status, and the card brand and last 4 digits if you give them. Payments in this proof of concept are simulated: no full card number is ever sent to us', 'Medium', 'Your payment history and refunds. Never used by any AI feature, except that "made a payment" can be one of the action types the suggestion model learns from if you opt in (section 4)'],
-            ['Face template (only if you choose face sign-in)', '128 numbers computed in your browser from the camera. The camera image never leaves your device; the template is sent to us and stored encrypted', 'Very high (biometric information)', 'Confirming it\'s you at sign-in and password reset. Nothing else. Delete it any time in Security Settings'],
+            ['Face template (only if you choose face sign-in)', '128 numbers computed in your browser from the camera. The camera image never leaves your device; the template is sent to us and stored encrypted', 'Very high: biometric information is sensitive information under the Privacy Act 1988, even when encrypted', 'Confirming it\'s you at sign-in and password reset, and nothing else. Collected only with your express consent, and you can use a passkey instead. Delete it any time in Security Settings'],
             ['Passkey or phone key', 'A public key. Your fingerprint or face unlocks the key on your own device and never leaves it', 'Low', 'Sign-in and password reset'],
             ['Security records', 'Your email, IP address, browser and device, and the time of each security event (sign-ins, payments, uploads, setting changes)', 'Medium', 'Protecting your account: the automated sign-in risk check compares a new sign-in with your own history, abuse and fraud detection (including account sharing), and staff investigation'],
             ['Your uploads', 'Text, photos, video and audio, each with the source you declare. Location data is removed from photos, and from videos where that can be done safely', 'Very high', 'Storing them for you. Only your own text uploads can build your private topic profile, and only if you opt in'],
@@ -74,7 +74,7 @@ export const PRIVACY_POLICY = {
             'Given with capacity: we check age at sign-up (see section 6 on minors).',
           ],
         },
-        { kind: 'p', text: 'Using SecureAI is not the same as consenting to AI use. We ask separately, with unticked choices, for: (1) processing your account data, which is needed to run your account; (2) your face template, only if you choose face sign-in; (3) letting the suggestion model learn from the types of actions you take; and (4) letting your topic profile read your own text uploads. Declining (2), (3) or (4) doesn\'t affect anything else. You can withdraw each one at any time in [Security Settings](/enroll), including before you finish setting up sign-in, and the change applies to the very next request.' },
+        { kind: 'p', text: 'Using SecureAI is not the same as consenting to AI use. We ask separately, with unticked choices, for: (1) processing your account data, which is needed to run your account; (2) your face template, only if you choose face sign-in, because biometric information is sensitive information under the Privacy Act and needs your express consent; (3) letting the suggestion model learn from the types of actions you take; and (4) letting your topic profile read your own text uploads. Declining (2), (3) or (4) doesn\'t affect anything else. You can withdraw each one at any time in [Security Settings](/enroll), including before you finish setting up sign-in, and the change applies to the very next request.' },
       ],
     },
     {
@@ -181,7 +181,7 @@ export const PRIVACY_POLICY = {
       id: 'complaints',
       title: '12. Complaints and challenging an AI decision',
       blocks: [
-        { kind: 'p', text: 'If you think an AI-influenced outcome has treated you unfairly, use the challenge form on [How SecureAI uses AI](/ai#challenge): a security analyst reviews it and you see the outcome and a note. For anything else about your data, contact us. We commit to a timely, substantive response, consistent with the contestability principle in Australia\'s AI Ethics Principles; the response time target is still being set.' },
+        { kind: 'p', text: 'If you think an AI-influenced outcome has treated you unfairly, use the challenge form on [How SecureAI uses AI](/ai#challenge): a security analyst reviews it and you see the outcome and a note. For anything else about your data, contact us. A security analyst will acknowledge your challenge within 2 business days and tell you how it will be investigated; how long the investigation takes depends on what happened, and you will see the outcome. This is consistent with the contestability principle in Australia\'s AI Ethics Principles.' },
         { kind: 'p', text: 'If you\'re not satisfied with our response, Australian users can escalate to the Office of the Australian Information Commissioner (OAIC); EU/UK users have the equivalent right to lodge a complaint with their local data protection authority.' },
       ],
     },

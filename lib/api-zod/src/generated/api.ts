@@ -891,6 +891,9 @@ export const SubmitAiChallengeBody = zod.object({
   "reference": zod.string().max(submitAiChallengeBodyReferenceMax).regex(submitAiChallengeBodyReferenceRegExp).optional().describe('Optional pointer to the decision, e.g. the date and time of the sign-in')
 })
 
+export const submitAiChallengeResponseAcknowledgeByRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const SubmitAiChallengeResponse = zod.object({
   "id": zod.number(),
   "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
@@ -899,7 +902,12 @@ export const SubmitAiChallengeResponse = zod.object({
   "message": zod.string(),
   "submittedAt": zod.coerce.date(),
   "submittedBy": zod.string().nullable(),
-  "status": zod.enum(['open', 'resolved']),
+  "status": zod.enum(['open', 'acknowledged', 'resolved']).describe('open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided'),
+  "acknowledgeBy": zod.string().regex(submitAiChallengeResponseAcknowledgeByRegExp).describe('The calendar date (YYYY-MM-DD, Australia\/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp'),
+  "overdue": zod.boolean().describe('True while it is still waiting to be acknowledged after the acknowledge-by date'),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "acknowledgementNote": zod.string().nullable().describe('How it will be investigated — shown to the person who raised it'),
   "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
   "resolutionNote": zod.string().nullable(),
   "resolvedAt": zod.coerce.date().nullable(),
@@ -910,6 +918,9 @@ export const SubmitAiChallengeResponse = zod.object({
 /**
  * @summary Every challenge, newest first (security analysts and administrators)
  */
+export const listAiChallengesResponseAcknowledgeByRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const ListAiChallengesResponseItem = zod.object({
   "id": zod.number(),
   "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
@@ -918,7 +929,12 @@ export const ListAiChallengesResponseItem = zod.object({
   "message": zod.string(),
   "submittedAt": zod.coerce.date(),
   "submittedBy": zod.string().nullable(),
-  "status": zod.enum(['open', 'resolved']),
+  "status": zod.enum(['open', 'acknowledged', 'resolved']).describe('open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided'),
+  "acknowledgeBy": zod.string().regex(listAiChallengesResponseAcknowledgeByRegExp).describe('The calendar date (YYYY-MM-DD, Australia\/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp'),
+  "overdue": zod.boolean().describe('True while it is still waiting to be acknowledged after the acknowledge-by date'),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "acknowledgementNote": zod.string().nullable().describe('How it will be investigated — shown to the person who raised it'),
   "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
   "resolutionNote": zod.string().nullable(),
   "resolvedAt": zod.coerce.date().nullable(),
@@ -930,6 +946,9 @@ export const ListAiChallengesResponse = zod.array(ListAiChallengesResponseItem)
 /**
  * @summary This account's own challenges and their outcomes
  */
+export const listMyAiChallengesResponseAcknowledgeByRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const ListMyAiChallengesResponseItem = zod.object({
   "id": zod.number(),
   "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
@@ -938,7 +957,12 @@ export const ListMyAiChallengesResponseItem = zod.object({
   "message": zod.string(),
   "submittedAt": zod.coerce.date(),
   "submittedBy": zod.string().nullable(),
-  "status": zod.enum(['open', 'resolved']),
+  "status": zod.enum(['open', 'acknowledged', 'resolved']).describe('open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided'),
+  "acknowledgeBy": zod.string().regex(listMyAiChallengesResponseAcknowledgeByRegExp).describe('The calendar date (YYYY-MM-DD, Australia\/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp'),
+  "overdue": zod.boolean().describe('True while it is still waiting to be acknowledged after the acknowledge-by date'),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "acknowledgementNote": zod.string().nullable().describe('How it will be investigated — shown to the person who raised it'),
   "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
   "resolutionNote": zod.string().nullable(),
   "resolvedAt": zod.coerce.date().nullable(),
@@ -968,6 +992,9 @@ export const ResolveAiChallengeBody = zod.object({
   "note": zod.string().min(resolveAiChallengeBodyNoteMin).max(resolveAiChallengeBodyNoteMax).describe('What was found and done — shown to the person who raised it')
 })
 
+export const resolveAiChallengeResponseAcknowledgeByRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const ResolveAiChallengeResponse = zod.object({
   "id": zod.number(),
   "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
@@ -976,7 +1003,56 @@ export const ResolveAiChallengeResponse = zod.object({
   "message": zod.string(),
   "submittedAt": zod.coerce.date(),
   "submittedBy": zod.string().nullable(),
-  "status": zod.enum(['open', 'resolved']),
+  "status": zod.enum(['open', 'acknowledged', 'resolved']).describe('open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided'),
+  "acknowledgeBy": zod.string().regex(resolveAiChallengeResponseAcknowledgeByRegExp).describe('The calendar date (YYYY-MM-DD, Australia\/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp'),
+  "overdue": zod.boolean().describe('True while it is still waiting to be acknowledged after the acknowledge-by date'),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "acknowledgementNote": zod.string().nullable().describe('How it will be investigated — shown to the person who raised it'),
+  "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
+  "resolutionNote": zod.string().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "resolvedBy": zod.string().nullable()
+})
+
+
+/**
+ * @summary Acknowledge a challenge and tell the person how it will be investigated (security analysts and administrators)
+ */
+export const acknowledgeAiChallengePathIdMax = 2147483647;
+
+
+
+export const AcknowledgeAiChallengeParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(acknowledgeAiChallengePathIdMax)
+})
+
+export const acknowledgeAiChallengeBodyNoteMin = 5;
+export const acknowledgeAiChallengeBodyNoteMax = 1000;
+
+
+
+export const AcknowledgeAiChallengeBody = zod.object({
+  "note": zod.string().min(acknowledgeAiChallengeBodyNoteMin).max(acknowledgeAiChallengeBodyNoteMax).describe('How the challenge will be investigated — shown to the person who raised it')
+})
+
+export const acknowledgeAiChallengeResponseAcknowledgeByRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const AcknowledgeAiChallengeResponse = zod.object({
+  "id": zod.number(),
+  "systemId": zod.enum(['face-recognition', 'liveness', 'login-risk', 'behaviour-suggestions', 'content-personalisation', 'anomaly-alerts']),
+  "systemName": zod.string(),
+  "reference": zod.string().nullable(),
+  "message": zod.string(),
+  "submittedAt": zod.coerce.date(),
+  "submittedBy": zod.string().nullable(),
+  "status": zod.enum(['open', 'acknowledged', 'resolved']).describe('open = waiting to be acknowledged; acknowledged = a staff member has said how it will be investigated; resolved = decided'),
+  "acknowledgeBy": zod.string().regex(acknowledgeAiChallengeResponseAcknowledgeByRegExp).describe('The calendar date (YYYY-MM-DD, Australia\/Melbourne) by which staff should acknowledge it — the response target Team 2 set, in business days after it was submitted. A plain string rather than format date, which the generated validator would turn into a timestamp'),
+  "overdue": zod.boolean().describe('True while it is still waiting to be acknowledged after the acknowledge-by date'),
+  "acknowledgedAt": zod.coerce.date().nullable(),
+  "acknowledgedBy": zod.string().nullable(),
+  "acknowledgementNote": zod.string().nullable().describe('How it will be investigated — shown to the person who raised it'),
   "outcome": zod.union([zod.literal('upheld'),zod.literal('not-upheld'),zod.literal(null)]).nullable(),
   "resolutionNote": zod.string().nullable(),
   "resolvedAt": zod.coerce.date().nullable(),

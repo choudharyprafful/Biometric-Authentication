@@ -75,9 +75,19 @@ challenge.
    punctuation only, so nothing in it can be mistaken for part of the record's structure).
    Five challenges per account per hour.
 2. It lands in the queue on `/ai-oversight` as `AI_DECISION_CHALLENGED`.
-3. A security analyst or administrator records **upheld** (the AI got it wrong) or **not upheld**,
-   with a note the person sees (`AI_CHALLENGE_RESOLVED`). A challenge can be resolved once.
-4. The person sees the outcome and note under *Your challenges*.
+3. **Acknowledgement, within Team 2's response target.** Team 2 set the target on 2026-09-26 (Gillian
+   Habgood): acknowledge a challenge within 1–2 business days and tell the person how it will be
+   investigated; how long the investigation takes depends on the challenge, so it has no fixed target.
+   SecureAI uses **2 business days** (`CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS`), counted Monday to Friday on
+   the Melbourne calendar; public holidays are not excluded. Each challenge carries its acknowledge-by
+   date, shown to the person and to staff. A security analyst or administrator acknowledges it with a
+   note on how it will be investigated (`AI_CHALLENGE_ACKNOWLEDGED`), which the person sees. A challenge
+   still waiting after its date is marked **Overdue** in the queue and raises a security-dashboard alert.
+4. A security analyst or administrator records **upheld** (the AI got it wrong) or **not upheld**,
+   with a note the person sees (`AI_CHALLENGE_RESOLVED`). A challenge can be resolved once; resolving
+   it also answers it, so a challenge resolved before being acknowledged is not overdue.
+5. The person sees each step under *Your challenges*: received (with the acknowledge-by date), under
+   investigation (with the acknowledgement note), then the outcome and note.
 
 Remedies available to the reviewer today: an MFA reset (face or passkey), explaining the
 passkey alternative, re-enrolling the face, switching a model off, and recording the case for the
@@ -169,7 +179,7 @@ For administrators and security analysts:
 | 1 | Risk management | AI risks rated in the register, including harms to people, not only attacks | docs/04 R-ML-1…11, R-BIO-1, R-ADV-1 |
 | 2 | Accountability | Named accountable owner for every system, with authority to intervene | §2, `/ai` |
 | 3 | Human oversight | Switches, staff MFA reset, analyst review of flags, alerts and challenges | §2, `/ai-oversight` |
-| 4 | Privacy protection | Per-purpose consent, encryption, 3-account threshold, optional differential privacy, immediate withdrawal | docs/05, docs/07, R-ML-5…7 |
+| 4 | Privacy protection | Per-purpose consent, encryption, 3-account threshold, optional differential privacy, immediate withdrawal. Team 2 confirmed (2026-09-26) that stored face templates are sensitive information under the Privacy Act even when encrypted; the face-consent wording and the privacy policy now say so, with the purpose, the US storage and the passkey alternative | docs/05, docs/07, docs/08 §5, R-CONSENT-1, R-ML-5…7 |
 | 5 | Cybersecurity | Attack tests re-run live; rate-limited, audited model endpoint; supply-chain checks | `/ai-security`, docs/04 |
 | 6 | Transparency | Public register; AI labels wherever AI output appears | §6, `/ai` |
 | 7 | Explainability | Sign-in warnings name their reasons; face failures explain themselves; suggestions show their basis | §6 |
@@ -184,15 +194,15 @@ For administrators and security analysts:
 | 16 | Ongoing monitoring | 7- and 30-day outcome measures for every model | §4 |
 | 17 | AI literacy | Operator guide | §7 |
 | 18 | Documentation and records | Register, this document, tamper-evident audit records of switches and challenges | §2, §3 |
-| 19 | Challenge and remediation | Challenge form, review queue, visible outcomes | §3 |
+| 19 | Challenge and remediation | Challenge form, review queue, visible outcomes; Team 2's response target (acknowledge within 2 business days, saying how it will be investigated) with overdue flags and alerts | §3 |
 | 20 | Responsible innovation | Privacy-first model design: rebuilt per request, consent-gated, threshold-bound | docs/05 §5 |
 
 ## 9. Open items
 
 - **Legal review of the privacy policy** (element 13; docs/10) — the draft is published; review by a lawyer is organisational, not code.
-- **Server-stored face templates as "sensitive information"** under the Privacy Act — asked of Team 2
-  in docs/08 §5 and not answered by the Weeks 7-8 milestone.
-- **A response target for challenges** — Team 2 to set.
+- **Server-stored face templates as "sensitive information"** — answered by Team 2 on 2026-09-26: yes,
+  even encrypted (see docs/08 §5). Implemented as express, informed consent wording (R-CONSENT-1).
+- **A response target for challenges** — set by Team 2 on 2026-09-26 and implemented (§3).
 - **Face accuracy and fairness measurement** — needs data the project rules exclude (§5).
 - **Generative AI.** Team 2's accountability framework assumes image, video, audio or text generation
   and voice-phishing impersonation. SecureAI generates no content, so that part does not apply today;

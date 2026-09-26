@@ -68,8 +68,14 @@ function SystemCard({ system }: { system: AiSystemEntry }) {
   );
 }
 
+// Team 2's response target (Gillian Habgood, 2026-09-26); the API computes each challenge's date
+// (CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS in artifacts/api-server/src/lib/aiGovernance.ts).
+const ACKNOWLEDGE_BUSINESS_DAYS = 2;
+const formatDay = (isoDate: string) => new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+
 function outcomeBadge(c: AiChallenge) {
-  if (c.status === 'open') return <Badge variant="outline">Under review</Badge>;
+  if (c.status === 'open') return <Badge variant="outline">Received</Badge>;
+  if (c.status === 'acknowledged') return <Badge variant="outline">Under investigation</Badge>;
   return c.outcome === 'upheld' ? <Badge variant="success">Upheld</Badge> : <Badge variant="secondary">Not upheld</Badge>;
 }
 
@@ -119,7 +125,8 @@ function ChallengeSection({ systems }: { systems: AiSystemEntry[] }) {
           <Card>
             <form onSubmit={onSubmit} className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Tell us which AI decision you think was wrong. A security analyst reviews every challenge and records the outcome, which you will see here.
+                Tell us which AI decision you think was wrong. A security analyst will acknowledge it within {ACKNOWLEDGE_BUSINESS_DAYS} business days
+                and tell you how it will be investigated; how long the investigation takes depends on what happened. You will see the outcome here.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="challenge-system">Which AI system</Label>
@@ -152,7 +159,7 @@ function ChallengeSection({ systems }: { systems: AiSystemEntry[] }) {
                 <p className="font-mono text-[10px] text-muted-foreground text-right tabular-nums">{message.length} / 1000</p>
               </div>
               {error && <p className="text-destructive text-sm">{error}</p>}
-              {sent && <p className="text-green-400 text-sm">Sent. A security analyst will review it; the outcome appears under Your challenges.</p>}
+              {sent && <p className="text-green-400 text-sm">Sent. A security analyst will acknowledge it within {ACKNOWLEDGE_BUSINESS_DAYS} business days; follow it under Your challenges.</p>}
               <Button type="submit" isLoading={submit.isPending} disabled={message.trim().length < 10} data-testid="button-submit-challenge">
                 Send challenge
               </Button>
@@ -174,6 +181,18 @@ function ChallengeSection({ systems }: { systems: AiSystemEntry[] }) {
                     </div>
                     <p className="text-sm text-muted-foreground">{c.message}</p>
                     <p className="font-mono text-[10px] text-muted-foreground/70">Sent {new Date(c.submittedAt).toLocaleString()}</p>
+                    {c.status === 'open' && (
+                      <p className="text-xs text-muted-foreground" data-testid={`challenge-ack-by-${c.id}`}>
+                        {c.overdue
+                          ? `This should have been acknowledged by ${formatDay(c.acknowledgeBy)}. It has been flagged to the security team.`
+                          : `A security analyst will acknowledge it by ${formatDay(c.acknowledgeBy)}.`}
+                      </p>
+                    )}
+                    {c.acknowledgementNote && (
+                      <p className="text-sm text-foreground border-l-2 border-border pl-2" data-testid={`challenge-ack-note-${c.id}`}>
+                        How it's being investigated: {c.acknowledgementNote}
+                      </p>
+                    )}
                     {c.resolutionNote && (
                       <p className="text-sm text-foreground border-l-2 border-primary/50 pl-2">
                         Reviewer: {c.resolutionNote}
@@ -229,7 +248,7 @@ export default function ResponsibleAi() {
         </p>
         <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
           <li>AI output is labelled where it appears in the app, and each label links here.</li>
-          <li>You can challenge any AI decision below; a security analyst reviews it and you see the outcome.</li>
+          <li>You can challenge any AI decision below. A security analyst acknowledges it within {ACKNOWLEDGE_BUSINESS_DAYS} business days, tells you how it will be investigated, and you see the outcome.</li>
           <li>Administrators can switch the models that aren't needed for security off, and every switch is recorded with a reason.</li>
         </ul>
         <p className="text-sm text-foreground flex items-center gap-2">

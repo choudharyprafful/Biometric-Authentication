@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './acknowledgeAiChallengeInput';
 export * from './aiChallenge';
 export * from './aiChallengeInput';
 export * from './aiChallengeOutcome';

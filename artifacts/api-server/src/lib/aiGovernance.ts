@@ -11,6 +11,7 @@ import { and, count, desc, eq, gte, inArray, like } from "drizzle-orm";
 import { db, securityLogsTable } from "@workspace/db";
 import { recordEvent, type AuditEventType } from "./auditLog";
 import { AI_SYSTEMS, isAiSystemId, type AiSystemId } from "./aiSystems";
+import type { SecurityAlert } from "./securityAlerting";
 
 export interface Actor {
   userId: number;
@@ -76,6 +77,31 @@ export async function setAiSystemEnabled(id: AiSystemId, enabled: boolean, reaso
 
 const CHALLENGE_DETAILS = /^system=([a-z-]+); ref=([^;]*); message=([\s\S]*)$/;
 const RESOLUTION_DETAILS = /^challenge=(\d+); outcome=(upheld|not-upheld); note=([\s\S]*)$/;
+const ACKNOWLEDGEMENT_DETAILS = /^challenge=(\d+); note=([\s\S]*)$/;
+
+// Team 2's response target (Gillian Habgood, 2026-09-26): acknowledge a challenge within 1-2 business
+// days and say how it will be investigated; how long the investigation takes depends on the challenge,
+// so that has no fixed target. Counted on the Melbourne calendar, Monday to Friday; public holidays
+// are not excluded.
+export const CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS = 2;
+const TIME_ZONE = "Australia/Melbourne";
+
+/** The calendar date in Melbourne, as YYYY-MM-DD. */
+function localDate(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+/** The date `days` business days after the Melbourne date of `from`. */
+export function acknowledgeByDate(from: Date, days = CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS): string {
+  const d = new Date(`${localDate(from)}T00:00:00Z`);
+  let added = 0;
+  while (added < days) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const weekday = d.getUTCDay();
+    if (weekday !== 0 && weekday !== 6) added += 1;
+  }
+  return d.toISOString().slice(0, 10);
+}
 
 export type ChallengeOutcome = "upheld" | "not-upheld";
 
@@ -87,7 +113,12 @@ export interface AiChallenge {
   message: string;
   submittedAt: string;
   submittedBy: string | null;
-  status: "open" | "resolved";
+  status: "open" | "acknowledged" | "resolved";
+  acknowledgeBy: string;
+  overdue: boolean;
+  acknowledgedAt: string | null;
+  acknowledgedBy: string | null;
+  acknowledgementNote: string | null;
   outcome: ChallengeOutcome | null;
   resolutionNote: string | null;
   resolvedAt: string | null;
@@ -105,7 +136,19 @@ export async function submitChallenge(systemId: AiSystemId, reference: string | 
   });
 }
 
-/** Every challenge, or one account's own, newest first, each with its resolution if it has one. */
+type RecordedEvent = { details: string; userEmail: string | null; timestamp: Date };
+
+/** The first matching event for each challenge id; a later one from a simultaneous review is ignored. */
+function firstPerChallenge<T>(rows: RecordedEvent[], pattern: RegExp, read: (m: RegExpExecArray, row: RecordedEvent) => T): Map<number, T> {
+  const byChallenge = new Map<number, T>();
+  for (const row of rows) {
+    const m = pattern.exec(row.details);
+    if (m && !byChallenge.has(Number(m[1]))) byChallenge.set(Number(m[1]), read(m, row));
+  }
+  return byChallenge;
+}
+
+/** Every challenge, or one account's own, newest first, each with its acknowledgement and resolution if it has them. */
 export async function listChallenges(onlyUserId?: number): Promise<AiChallenge[]> {
   const filed = await db
     .select({ id: securityLogsTable.id, details: securityLogsTable.details, userEmail: securityLogsTable.userEmail, timestamp: securityLogsTable.timestamp })
@@ -117,23 +160,27 @@ export async function listChallenges(onlyUserId?: number): Promise<AiChallenge[]
     .limit(200);
   if (filed.length === 0) return [];
 
-  const resolutions = await db
-    .select({ details: securityLogsTable.details, userEmail: securityLogsTable.userEmail, timestamp: securityLogsTable.timestamp })
-    .from(securityLogsTable)
-    .where(eq(securityLogsTable.eventType, "AI_CHALLENGE_RESOLVED"))
-    .orderBy(securityLogsTable.id);
-  const resolvedBy = new Map<number, { outcome: ChallengeOutcome; note: string; at: string; by: string | null }>();
-  for (const r of resolutions) {
-    const m = RESOLUTION_DETAILS.exec(r.details);
-    // The first resolution recorded is the decision; a later one from a simultaneous review is ignored.
-    if (m && !resolvedBy.has(Number(m[1]))) resolvedBy.set(Number(m[1]), { outcome: m[2] as ChallengeOutcome, note: m[3]!, at: r.timestamp.toISOString(), by: r.userEmail });
-  }
+  const eventsOf = (type: "AI_CHALLENGE_RESOLVED" | "AI_CHALLENGE_ACKNOWLEDGED") =>
+    db
+      .select({ details: securityLogsTable.details, userEmail: securityLogsTable.userEmail, timestamp: securityLogsTable.timestamp })
+      .from(securityLogsTable)
+      .where(eq(securityLogsTable.eventType, type))
+      .orderBy(securityLogsTable.id);
+  const [resolutions, acknowledgements] = await Promise.all([eventsOf("AI_CHALLENGE_RESOLVED"), eventsOf("AI_CHALLENGE_ACKNOWLEDGED")]);
+  const resolvedBy = firstPerChallenge(resolutions, RESOLUTION_DETAILS, (m, r) => ({ outcome: m[2] as ChallengeOutcome, note: m[3]!, at: r.timestamp.toISOString(), by: r.userEmail }));
+  const acknowledgedBy = firstPerChallenge(acknowledgements, ACKNOWLEDGEMENT_DETAILS, (m, a) => ({ note: m[2]!, at: a.timestamp.toISOString(), by: a.userEmail }));
+  const today = localDate(new Date());
 
   const challenges: AiChallenge[] = [];
   for (const row of filed) {
     const m = CHALLENGE_DETAILS.exec(row.details);
     if (!m || !isAiSystemId(m[1]!)) continue;
     const resolution = resolvedBy.get(row.id);
+    const acknowledgement = acknowledgedBy.get(row.id);
+    const acknowledgeBy = acknowledgeByDate(row.timestamp);
+    let status: AiChallenge["status"] = "open";
+    if (resolution) status = "resolved";
+    else if (acknowledgement) status = "acknowledged";
     challenges.push({
       id: row.id,
       systemId: m[1]!,
@@ -142,7 +189,13 @@ export async function listChallenges(onlyUserId?: number): Promise<AiChallenge[]
       message: m[3]!,
       submittedAt: row.timestamp.toISOString(),
       submittedBy: row.userEmail,
-      status: resolution ? "resolved" : "open",
+      status,
+      acknowledgeBy,
+      // A decision is also an answer, so a challenge resolved without a separate acknowledgement isn't overdue.
+      overdue: status === "open" && today > acknowledgeBy,
+      acknowledgedAt: acknowledgement?.at ?? null,
+      acknowledgedBy: acknowledgement?.by ?? null,
+      acknowledgementNote: acknowledgement?.note ?? null,
       outcome: resolution?.outcome ?? null,
       resolutionNote: resolution?.note ?? null,
       resolvedAt: resolution?.at ?? null,
@@ -154,6 +207,37 @@ export async function listChallenges(onlyUserId?: number): Promise<AiChallenge[]
 
 export class ChallengeNotFoundError extends Error {}
 export class ChallengeAlreadyResolvedError extends Error {}
+export class ChallengeAlreadyAcknowledgedError extends Error {}
+
+/** Tells the person their challenge has been seen and how it will be investigated. */
+export async function acknowledgeChallenge(challengeId: number, note: string, actor: Actor): Promise<void> {
+  const current = (await listChallenges()).find((c) => c.id === challengeId);
+  if (!current) throw new ChallengeNotFoundError();
+  if (current.status === "resolved") throw new ChallengeAlreadyResolvedError();
+  if (current.status === "acknowledged") throw new ChallengeAlreadyAcknowledgedError();
+  await recordEvent({
+    eventType: "AI_CHALLENGE_ACKNOWLEDGED",
+    details: `challenge=${challengeId}; note=${note}`,
+    userId: actor.userId,
+    userEmail: actor.email,
+    ipAddress: actor.ip,
+    userAgent: actor.userAgent,
+  });
+}
+
+/** Challenges still waiting to be acknowledged after Team 2's response target. */
+export async function computeChallengeAlerts(): Promise<SecurityAlert[]> {
+  const overdue = (await listChallenges()).filter((c) => c.overdue);
+  if (overdue.length === 0) return [];
+  const oldest = overdue[overdue.length - 1]!;
+  return [{
+    id: "ai-challenges-overdue",
+    severity: "medium",
+    message: `${overdue.length} AI challenge${overdue.length === 1 ? "" : "s"} not acknowledged within ${CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS} business days (oldest submitted ${oldest.submittedAt.slice(0, 10)})`,
+    count: overdue.length,
+    windowMinutes: 0,
+  }];
+}
 
 export async function resolveChallenge(challengeId: number, outcome: ChallengeOutcome, note: string, actor: Actor): Promise<void> {
   const [filed] = await db

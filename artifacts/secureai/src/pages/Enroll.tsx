@@ -760,10 +760,12 @@ export default function Enroll() {
                 data-testid="checkbox-biometric-consent"
               />
               <Label htmlFor="biometricConsent" className="text-xs font-mono font-normal leading-snug text-muted-foreground">
-                I consent to my face being captured and stored as an encrypted biometric template
-                for authentication purposes, separately from my general account data. I understand
-                I can withdraw this consent at any time, which permanently deletes the stored
-                template (Security Settings → Re-enroll Face flow).
+                I consent to SecureAI storing a template of my face for sign-in. Biometric information is
+                sensitive information under the Privacy Act 1988, so this is asked separately from my account
+                data, and only because I chose face sign-in: I can use a passkey instead. The template is 128
+                numbers computed in my browser (the camera image never leaves my device), stored encrypted on
+                SecureAI's servers in the United States, and used only to confirm it's me at sign-in and password
+                reset. I can withdraw this consent at any time in Security Settings, which permanently deletes it.
               </Label>
             </div>
 

@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AcknowledgeAiChallengeInput,
   AiChallenge,
   AiChallengeInput,
   AiOversight,
@@ -2994,6 +2995,78 @@ export const useResolveAiChallenge = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getResolveAiChallengeMutationOptions(options));
+    }
+
+export const getAcknowledgeAiChallengeUrl = (id: number,) => {
+
+
+
+
+  return `/api/ai/challenges/${id}/acknowledge`
+}
+
+/**
+ * @summary Acknowledge a challenge and tell the person how it will be investigated (security analysts and administrators)
+ */
+export const acknowledgeAiChallenge = async (id: number,
+    acknowledgeAiChallengeInput: AcknowledgeAiChallengeInput, options?: Parameters<typeof customFetch>[1]): Promise<AiChallenge> => {
+
+  return customFetch<AiChallenge>(getAcknowledgeAiChallengeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(acknowledgeAiChallengeInput)
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeAiChallengeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAiChallenge>>, TError,{id: number;data: BodyType<AcknowledgeAiChallengeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAiChallenge>>, TError,{id: number;data: BodyType<AcknowledgeAiChallengeInput>}, TContext> => {
+
+const mutationKey = ['acknowledgeAiChallenge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeAiChallenge>>, {id: number;data: BodyType<AcknowledgeAiChallengeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  acknowledgeAiChallenge(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeAiChallengeMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeAiChallenge>>>
+    export type AcknowledgeAiChallengeMutationBody = BodyType<AcknowledgeAiChallengeInput>
+    export type AcknowledgeAiChallengeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Acknowledge a challenge and tell the person how it will be investigated (security analysts and administrators)
+ */
+export const useAcknowledgeAiChallenge = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAiChallenge>>, TError,{id: number;data: BodyType<AcknowledgeAiChallengeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeAiChallenge>>,
+        TError,
+        {id: number;data: BodyType<AcknowledgeAiChallengeInput>},
+        TContext
+      > => {
+      return useMutation(getAcknowledgeAiChallengeMutationOptions(options));
     }
 
 export const getGetAiOversightUrl = () => {

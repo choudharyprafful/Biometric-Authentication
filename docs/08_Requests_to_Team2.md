@@ -209,6 +209,15 @@ question is already squarely inside their Regulatory Compliance Assessment's sco
 the answer might independently push back on the security team's own "keep it" decision from a completely
 different direction than the security tradeoffs that motivated it.
 
+**Answered 2026-09-26 (Gillian Habgood, Team 2): yes.** The stored face template is biometric information,
+which the Privacy Act 1988 treats as sensitive information even when encrypted (Team 2 cited OVIC,
+*Biometrics and Privacy – Issues and Challenges*). What Team 1 changed: the face-consent wording now says
+it is sensitive information, why it is asked separately, what the template is, that it is stored encrypted
+in the United States, that it is used only for sign-in and password reset, that a passkey is an
+alternative, and that withdrawing deletes it; the privacy policy says the same (version 2026-09-26.2).
+Collection was already express and separate (`consent: true` is required at enrolment), optional since
+the passkey-only path, never used for anything else, and deleted on withdrawal or account deletion.
+
 Impersonation, including deceased or public figures: Team 2's elaborated brief (§6) explicitly widens
 this beyond living non-consenting third parties to "deceased or public figures the user might feed in" —
 a real, distinct sub-case Team 1's docs hadn't separately named. This app doesn't train a generative model
@@ -252,10 +261,10 @@ optional (it had been effectively mandatory in the web app).
 
 Still open for Team 2:
 
-- The question in §5 above — whether server-stored face templates trigger a different tier of
-  obligation as "sensitive information" — is not answered by the Weeks 7-8 milestone.
-- A **response target for AI challenges** (how quickly a challenge should be reviewed). The queue
-  records each challenge's age, so any target can be measured once set.
+- ~~The question in §5 above~~ — answered 2026-09-26: face templates are sensitive information (see §5).
+- ~~A response target for AI challenges~~ — set 2026-09-26 (Gillian Habgood): acknowledge within 1–2
+  business days, telling the person how it will be investigated; investigation time depends on the
+  challenge. Implemented with 2 business days; see docs/11 §3.
 - Whether the admin/analyst separation of duties (R-AC-4) is expected by the accountability framework:
   guardrail 5.1 asks for an accountable person with authority to intervene, which the admin role now
   is, but does not settle separation of duties.
@@ -292,7 +301,7 @@ Also added: a notice that SecureAI is a student proof of concept and should be u
 Still needed from Team 2 (the page says so where it applies):
 
 - Retention periods for security records and payment records (`SECURITY_LOGS_RETENTION_DAYS`, `PAYMENTS_RETENTION_DAYS`).
-- A response-time target for complaints and AI challenges.
+- ~~A response-time target for complaints and AI challenges~~ — set 2026-09-26; the policy now states it (section 12).
 - A real, monitored privacy contact; `privacy@secureai.example` is a placeholder.
 - The APP 8 safeguards for storing Australian users' data in the United States, and legal review of the whole policy (docs/10).
 

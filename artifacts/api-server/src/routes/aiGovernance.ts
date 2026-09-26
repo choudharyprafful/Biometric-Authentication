@@ -13,6 +13,9 @@ import {
   ResolveAiChallengeParams,
   ResolveAiChallengeBody,
   ResolveAiChallengeResponse,
+  AcknowledgeAiChallengeParams,
+  AcknowledgeAiChallengeBody,
+  AcknowledgeAiChallengeResponse,
   GetAiOversightResponse,
 } from "@workspace/api-zod";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
@@ -26,9 +29,11 @@ import {
   submitChallenge,
   listChallenges,
   resolveChallenge,
+  acknowledgeChallenge,
   aiMonitoring,
   ChallengeNotFoundError,
   ChallengeAlreadyResolvedError,
+  ChallengeAlreadyAcknowledgedError,
   type Actor,
 } from "../lib/aiGovernance";
 
@@ -114,6 +119,34 @@ router.get("/ai/challenges", ...staffGates, staffRateLimit, async (req, res): Pr
   res.json(ListAiChallengesResponse.parse(await listChallenges()));
 });
 
+// Team 2's response target: acknowledge within CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS, saying how it will
+// be investigated. The note is shown to the person who raised the challenge.
+router.post("/ai/challenges/:id/acknowledge", ...staffGates, staffRateLimit, async (req, res): Promise<void> => {
+  const actor = await actorFor(req, res, STAFF);
+  if (!actor) return;
+  const params = AcknowledgeAiChallengeParams.safeParse({ id: Number(req.params["id"]) });
+  const body = AcknowledgeAiChallengeBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Say how it will be investigated, in 5–1,000 characters" });
+    return;
+  }
+  try {
+    await acknowledgeChallenge(params.data.id, body.data.note.trim(), actor);
+  } catch (err) {
+    if (err instanceof ChallengeNotFoundError) {
+      res.status(404).json({ error: "No such challenge" });
+      return;
+    }
+    if (err instanceof ChallengeAlreadyResolvedError || err instanceof ChallengeAlreadyAcknowledgedError) {
+      res.status(409).json({ error: `This challenge has already been ${err instanceof ChallengeAlreadyResolvedError ? "resolved" : "acknowledged"}` });
+      return;
+    }
+    throw err;
+  }
+  const acknowledged = (await listChallenges()).find((c) => c.id === params.data.id)!;
+  res.json(AcknowledgeAiChallengeResponse.parse(acknowledged));
+});
+
 router.post("/ai/challenges/:id/resolve", ...staffGates, staffRateLimit, async (req, res): Promise<void> => {
   const actor = await actorFor(req, res, STAFF);
   if (!actor) return;
@@ -146,7 +179,8 @@ router.get("/ai/oversight", ...staffGates, staffRateLimit, async (req, res): Pro
   res.json(GetAiOversightResponse.parse({
     systems: AI_SYSTEMS.map((s) => ({ id: s.id, name: s.name, switchable: s.switchable, switchNote: s.switchNote, ...states.get(s.id)! })),
     outcomes,
-    openChallenges: challenges.filter((c) => c.status === "open").length,
+    // Not yet decided: waiting to be acknowledged, or acknowledged and under investigation.
+    openChallenges: challenges.filter((c) => c.status !== "resolved").length,
   }));
 });
 

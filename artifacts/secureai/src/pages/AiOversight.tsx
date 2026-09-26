@@ -8,6 +8,7 @@ import {
   getGetAiSystemsQueryKey,
   useSetAiSystemState,
   useResolveAiChallenge,
+  useAcknowledgeAiChallenge,
   type AiSystemStaffState,
   type AiChallenge,
   type AiOutcomeWindow,
@@ -96,9 +97,56 @@ function SwitchRow({ system, canSwitch }: { system: AiSystemStaffState; canSwitc
   );
 }
 
-function ChallengeItem({ challenge }: { challenge: AiChallenge }) {
+// The acknowledge-by date is a calendar date (Melbourne), not an instant.
+const formatDay = (isoDate: string) => new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+
+function useRefreshChallenges() {
   const queryClient = useQueryClient();
+  return () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: getListAiChallengesQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: getGetAiOversightQueryKey() }),
+  ]);
+}
+
+// Team 2's response target: tell the person, within the acknowledge-by date, how it will be investigated.
+function AcknowledgeForm({ challenge }: { challenge: AiChallenge }) {
+  const acknowledge = useAcknowledgeAiChallenge();
+  const refresh = useRefreshChallenges();
+  const [note, setNote] = useState('');
+  const [error, setError] = useState('');
+  const submit = async () => {
+    setError('');
+    try {
+      await acknowledge.mutateAsync({ id: challenge.id, data: { note } });
+      await refresh();
+    } catch (err: any) {
+      setError(err?.data?.error || 'Could not record the acknowledgement.');
+    }
+  };
+  return (
+    <div className="space-y-2 border border-border/60 p-2">
+      <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} placeholder="How you'll investigate it; the person sees this" aria-label="Acknowledgement note" data-testid={`input-acknowledge-${challenge.id}`} />
+      {error && <p className="text-destructive text-xs">{error}</p>}
+      <Button size="sm" variant="outline" onClick={submit} isLoading={acknowledge.isPending} disabled={note.trim().length < 5} data-testid={`button-acknowledge-${challenge.id}`}>
+        Acknowledge
+      </Button>
+    </div>
+  );
+}
+
+function statusBadge(challenge: AiChallenge) {
+  if (challenge.status === 'resolved') {
+    return <Badge variant={challenge.outcome === 'upheld' ? 'success' : 'secondary'} className="shrink-0">{challenge.outcome === 'upheld' ? 'Upheld' : 'Not upheld'}</Badge>;
+  }
+  if (challenge.status === 'acknowledged') return <Badge variant="outline" className="shrink-0">Acknowledged</Badge>;
+  return challenge.overdue
+    ? <Badge variant="destructive" className="shrink-0" data-testid={`badge-overdue-${challenge.id}`}>Overdue</Badge>
+    : <Badge variant="outline" className="shrink-0">Open</Badge>;
+}
+
+function ChallengeItem({ challenge }: { challenge: AiChallenge }) {
   const resolve = useResolveAiChallenge();
+  const refresh = useRefreshChallenges();
   const [outcome, setOutcome] = useState<'upheld' | 'not-upheld'>('upheld');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
@@ -107,10 +155,7 @@ function ChallengeItem({ challenge }: { challenge: AiChallenge }) {
     setError('');
     try {
       await resolve.mutateAsync({ id: challenge.id, data: { outcome, note } });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: getListAiChallengesQueryKey() }),
-        queryClient.invalidateQueries({ queryKey: getGetAiOversightQueryKey() }),
-      ]);
+      await refresh();
     } catch (err: any) {
       setError(err?.data?.error || 'Could not record the outcome.');
     }
@@ -125,17 +170,26 @@ function ChallengeItem({ challenge }: { challenge: AiChallenge }) {
             #{challenge.id} · {challenge.submittedBy} · {new Date(challenge.submittedAt).toLocaleString()}{challenge.reference ? ` · re: ${challenge.reference}` : ''}
           </p>
         </div>
-        {challenge.status === 'open'
-          ? <Badge variant="outline" className="shrink-0">Open</Badge>
-          : <Badge variant={challenge.outcome === 'upheld' ? 'success' : 'secondary'} className="shrink-0">{challenge.outcome === 'upheld' ? 'Upheld' : 'Not upheld'}</Badge>}
+        {statusBadge(challenge)}
       </div>
       <p className="text-sm text-foreground">{challenge.message}</p>
+      {challenge.status === 'open' && (
+        <p className={`font-mono text-[10px] uppercase tracking-wider ${challenge.overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+          Acknowledge by {formatDay(challenge.acknowledgeBy)}
+        </p>
+      )}
+      {challenge.acknowledgementNote && (
+        <p className="text-sm text-muted-foreground border-l-2 border-border pl-2">
+          Acknowledged: {challenge.acknowledgementNote} <span className="font-mono text-[10px]">({challenge.acknowledgedBy}, {new Date(challenge.acknowledgedAt!).toLocaleString()})</span>
+        </p>
+      )}
       {challenge.status === 'resolved' ? (
         <p className="text-sm text-muted-foreground border-l-2 border-primary/50 pl-2">
           {challenge.resolutionNote} <span className="font-mono text-[10px]">({challenge.resolvedBy}, {new Date(challenge.resolvedAt!).toLocaleString()})</span>
         </p>
       ) : (
         <div className="space-y-2">
+          {challenge.status === 'open' && <AcknowledgeForm challenge={challenge} />}
           <div className="flex flex-wrap gap-3">
             {(['upheld', 'not-upheld'] as const).map((o) => (
               <label key={o} className="flex items-center gap-2 text-sm text-foreground">
@@ -176,7 +230,9 @@ export default function AiOversight() {
   }
 
   const { systems, outcomes, openChallenges } = oversight.data;
-  const ordered = [...challenges.data].sort((a, b) => (a.status === b.status ? 0 : a.status === 'open' ? -1 : 1));
+  // Overdue first, then open, then acknowledged, then resolved; newest first within each (the API's order).
+  const rank = (c: AiChallenge) => (c.overdue ? 0 : { open: 1, acknowledged: 2, resolved: 3 }[c.status]);
+  const ordered = [...challenges.data].sort((a, b) => rank(a) - rank(b));
 
   return (
     <div className="space-y-8">
