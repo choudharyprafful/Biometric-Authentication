@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 /**
  * Device-bound biometric key pairs, enrolled via Android's native
@@ -20,7 +21,7 @@ import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
  */
 export const biometricKeysTable = pgTable("biometric_keys", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   publicKey: text("public_key").notNull(), // PEM-encoded RSA public key
   deviceName: text("device_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

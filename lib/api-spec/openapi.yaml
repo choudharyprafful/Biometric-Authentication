@@ -706,6 +706,83 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/me/privacy-policy:
+    get:
+      operationId: getMyPrivacyPolicyStatus
+      tags: [users]
+      summary: Which privacy policy version is current, and which one this account last acknowledged
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyPolicyStatus"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/privacy-policy/acknowledge:
+    post:
+      operationId: acknowledgePrivacyPolicy
+      tags: [users]
+      summary: Record that this account has been shown the current privacy policy
+      description: Recorded in the tamper-evident audit log as PRIVACY_POLICY_ACKNOWLEDGED. The version must be the current one, so nobody is recorded as having seen text they were not shown.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyPolicyAcknowledgeInput"
+      responses:
+        "200":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyPolicyStatus"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: The version shown is not the current one; reload the policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/export:
+    get:
+      operationId: exportMyData
+      tags: [users]
+      summary: Download a copy of this account's personal data (privacy policy section 11)
+      description: One JSON file with the account, consents, sign-in methods, uploads (file content included up to a total size limit), payments, the account's own security events and privacy-policy acknowledgements. The face template is described but not included. Limited to 5 exports per hour; each export is audit-logged as DATA_EXPORTED.
+      responses:
+        "200":
+          description: The export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataExport"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many exports in the last hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/me/training-consent:
     post:
       operationId: setTrainingConsent
@@ -1489,6 +1566,10 @@ components:
           description: Optional, defaults to false if omitted. Separate from dataConsent — whether this account's activity may contribute to the behavior model's training corpus from day one. Not required to register, and freely togglable afterward via POST /users/me/training-consent regardless of what was chosen here.
           type: boolean
           default: false
+        privacyPolicyVersion:
+          description: The privacy policy version shown on the registration form. When it is the current version, the registration records that this person was shown it (PRIVACY_POLICY_ACKNOWLEDGED); otherwise they are asked to review the policy after signing in.
+          type: string
+          maxLength: 32
 
     LoginCredentials:
       type: object
@@ -1924,6 +2005,31 @@ components:
         subscriptionPlan:
           type: string
           enum: [free, plus, pro, team]
+
+    PrivacyPolicyStatus:
+      type: object
+      required: [currentVersion, acknowledgedVersion, acknowledgedAt]
+      properties:
+        currentVersion:
+          type: string
+        acknowledgedVersion:
+          description: The latest version this account was recorded as having been shown, or null
+          type: ["string", "null"]
+        acknowledgedAt:
+          type: ["string", "null"]
+
+    PrivacyPolicyAcknowledgeInput:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          maxLength: 32
+
+    DataExport:
+      description: A personal data export. Its sections are described in the file's own notes field.
+      type: object
+      additionalProperties: true
 
     PaymentWebhookInput:
       type: object

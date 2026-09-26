@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Linking } from 'react-native';
 import { login } from '../lib/api';
 import { loginWithBiometricKey, linkDeviceWithCode } from '../lib/biometricKey';
 import { useAuth } from '../context/AuthContext';
 import { Card, Label, Input, Button, SectionNote, ShieldBadge } from '../components/ui';
 import { colors, fonts } from '../theme';
+import { PRIVACY_POLICY_URL } from '../config';
 
 type LoginStep = 'password' | 'biometric' | 'link';
 
@@ -111,6 +112,9 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
             </Pressable>
             <Pressable onPress={() => { setError(''); setView('link'); }}>
               <Text style={styles.link}>Link this device to an existing account</Text>
+            </Pressable>
+            <Pressable onPress={() => { void Linking.openURL(PRIVACY_POLICY_URL); }} accessibilityRole="link">
+              <Text style={styles.link}>Privacy Policy</Text>
             </Pressable>
           </>
         )}

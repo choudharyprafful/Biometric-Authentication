@@ -36,6 +36,8 @@ jobs:
       - run: pnpm --filter @workspace/api-server run verify:clamd
       # The deploy hook that installs ClamAV on the API instance.
       - run: shellcheck artifacts/api-server/.platform/hooks/prebuild/10_clamav.sh
+      # The privacy policy text and the version the API records must match.
+      - run: node scripts/check-privacy-policy-version.mjs
 
   semgrep-sast:
     name: Semgrep SAST scan (real tool, not the adversarial-probe substitute)

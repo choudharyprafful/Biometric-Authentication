@@ -211,6 +211,11 @@ export default function Login() {
                   How SecureAI uses AI
                 </span>
               </Link>
+              <Link href="/privacy">
+                <span className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider" data-testid="link-privacy-policy">
+                  Privacy Policy
+                </span>
+              </Link>
             </div>
           </form>
         ) : (

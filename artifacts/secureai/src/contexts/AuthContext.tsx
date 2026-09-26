@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoading) {
       const isPublicRoute = location === '/' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || location === '/parent-consent';
-      const isOpenRoute = location === '/ai';
+      const isOpenRoute = location === '/ai' || location === '/privacy';
       const isEnrollRoute = location === '/enroll';
       const mfaComplete = !!user && (user.faceEnrolled || user.passkeyEnrolled);
 

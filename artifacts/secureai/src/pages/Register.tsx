@@ -5,6 +5,7 @@ import { Card, Input, Label, Button } from '../components/ui';
 import { Checkbox } from '../components/ui/checkbox';
 import { Shield, Users as UsersIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { PRIVACY_POLICY } from '../lib/privacyPolicy';
 
 // Self-reported, same as virtually every consumer app — real ID/document
 // verification is out of scope for this PoC (see
@@ -66,7 +67,7 @@ export default function Register() {
 
     try {
       const res = await registerMutation.mutateAsync({
-        data: { name, email, password, dataConsent, trainingConsent, dateOfBirth, parentGuardianEmail: isMinor ? parentGuardianEmail : undefined },
+        data: { name, email, password, dataConsent, trainingConsent, dateOfBirth, parentGuardianEmail: isMinor ? parentGuardianEmail : undefined, privacyPolicyVersion: PRIVACY_POLICY.version },
       });
       if (res.devParentConsentLink) {
         // Account was created but is gated pending parent/guardian
@@ -227,6 +228,13 @@ export default function Register() {
               affect anything else. Changeable any time in Settings.
             </Label>
           </div>
+
+          <p className="text-xs text-muted-foreground leading-snug" data-testid="register-privacy-notice">
+            Before you create an account, read our{' '}
+            <Link href="/privacy"><span className="text-primary underline underline-offset-2 cursor-pointer">Privacy Policy</span></Link>:
+            what we collect, where it is stored (in the United States), and how to download or delete it. This is a student
+            proof of concept, so please use test details rather than your real information.
+          </p>
 
           {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
 

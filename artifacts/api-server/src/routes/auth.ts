@@ -27,6 +27,7 @@ import { faceMatchDistance, FACE_MATCH_THRESHOLD } from "../lib/faceUtils";
 import { decryptJson } from "../lib/fileEncryption";
 import { checkAndRecordRequest, releaseAttempt, clearAttempts } from "../lib/rateLimit";
 import { enforceSessionLimit } from "../lib/sessionLimit";
+import { PRIVACY_POLICY_VERSION, acknowledgementDetails } from "../lib/privacyPolicy";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { assessLoginRisk, type LoginRiskCode } from "../lib/loginRiskModel";
 import { isAiSystemEnabled } from "../lib/aiGovernance";
@@ -172,7 +173,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { email, name, password, dataConsent, dateOfBirth, parentGuardianEmail, trainingConsent } = parsed.data;
+  const { email, name, password, dataConsent, dateOfBirth, parentGuardianEmail, trainingConsent, privacyPolicyVersion } = parsed.data;
 
   if (!dataConsent) {
     res.status(400).json({ error: "Data-processing consent is required to register" });
@@ -240,6 +241,19 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     ipAddress: getClientIp(req),
     userAgent: req.headers["user-agent"],
   });
+
+  // Only the current version counts: an older or missing one (e.g. an older mobile build) means the
+  // person is asked to review the policy after signing in instead.
+  if (privacyPolicyVersion === PRIVACY_POLICY_VERSION) {
+    await logEvent({
+      eventType: "PRIVACY_POLICY_ACKNOWLEDGED",
+      details: acknowledgementDetails(PRIVACY_POLICY_VERSION, "registration"),
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers["user-agent"],
+    });
+  }
 
   // Same audit event as the settings toggle (routes/behavior.ts) — keeps the trail consistent regardless of which screen granted it.
   if (trainingConsent === true) {

@@ -28,6 +28,9 @@ export const registerUserBodyPasswordMin = 8;
 export const registerUserBodyParentGuardianEmailMax = 254;
 
 export const registerUserBodyTrainingConsentDefault = false;
+export const registerUserBodyPrivacyPolicyVersionMax = 32;
+
+
 
 export const RegisterUserBody = zod.object({
   "email": zod.string().email().max(registerUserBodyEmailMax),
@@ -36,7 +39,8 @@ export const RegisterUserBody = zod.object({
   "dataConsent": zod.boolean().describe('Must be true — explicit consent to processing of account\/profile data. Registration is rejected without it.'),
   "dateOfBirth": zod.string().describe('Self-reported, ISO date (YYYY-MM-DD). Used server-side to compute age at registration — never trust a client-computed \"is adult\" boolean, same principle as everywhere else consent\/verification is enforced in this app.'),
   "parentGuardianEmail": zod.string().email().max(registerUserBodyParentGuardianEmailMax).optional().describe('Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link.'),
-  "trainingConsent": zod.boolean().default(registerUserBodyTrainingConsentDefault).describe('Optional, defaults to false if omitted. Separate from dataConsent — whether this account\'s activity may contribute to the behavior model\'s training corpus from day one. Not required to register, and freely togglable afterward via POST \/users\/me\/training-consent regardless of what was chosen here.')
+  "trainingConsent": zod.boolean().default(registerUserBodyTrainingConsentDefault).describe('Optional, defaults to false if omitted. Separate from dataConsent — whether this account\'s activity may contribute to the behavior model\'s training corpus from day one. Not required to register, and freely togglable afterward via POST \/users\/me\/training-consent regardless of what was chosen here.'),
+  "privacyPolicyVersion": zod.string().max(registerUserBodyPrivacyPolicyVersionMax).optional().describe('The privacy policy version shown on the registration form. When it is the current version, the registration records that this person was shown it (PRIVACY_POLICY_ACKNOWLEDGED); otherwise they are asked to review the policy after signing in.')
 })
 
 export const RegisterUserResponse = zod.object({
@@ -620,6 +624,42 @@ export const ListDeletionAuditResponseItem = zod.object({
   "currentlyRestored": zod.boolean().describe('Whether a row now sits at this id again (e.g. restored via restoreLogChain)')
 })
 export const ListDeletionAuditResponse = zod.array(ListDeletionAuditResponseItem)
+
+
+/**
+ * @summary Which privacy policy version is current, and which one this account last acknowledged
+ */
+export const GetMyPrivacyPolicyStatusResponse = zod.object({
+  "currentVersion": zod.string(),
+  "acknowledgedVersion": zod.string().nullable().describe('The latest version this account was recorded as having been shown, or null'),
+  "acknowledgedAt": zod.string().nullable()
+})
+
+
+/**
+ * Recorded in the tamper-evident audit log as PRIVACY_POLICY_ACKNOWLEDGED. The version must be the current one, so nobody is recorded as having seen text they were not shown.
+ * @summary Record that this account has been shown the current privacy policy
+ */
+export const acknowledgePrivacyPolicyBodyVersionMax = 32;
+
+
+
+export const AcknowledgePrivacyPolicyBody = zod.object({
+  "version": zod.string().max(acknowledgePrivacyPolicyBodyVersionMax)
+})
+
+export const AcknowledgePrivacyPolicyResponse = zod.object({
+  "currentVersion": zod.string(),
+  "acknowledgedVersion": zod.string().nullable().describe('The latest version this account was recorded as having been shown, or null'),
+  "acknowledgedAt": zod.string().nullable()
+})
+
+
+/**
+ * One JSON file with the account, consents, sign-in methods, uploads (file content included up to a total size limit), payments, the account's own security events and privacy-policy acknowledgements. The face template is described but not included. Limited to 5 exports per hour; each export is audit-logged as DATA_EXPORTED.
+ * @summary Download a copy of this account's personal data (privacy policy section 11)
+ */
+export const ExportMyDataResponse = zod.record(zod.string(), zod.unknown()).describe('A personal data export. Its sections are described in the file\'s own notes field.')
 
 
 /**

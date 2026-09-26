@@ -31,6 +31,7 @@ import type {
   ChainRepairResult,
   ChainRestoreResult,
   ContentProfileResult,
+  DataExport,
   DeleteUserConfirmation,
   DeletionAuditEntry,
   ErrorResponse,
@@ -49,6 +50,8 @@ import type {
   PaymentWebhookInput,
   PaymentWebhookResult,
   Plan,
+  PrivacyPolicyAcknowledgeInput,
+  PrivacyPolicyStatus,
   ResetPasswordFaceInput,
   ResetPasswordResult,
   ResolveAiChallengeInput,
@@ -2078,6 +2081,233 @@ export function useListDeletionAudit<TData = Awaited<ReturnType<typeof listDelet
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListDeletionAuditQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMyPrivacyPolicyStatusUrl = () => {
+
+
+
+
+  return `/api/users/me/privacy-policy`
+}
+
+/**
+ * @summary Which privacy policy version is current, and which one this account last acknowledged
+ */
+export const getMyPrivacyPolicyStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<PrivacyPolicyStatus> => {
+
+  return customFetch<PrivacyPolicyStatus>(getGetMyPrivacyPolicyStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyPrivacyPolicyStatusQueryKey = () => {
+    return [
+    `/api/users/me/privacy-policy`
+    ] as const;
+    }
+
+
+export const getGetMyPrivacyPolicyStatusQueryOptions = <TData = Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyPrivacyPolicyStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>> = ({ signal }) => getMyPrivacyPolicyStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyPrivacyPolicyStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>>
+export type GetMyPrivacyPolicyStatusQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Which privacy policy version is current, and which one this account last acknowledged
+ */
+
+export function useGetMyPrivacyPolicyStatus<TData = Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyPrivacyPolicyStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyPrivacyPolicyStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAcknowledgePrivacyPolicyUrl = () => {
+
+
+
+
+  return `/api/users/me/privacy-policy/acknowledge`
+}
+
+/**
+ * Recorded in the tamper-evident audit log as PRIVACY_POLICY_ACKNOWLEDGED. The version must be the current one, so nobody is recorded as having seen text they were not shown.
+ * @summary Record that this account has been shown the current privacy policy
+ */
+export const acknowledgePrivacyPolicy = async (privacyPolicyAcknowledgeInput: PrivacyPolicyAcknowledgeInput, options?: Parameters<typeof customFetch>[1]): Promise<PrivacyPolicyStatus> => {
+
+  return customFetch<PrivacyPolicyStatus>(getAcknowledgePrivacyPolicyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(privacyPolicyAcknowledgeInput)
+  }
+);}
+
+
+
+
+
+export const getAcknowledgePrivacyPolicyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePrivacyPolicy>>, TError,{data: BodyType<PrivacyPolicyAcknowledgeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgePrivacyPolicy>>, TError,{data: BodyType<PrivacyPolicyAcknowledgeInput>}, TContext> => {
+
+const mutationKey = ['acknowledgePrivacyPolicy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgePrivacyPolicy>>, {data: BodyType<PrivacyPolicyAcknowledgeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  acknowledgePrivacyPolicy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgePrivacyPolicyMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgePrivacyPolicy>>>
+    export type AcknowledgePrivacyPolicyMutationBody = BodyType<PrivacyPolicyAcknowledgeInput>
+    export type AcknowledgePrivacyPolicyMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record that this account has been shown the current privacy policy
+ */
+export const useAcknowledgePrivacyPolicy = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgePrivacyPolicy>>, TError,{data: BodyType<PrivacyPolicyAcknowledgeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgePrivacyPolicy>>,
+        TError,
+        {data: BodyType<PrivacyPolicyAcknowledgeInput>},
+        TContext
+      > => {
+      return useMutation(getAcknowledgePrivacyPolicyMutationOptions(options));
+    }
+
+export const getExportMyDataUrl = () => {
+
+
+
+
+  return `/api/users/me/export`
+}
+
+/**
+ * One JSON file with the account, consents, sign-in methods, uploads (file content included up to a total size limit), payments, the account's own security events and privacy-policy acknowledgements. The face template is described but not included. Limited to 5 exports per hour; each export is audit-logged as DATA_EXPORTED.
+ * @summary Download a copy of this account's personal data (privacy policy section 11)
+ */
+export const exportMyData = async ( options?: Parameters<typeof customFetch>[1]): Promise<DataExport> => {
+
+  return customFetch<DataExport>(getExportMyDataUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportMyDataQueryKey = () => {
+    return [
+    `/api/users/me/export`
+    ] as const;
+    }
+
+
+export const getExportMyDataQueryOptions = <TData = Awaited<ReturnType<typeof exportMyData>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportMyData>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportMyDataQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportMyData>>> = ({ signal }) => exportMyData({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportMyData>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportMyDataQueryResult = NonNullable<Awaited<ReturnType<typeof exportMyData>>>
+export type ExportMyDataQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Download a copy of this account's personal data (privacy policy section 11)
+ */
+
+export function useExportMyData<TData = Awaited<ReturnType<typeof exportMyData>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportMyData>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportMyDataQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

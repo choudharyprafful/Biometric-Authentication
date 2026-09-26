@@ -24,4 +24,9 @@ export interface UserRegistration {
   parentGuardianEmail?: string;
   /** Optional, defaults to false if omitted. Separate from dataConsent — whether this account's activity may contribute to the behavior model's training corpus from day one. Not required to register, and freely togglable afterward via POST /users/me/training-consent regardless of what was chosen here. */
   trainingConsent?: boolean;
+  /**
+     * The privacy policy version shown on the registration form. When it is the current version, the registration records that this person was shown it (PRIVACY_POLICY_ACKNOWLEDGED); otherwise they are asked to review the policy after signing in.
+     * @maxLength 32
+     */
+  privacyPolicyVersion?: string;
 }

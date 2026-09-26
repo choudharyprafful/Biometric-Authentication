@@ -5,9 +5,10 @@ import { useEnrollFace, useRemoveFace, useLogoutAllDevices, useDeleteUser, useLo
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, Button, Label, Input } from '../components/ui';
 import { Checkbox } from '../components/ui/checkbox';
-import { ScanFace, CheckCircle2, ChevronRight, KeyRound, Trash2, ShieldCheck, RefreshCw, Settings, LogOut, AlertTriangle, Smartphone, Users as UsersIcon, BrainCircuit, Tags } from 'lucide-react';
+import { ScanFace, CheckCircle2, ChevronRight, KeyRound, Trash2, ShieldCheck, RefreshCw, Settings, LogOut, AlertTriangle, Smartphone, Users as UsersIcon, BrainCircuit, Tags, FileText } from 'lucide-react';
 import { FaceCamera } from '../components/FaceCamera';
 import { AiLabel } from '../components/AiLabel';
+import { DownloadMyData } from '../components/DownloadMyData';
 import { enrollPasskey, listPasskeys, deletePasskey, type PasskeyInfo } from '../lib/passkey';
 import { createDeviceLinkCode } from '../lib/deviceLink';
 
@@ -569,15 +570,27 @@ export default function Enroll() {
           </Button>
         </Card>
 
+        <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-primary" />
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Your Data</h2>
+          </div>
+          <p className="text-sm font-mono text-muted-foreground">
+            Download a copy of the data SecureAI holds about your account as a JSON file: your profile, consents, sign-in
+            methods, uploads, payments and security events. See the <a href="/privacy#your-rights" className="text-primary underline underline-offset-2">Privacy Policy</a> for your other rights.
+          </p>
+          <DownloadMyData />
+        </Card>
+
         <Card className="border-t-4 border-t-destructive bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-destructive" />
             <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Danger Zone</h2>
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            Permanently deletes your account, face enrollment, and passkeys. Your payment and audit
-            history is retained (not tied back to you by name) rather than erased — this is standard
-            financial/audit-retention practice, not a bug.
+            Permanently deletes your account, face enrollment, passkeys and phone keys, uploads, and every
+            signed-in session. Your payment records and security history are kept, with your email, for
+            accountability and fraud prevention (Privacy Policy, section 10).
           </p>
 
           {!confirmingDelete ? (

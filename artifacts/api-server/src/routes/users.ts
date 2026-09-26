@@ -1,8 +1,8 @@
 import { Router, type IRouter, type RequestHandler } from "express";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { eq, count } from "drizzle-orm";
-import { db, usersTable, passkeysTable, passwordResetTokensTable, uploadsTable, biometricKeysTable } from "@workspace/db";
+import { eq, count, sql } from "drizzle-orm";
+import { db, usersTable, passkeysTable, passwordResetTokensTable, uploadsTable, biometricKeysTable, sessionsTable } from "@workspace/db";
 import {
   GetUserParams,
   GetUserResponse,
@@ -184,7 +184,16 @@ router.delete("/users/:id", unlessDeletingSelf(requireParentConsent), unlessDele
     db.select({ biometricKeyCount: count() }).from(biometricKeysTable).where(eq(biometricKeysTable.userId, params.data.id)),
   ]);
 
-  const [user] = await db.delete(usersTable).where(eq(usersTable.id, params.data.id)).returning();
+  // Passkeys, phone keys and signed-in sessions go in the same transaction as the account. Until
+  // 2026-09-26 the two key tables had no foreign key, so deleting an account left its keys behind
+  // (and its sessions until they expired) while this event claimed they were cascade-removed.
+  const user = await db.transaction(async (tx) => {
+    await tx.delete(passkeysTable).where(eq(passkeysTable.userId, params.data.id));
+    await tx.delete(biometricKeysTable).where(eq(biometricKeysTable.userId, params.data.id));
+    await tx.delete(sessionsTable).where(sql`${sessionsTable.sess} ->> 'userId' = ${String(params.data.id)}`);
+    const [deleted] = await tx.delete(usersTable).where(eq(usersTable.id, params.data.id)).returning();
+    return deleted;
+  });
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;

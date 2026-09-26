@@ -102,7 +102,8 @@ Foreign-key behaviour is deliberately asymmetric, by data category:
 | Related table | On user deletion | Why |
 |---|---|---|
 | `uploads` | `CASCADE` (deleted) | No reason to retain another user's files after they've left — nothing else references them |
-| `passkeys` | `CASCADE` (deleted) | Device credentials are meaningless without the account they authenticate |
+| `passkeys`, `biometric_keys` | `CASCADE` (deleted) | Device credentials are meaningless without the account they authenticate. **Corrected 2026-09-26:** this row said `passkeys` cascaded, but neither key table had a foreign key at all, so every deleted account left its passkeys and phone keys behind (11 and 17 orphaned rows in the dev database). Both now have `ON DELETE CASCADE` foreign keys (`scripts/ops/migrate-account-deletion.mjs` removes existing orphans and adds them), and `DELETE /users/:id` also deletes them explicitly in the same transaction (docs/04 R-CONSENT-3) |
+| `session` (signed-in sessions) | Deleted in the same transaction | A deleted account's other devices are signed out at once rather than when their sessions expire (up to 12 hours). Added 2026-09-26 |
 | `payments` | `userId` → `SET NULL` (row kept, `userEmail` text column retained for attribution) | Financial records need to outlive the account for accounting/dispute purposes |
 | `security_logs` | `userId` → left exactly as originally written, no foreign key at all (row kept, `userEmail` text column retained) | Audit trail integrity matters after an account is gone — an incident investigation into a now-deleted account still needs its history. This table previously used `SET NULL` like `payments`, but `SET NULL` mutates the row's stored `userId` after its tamper-evident hash was already computed, silently breaking `/security/logs/verify` on every account deletion. A hash-chained row must never change post-write, so this column deliberately isn't a live foreign key — see `04_Threat_Model_Risk_Assessment.md`, R-LOG-3 |
 
@@ -435,3 +436,27 @@ are all unchanged by this — only the ranking mathematics improved.
    but this PoC has no versioned consent-text/policy tracking (e.g., which version of the privacy policy
    they consented to) — a real system handling actual personal data would need that, and it's Team 2's
    policy question to answer before Team 1 could build it.
+
+## 7. Privacy policy, acknowledgement and data export (added 2026-09-26)
+
+The privacy policy is served at `/privacy`, readable without an account and linked from the login and
+registration pages (web) and the mobile login screen. Its text is Team 2's draft of 23 September 2026,
+corrected by Team 1 so every statement matches the app; the corrections are listed in
+`08_Requests_to_Team2.md` §5c for Team 2 to accept or revise. Text: `artifacts/secureai/src/lib/privacyPolicy.ts`.
+
+- **Who was shown which version.** Registration sends the version the form showed; the API records it as a
+  `PRIVACY_POLICY_ACKNOWLEDGED` audit event (`version=…; via=registration`). Anyone signed in whose last
+  acknowledged version is not the current one sees a notice on every page until they acknowledge it
+  (`via=notice`). Keeping this in the hash-chained audit log makes the record tamper-evident and needs no
+  schema change per version. The web text and the API's `PRIVACY_POLICY_VERSION` must match, and
+  `scripts/check-privacy-policy-version.mjs` fails CI if they don't, so nobody is recorded as having seen
+  text they weren't shown. An acknowledgement is notice, not consent: consent stays the separate,
+  purpose-specific choices in §1.
+- **Data export (policy §11; APP 12, GDPR arts. 15 and 20).** `GET /users/me/export` returns one JSON file:
+  account, consents, sign-in methods, uploads (content included up to 25 MB in total), payments, the
+  account's own security events (most recent 5,000, with IP address and browser) and policy status. The
+  face template is described but deliberately not included, since a copy in a file is only another place
+  it could leak; the password hash is not included. 5 exports per hour; each is audit-logged as `DATA_EXPORTED`.
+  Available from Security Settings and the policy page.
+- **Open to every signed-in account**, like consent withdrawal (R-CONSENT-2): an account still setting up
+  sign-in or awaiting a parent can read, acknowledge and export.

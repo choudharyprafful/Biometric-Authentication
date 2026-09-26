@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, bigint, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 /**
  * WebAuthn/passkey credentials. The biometric (Face ID / fingerprint / PIN)
@@ -7,7 +8,7 @@ import { pgTable, text, serial, integer, bigint, timestamp, jsonb } from "drizzl
  */
 export const passkeysTable = pgTable("passkeys", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   credentialId: text("credential_id").notNull().unique(),
   publicKey: text("public_key").notNull(), // base64url-encoded COSE public key
   counter: bigint("counter", { mode: "number" }).notNull().default(0),

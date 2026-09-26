@@ -35,3 +35,6 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://loca
 // necessarily an arbitrary-but-consistent placeholder the backend is
 // configured to trust specifically for the mobile app.
 export const APP_ORIGIN = process.env.EXPO_PUBLIC_APP_ORIGIN ?? 'http://localhost:8081';
+
+// The privacy policy is one page for web and mobile: the live site's /privacy.
+export const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://d2zb1uxt99m5ks.cloudfront.net/privacy';

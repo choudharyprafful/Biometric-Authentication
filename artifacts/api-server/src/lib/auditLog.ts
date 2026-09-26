@@ -61,7 +61,9 @@ export type AuditEventType =
   | "PAYMENT_HOLD_PLACED"
   | "PAYMENT_HOLD_CLEARED"
   | "PAYMENT_WEBHOOK_IGNORED"
-  | "SESSION_LIMIT_ENFORCED";
+  | "SESSION_LIMIT_ENFORCED"
+  | "PRIVACY_POLICY_ACKNOWLEDGED"
+  | "DATA_EXPORTED";
 
 // Fixed anchor for the first row, so "no previous hash" is a checkable
 // value instead of null.

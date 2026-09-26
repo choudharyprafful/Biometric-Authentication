@@ -178,7 +178,7 @@ For administrators and security analysts:
 | 10 | Testing and assurance | Attack suites, PoC results checked in CI, API and browser suites | `/ai-security`, CI |
 | 11 | Accuracy of outputs | Face accuracy not measurable under project rules; monitored operationally | §4, §5 |
 | 12 | Data quality and governance | Content-source declaration, consent gating, per-account caps | docs/09, R-ML-9 |
-| 13 | Legal compliance | Open: legal review and privacy policy not started | docs/10 |
+| 13 | Legal compliance | Partly: a draft privacy policy is published at `/privacy` (2026-09-26; Team 2's text corrected to match the app, with version acknowledgement and data export). Legal review not started | docs/10, docs/08 §5c |
 | 14 | Purpose and appropriate use | Purpose and "why AI" stated per system | `/ai`, `lib/aiSystems.ts` |
 | 15 | Supplier due diligence | face-api.js record; model weights hash-checked in CI | §5 |
 | 16 | Ongoing monitoring | 7- and 30-day outcome measures for every model | §4 |
@@ -189,7 +189,7 @@ For administrators and security analysts:
 
 ## 9. Open items
 
-- **Legal review and privacy policy** (element 13; docs/10) — organisational, not code.
+- **Legal review of the privacy policy** (element 13; docs/10) — the draft is published; review by a lawyer is organisational, not code.
 - **Server-stored face templates as "sensitive information"** under the Privacy Act — asked of Team 2
   in docs/08 §5 and not answered by the Weeks 7-8 milestone.
 - **A response target for challenges** — Team 2 to set.

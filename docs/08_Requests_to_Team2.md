@@ -263,6 +263,39 @@ Still open for Team 2:
   voice-phishing impersonation risk. SecureAI generates no content; the labelling rule for
   AI-generated output in the data-source matrix (§3 above) is the right hook if that ever changes.
 
+## 5c. Received 2026-09-23: SecureAI Privacy Policy (draft) — published with corrections
+
+Team 2's draft (Roni Biju) is live at `/privacy` and linked from the login and registration pages. Before
+publishing, Team 1 checked every statement against the app. The ones below were wrong about how SecureAI
+works and were changed so the published policy is accurate (APP 1). Please accept or revise them; the
+text is in `artifacts/secureai/src/lib/privacyPolicy.ts`, and the page says it is a draft pending Team 2
+and legal review.
+
+| Section | Draft said | SecureAI actually | Published text now says |
+|---|---|---|---|
+| 2 | Face/fingerprint template "captured and stored on your device; never sent to us" | The web face path sends a 128-number template to the server, stored encrypted (AES-256-GCM). Only passkeys and the phone key keep the biometric on the device | Face template is computed in the browser, sent to us and stored encrypted; passkeys and phone keys stay on the device |
+| 2 | Categories: account/payment, biometric, diaries, photos/video, voice, linked content | Also collects security records (email, IP address, browser, time) used by the sign-in risk check and abuse detection, activity event types used by the suggestion model, and AI challenges; sets two cookies | Rows added for security records, activity and challenges; cookie paragraph added |
+| 2, 4 | Account and payment data "never joined to personalisation or training" | Payment details are not, but "made a payment" is one of the action types the suggestion model can learn from, with training consent | States exactly that |
+| 1, 2 | Photos, video and voice used for personalisation with consent | Only the user's own text uploads feed the (private) topic profile; photos, video and audio are used by no AI feature | Says so |
+| 3 | Consent asked separately per category (diary, photos, voice, video) and per use | Four separate choices: account data (required), face template, suggestion model, topic profile | Lists the four |
+| 5 | Items showing other people "flagged" and default to personalisation-only | Uploads declare their source; anything marked as another person's content, published work or social media is used by no AI feature (stricter). Text is not scanned for names | Describes the declaration and its limit |
+| 6 | "We don't currently have a full parental-consent or age-verification flow" | Under-18s must give a parent/guardian email and the account is gated until the parent confirms by email; age is self-declared | Describes the flow |
+| 8 | Generated content is labelled | SecureAI generates no content | Says so; keeps the commitment for the future |
+| 9 | Sub-processors and transfer locations to be named "once infrastructure is finalised" | Live on AWS in the United States (N. Virginia); account emails sent through Google (Gmail SMTP); payments simulated | Names them; flags the APP 8 cross-border disclosure |
+| 10 | Account data deleted on closure | Payment records and security records are kept, with the email; security/payment retention periods not set, so currently kept without limit | States both |
+| 11 | Access, correct and **export** "at any time" | There was no export | Export built (Download my data, JSON). Correction is by contacting us; there is no self-service editing |
+| 11 | Withdrawal "stops use in the next training run"; learned patterns may persist until retrain | Both models are rebuilt from current data on every request, so withdrawal applies to the very next request and nothing persists | Says so |
+| 13 | Notify of material changes | Nothing existed | Built: an in-app notice until the new version is acknowledged, recorded in the audit log |
+
+Also added: a notice that SecureAI is a student proof of concept and should be used with test details.
+
+Still needed from Team 2 (the page says so where it applies):
+
+- Retention periods for security records and payment records (`SECURITY_LOGS_RETENTION_DAYS`, `PAYMENTS_RETENTION_DAYS`).
+- A response-time target for complaints and AI challenges.
+- A real, monitored privacy contact; `privacy@secureai.example` is a placeholder.
+- The APP 8 safeguards for storing Australian users' data in the United States, and legal review of the whole policy (docs/10).
+
 ## 6. What Team 1 is *not* asking for
 
 Not every "Team 2 decides" line in either brief needs a response before Team 1 can keep working — most of
