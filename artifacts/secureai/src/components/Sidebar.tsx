@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   FileText,
+  Scale,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -56,6 +57,12 @@ const navItems = [
     href: "/ai-oversight",
     label: "AI Oversight",
     icon: Eye,
+    roles: ["security_analyst", "admin"],
+  },
+  {
+    href: "/privacy-compliance",
+    label: "Privacy Compliance",
+    icon: Scale,
     roles: ["security_analyst", "admin"],
   },
   { href: "/enroll", label: "Security Settings", icon: Settings },

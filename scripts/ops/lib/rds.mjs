@@ -124,11 +124,15 @@ export async function withMasterConnection({ rehearse }, fn) {
       if (!password) fail("no password entered");
     }
 
-    step(`Connecting as ${user}${rehearse ? " (local rehearsal)" : ""}`);
+    // REHEARSE_DB points a rehearsal at a throwaway copy instead of the local dev database.
+    const database = rehearse ? (process.env.REHEARSE_DB ?? DB) : DB;
+    step(
+      `Connecting as ${user}${rehearse ? ` (local rehearsal, database ${database})` : ""}`,
+    );
     client = new Client({
       host,
       port,
-      database: DB,
+      database,
       user,
       password,
       ssl,

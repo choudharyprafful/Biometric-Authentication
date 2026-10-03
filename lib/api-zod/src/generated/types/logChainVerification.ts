@@ -7,6 +7,8 @@
  */
 
 export interface LogChainVerification {
+  /** Entries removed under the retention policy (12 months; AI challenge records 2 years); their hash-only stubs were checked in their place */
+  purgedByRetention: number;
   valid: boolean;
   rowsChecked: number;
   /** @nullable */

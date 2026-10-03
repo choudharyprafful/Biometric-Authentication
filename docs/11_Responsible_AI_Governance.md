@@ -91,8 +91,13 @@ challenge.
 
 Remedies available to the reviewer today: an MFA reset (face or passkey), explaining the
 passkey alternative, re-enrolling the face, switching a model off, and recording the case for the
-monitoring below. **Response target: to be set by Team 2** — the queue shows each challenge's age so a
-target can be measured once agreed.
+monitoring below. The response target is in step 3; the queue shows each challenge's age against it.
+
+**How long challenge records are kept: 2 years** (the client's requirement of 2026-10-02), instead of
+the security log's 12 months, so a decision can still be reviewed, or challenged again, well after it
+was made. The challenge, its acknowledgement and its outcome are audit events; the retention purge
+keeps these three types for 2 years and then removes them, leaving a hash-only stub so the audit chain
+still verifies (docs/05 §3, docs/04 R-LOG-5).
 
 ## 4. Monitoring
 

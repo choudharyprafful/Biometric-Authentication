@@ -34,12 +34,13 @@ export function appUrl(path: string): string {
 }
 
 // A delivery failure must never block the auth flow that triggered it (registration, password reset) — logged, not thrown.
+// Resolves to whether the email was handed to the mail server (the breach register records it).
 export async function sendMail(
   to: string,
   subject: string,
   text: string,
-): Promise<void> {
-  if (!isEmailConfigured()) return;
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
   try {
     await getTransporter().sendMail({
       from: process.env["EMAIL_FROM"] ?? process.env["SMTP_USER"],
@@ -47,7 +48,9 @@ export async function sendMail(
       subject,
       text,
     });
+    return true;
   } catch (err) {
     console.error("Failed to send email:", err);
+    return false;
   }
 }

@@ -767,9 +767,12 @@ export default function Enroll() {
             </h2>
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            Download a copy of the data SecureAI holds about your account as a
-            JSON file: your profile, consents, sign-in methods, uploads,
-            payments and security events. See the{" "}
+            Download a copy of the data SecureAI holds about your account: your
+            profile, consents, sign-in methods, files, payments, security
+            activity and any data breach notices. The readable copy opens in any
+            web browser and can be printed or saved as a PDF; the data file
+            (JSON) also includes your files' contents, for moving them to
+            another service. See the{" "}
             <a
               href="/privacy#your-rights"
               className="text-primary underline underline-offset-2"

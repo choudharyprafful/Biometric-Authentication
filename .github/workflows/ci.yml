@@ -89,6 +89,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck:libs
       - run: pnpm --filter @workspace/db run push-force
+      # Before the server starts, while the database is still empty: it writes and deletes log rows,
+      # then leaves the tables as it found them (docs/04 R-LOG-5).
+      - name: Retention purge (12 months; AI challenge records 2 years; payments 7 years)
+        run: pnpm --filter @workspace/api-server run verify:retention
+        env:
+          RETENTION_VERIFY_DISPOSABLE_DB: "yes"
       - run: pnpm --filter @workspace/api-server run build
       - name: Start API server in the background
         run: node artifacts/api-server/dist/index.mjs &

@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import { asc, desc, gte, sql, count as sqlCount } from "drizzle-orm";
-import { db, securityLogsTable } from "@workspace/db";
+import {
+  db,
+  securityLogsTable,
+  securityLogRetentionTable,
+} from "@workspace/db";
 
 export type AuditEventType =
   | "LOGIN_SUCCESS"
@@ -66,7 +70,13 @@ export type AuditEventType =
   | "PAYMENT_WEBHOOK_IGNORED"
   | "SESSION_LIMIT_ENFORCED"
   | "PRIVACY_POLICY_ACKNOWLEDGED"
-  | "DATA_EXPORTED";
+  | "DATA_EXPORTED"
+  | "DATA_BREACH_RECORDED"
+  | "DATA_BREACH_ASSESSED"
+  | "DATA_BREACH_USERS_NOTIFIED"
+  | "DATA_BREACH_REGULATOR_NOTIFIED"
+  | "DATA_BREACH_NOTICE_ACKNOWLEDGED"
+  | "GOVERNMENT_DISCLOSURE_RECORDED";
 
 // Fixed anchor for the first row, so "no previous hash" is a checkable
 // value instead of null.
@@ -103,6 +113,9 @@ function computeHash(prevHash: string, content: LogContent): string {
     .update(`${prevHash}|${serialize(content)}`)
     .digest("hex");
 }
+
+/** For lib/retention.verify.ts, which builds a chain with entries of chosen ages. */
+export { computeHash as computeLogHash, GENESIS_HASH, type LogContent };
 
 // Serializes writes so two concurrent logEvent calls can't both read the
 // same prevHash and fork the chain. doLogEvent swallows its own errors,
@@ -182,43 +195,107 @@ export interface ChainVerificationResult {
   rowsChecked: number;
   brokenAtId: number | null;
   reason: string | null;
+  /** Entries removed under the retention policy; their stubs were checked in their place. */
+  purgedByRetention: number;
+}
+
+type ChainLink =
+  | { kind: "row"; row: typeof securityLogsTable.$inferSelect }
+  | {
+      kind: "stub";
+      id: number;
+      prevHash: string | null;
+      hash: string | null;
+    };
+
+// Stubs left by purge_aged_security_logs() (lib/retentionSql.mjs). Empty where the retention
+// table doesn't exist yet (the live site before the migration).
+async function retentionStubs() {
+  try {
+    return await db
+      .select({
+        id: securityLogRetentionTable.logId,
+        prevHash: securityLogRetentionTable.prevHash,
+        hash: securityLogRetentionTable.hash,
+      })
+      .from(securityLogRetentionTable);
+  } catch {
+    return [];
+  }
 }
 
 // Catches edits, deletions, inserts, and reordering. Rows from before the
-// chain existed (hash/prevHash null) are skipped.
+// chain existed (hash/prevHash null) are skipped. An entry removed under the
+// retention policy is replaced by its stub, which only the database's purge
+// function can write: the stub must link into the chain exactly where the
+// entry was, so retention doesn't look like tampering and can't hide it either.
 export async function verifyLogChain(): Promise<ChainVerificationResult> {
-  const rows = await db
-    .select()
-    .from(securityLogsTable)
-    .orderBy(asc(securityLogsTable.id));
+  const [rows, stubs] = await Promise.all([
+    db.select().from(securityLogsTable).orderBy(asc(securityLogsTable.id)),
+    retentionStubs(),
+  ]);
+  const liveIds = new Set(rows.map((r) => r.id));
+  const links: ChainLink[] = [
+    ...rows.map((row) => ({ kind: "row" as const, row })),
+    ...stubs
+      .filter((s) => !liveIds.has(s.id))
+      .map((s) => ({ kind: "stub" as const, ...s })),
+  ].sort(
+    (x, y) =>
+      (x.kind === "row" ? x.row.id : x.id) -
+      (y.kind === "row" ? y.row.id : y.id),
+  );
 
   let expectedPrevHash = GENESIS_HASH;
   let rowsChecked = 0;
+  let purgedByRetention = 0;
   let chainStarted = false;
+  const broken = (id: number, reason: string): ChainVerificationResult => ({
+    valid: false,
+    rowsChecked,
+    brokenAtId: id,
+    reason,
+    purgedByRetention,
+  });
 
-  for (const row of rows) {
-    if (row.hash === null || row.prevHash === null) {
-      if (chainStarted) {
-        return {
-          valid: false,
-          rowsChecked,
-          brokenAtId: row.id,
-          reason: "Unchained row found after the chain had already started",
-        };
+  for (const link of links) {
+    if (link.kind === "stub") {
+      if (link.hash === null || link.prevHash === null) {
+        if (chainStarted)
+          return broken(
+            link.id,
+            "A retention stub without hashes found after the chain had already started",
+          );
+        purgedByRetention += 1;
+        continue; // a pre-chain legacy row removed by retention
       }
+      chainStarted = true;
+      if (link.prevHash !== expectedPrevHash)
+        return broken(
+          link.id,
+          "A retention stub does not link to the preceding entry — the chain was altered around a purged entry",
+        );
+      expectedPrevHash = link.hash;
+      purgedByRetention += 1;
+      continue;
+    }
+
+    const row = link.row;
+    if (row.hash === null || row.prevHash === null) {
+      if (chainStarted)
+        return broken(
+          row.id,
+          "Unchained row found after the chain had already started",
+        );
       continue; // pre-feature legacy row — not part of the chain
     }
     chainStarted = true;
 
-    if (row.prevHash !== expectedPrevHash) {
-      return {
-        valid: false,
-        rowsChecked,
-        brokenAtId: row.id,
-        reason:
-          "prevHash does not match the preceding row's hash — a row was deleted, inserted, or reordered",
-      };
-    }
+    if (row.prevHash !== expectedPrevHash)
+      return broken(
+        row.id,
+        "prevHash does not match the preceding row's hash — a row was deleted, inserted, or reordered",
+      );
 
     const content: LogContent = {
       eventType: row.eventType,
@@ -230,21 +307,23 @@ export async function verifyLogChain(): Promise<ChainVerificationResult> {
       timestamp: row.timestamp.toISOString(),
     };
     const recomputed = computeHash(row.prevHash, content);
-    if (recomputed !== row.hash) {
-      return {
-        valid: false,
-        rowsChecked,
-        brokenAtId: row.id,
-        reason:
-          "Stored hash does not match recomputed hash — row content was edited",
-      };
-    }
+    if (recomputed !== row.hash)
+      return broken(
+        row.id,
+        "Stored hash does not match recomputed hash — row content was edited",
+      );
 
     expectedPrevHash = row.hash;
     rowsChecked += 1;
   }
 
-  return { valid: true, rowsChecked, brokenAtId: null, reason: null };
+  return {
+    valid: true,
+    rowsChecked,
+    brokenAtId: null,
+    reason: null,
+    purgedByRetention,
+  };
 }
 
 export interface ChainRepairResult {

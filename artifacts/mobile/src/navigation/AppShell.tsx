@@ -17,7 +17,7 @@ import { PaymentsScreen } from "../screens/PaymentsScreen";
 import { UploadsScreen } from "../screens/UploadsScreen";
 import { DataProtectionScreen } from "../screens/DataProtectionScreen";
 import { PrivacyScreen } from "../screens/PrivacyScreen";
-import { getPrivacyPolicyStatus } from "../lib/api";
+import { getPrivacyPolicyStatus, listMyBreachNotices } from "../lib/api";
 import { PRIVACY_POLICY_VERSION } from "../config";
 
 type ScreenKey =
@@ -78,12 +78,19 @@ export function AppShell() {
   // Policy section 13: signed-in people are told when the policy changes. Re-checked whenever
   // the screen changes, so acknowledging on the Privacy screen clears the banner.
   const [policyOutdated, setPolicyOutdated] = useState(false);
+  // Section 14: an unread data breach notice is flagged on every screen until it's read.
+  const [unreadBreachNotices, setUnreadBreachNotices] = useState(0);
   useEffect(() => {
     getPrivacyPolicyStatus()
       .then((s) =>
         setPolicyOutdated(s.acknowledgedVersion !== PRIVACY_POLICY_VERSION),
       )
       .catch(() => setPolicyOutdated(false));
+    listMyBreachNotices()
+      .then((n) =>
+        setUnreadBreachNotices(n.filter((x) => !x.acknowledgedAt).length),
+      )
+      .catch(() => setUnreadBreachNotices(0));
   }, [screen]);
 
   const items = NAV_ITEMS.filter((item) => item.visible(user?.role));
@@ -103,6 +110,19 @@ export function AppShell() {
           <Text style={styles.menuIcon}>≡</Text>
         </Pressable>
       </View>
+
+      {unreadBreachNotices > 0 && screen !== "privacy" ? (
+        <Pressable
+          style={styles.breachBanner}
+          onPress={() => setScreen("privacy")}
+          testID="breach-notice-banner"
+        >
+          <Text style={styles.policyBannerText}>
+            Important: a data breach involves your information. Tap to read what
+            happened and what you should do.
+          </Text>
+        </Pressable>
+      ) : null}
 
       {policyOutdated && screen !== "privacy" ? (
         <Pressable
@@ -194,6 +214,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${colors.primary}66`,
     backgroundColor: `${colors.primary}14`,
+  },
+  breachBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: `${colors.destructive}88`,
+    backgroundColor: `${colors.destructive}1A`,
   },
   policyBannerText: { color: colors.foreground, fontSize: 12, lineHeight: 17 },
   backdrop: { flex: 1, backgroundColor: "#000000A0", flexDirection: "row" },

@@ -301,8 +301,27 @@ Also added: a notice that SecureAI is a student proof of concept and should be u
 
 Still needed from Team 2 (the page says so where it applies):
 
-- Retention periods for security records and payment records (`SECURITY_LOGS_RETENTION_DAYS`, `PAYMENTS_RETENTION_DAYS`).
+- ~~Retention periods for security records and payment records~~ — set by the client on 2026-10-02 (section 5d).
 - ~~A response-time target for complaints and AI challenges~~ — set 2026-09-26; the policy now states it (section 12).
 - A real, monitored privacy contact; `privacy@secureai.example` is a placeholder.
 - The APP 8 safeguards for storing Australian users' data in the United States, and legal review of the whole policy (docs/10).
 
+## 5d. Received 2026-10-02: the client's requirements (Miifile Pty Ltd)
+
+The client sent these after reviewing the project. All six are built and tested locally (2026-10-04, branch
+`feature/client-retention-breach-export`) and not yet deployed. They settle two of the items this document
+was waiting on from Team 2 (the retention periods) and add a privacy policy section, so Team 2 may want to
+review the new text: version 2026-10-04 changes sections 9, 10 and 11 and adds section 14.
+
+| Client requirement                                                                                                | What SecureAI does                                                                                                                                                                                                                                           | Where                                                                  |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Data breach notification: after the breach happened, when users were notified, when the authorities were notified | A breach register records when each breach was discovered, contained and assessed, when the people affected were told and when the OAIC was told (with its reference). Alerts track the 30-day assessment deadline. People get an email and an in-app notice | Privacy Compliance page; docs/12; policy section 14; docs/04 R-PRIV-4  |
+| Disclose information when asked by the government                                                                 | Only when the law requires or allows it, with a written record of each disclosure (agency, legal basis, what, when, whether the person was told)                                                                                                             | Privacy Compliance page; docs/12 section 3; policy section 9; R-PRIV-5 |
+| Download my data in a format a non-technical person can read                                                      | A readable copy: one web page in plain words, printable and savable as a PDF, on web and mobile, alongside the JSON file                                                                                                                                     | Security Settings; policy section 11; docs/05 section 7; R-PRIV-6      |
+| Payment records kept for 7 years                                                                                  | Deleted automatically 7 years after the payment                                                                                                                                                                                                              | `lib/retention.ts`; policy section 10; docs/05 section 3; R-LOG-5      |
+| Security logs kept for 12 months                                                                                  | Deleted automatically after 12 months; a hash-only stub keeps the tamper check working                                                                                                                                                                       | as above                                                               |
+| Challenge records kept for 2 years                                                                                | Records of challenges to AI decisions (the challenge, its acknowledgement and outcome) are kept 2 years instead of 12 months                                                                                                                                 | as above                                                               |
+
+One interpretation to confirm: "challenge the records (2 years)" was read as records of challenges to AI
+decisions (docs/11 section 3), the only challenge process SecureAI has. If the client meant something else,
+for example how long someone has to dispute a record, the period is one constant in `lib/retention.ts`.

@@ -20,6 +20,8 @@ async function request<T>(
     method?: string;
     body?: unknown;
     headers?: Record<string, string>;
+    // "text" for a response that isn't JSON (the readable data export is a web page).
+    responseType?: "json" | "text";
   } = {},
 ): Promise<T> {
   const method = options.method ?? "GET";
@@ -50,7 +52,9 @@ async function request<T>(
     throw err;
   }
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return (
+    options.responseType === "text" ? res.text() : res.json()
+  ) as Promise<T>;
 }
 
 export interface AppUser {
@@ -142,6 +146,33 @@ export async function setContentPersonalizationConsent(
 /** The whole export as text, so it can be written to a file and shared. */
 export async function exportMyData(): Promise<string> {
   return JSON.stringify(await request<unknown>("/users/me/export"), null, 2);
+}
+
+/** The same data as one web page someone who isn't technical can read, print or save as a PDF. */
+export async function exportMyDataReadable(): Promise<string> {
+  return request<string>("/users/me/export/readable", { responseType: "text" });
+}
+
+export interface BreachNotice {
+  id: number;
+  title: string;
+  description: string;
+  dataInvolved: string;
+  userGuidance: string;
+  notifiedAt: string;
+  acknowledgedAt: string | null;
+}
+
+export async function listMyBreachNotices(): Promise<BreachNotice[]> {
+  return request("/users/me/breach-notices");
+}
+
+export async function acknowledgeBreachNotice(
+  id: number,
+): Promise<BreachNotice> {
+  return request(`/users/me/breach-notices/${id}/acknowledge`, {
+    method: "POST",
+  });
 }
 
 export async function deleteMyAccount(

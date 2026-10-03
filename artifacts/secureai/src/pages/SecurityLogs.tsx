@@ -113,6 +113,9 @@ function ChainIntegrityPanel() {
                 "Not yet checked this session — recomputes every row's SHA-256 link."}
               {result?.valid &&
                 `Intact — ${result.rowsChecked} chained row(s) verified, no gaps.`}
+              {result?.valid &&
+                result.purgedByRetention > 0 &&
+                ` ${result.purgedByRetention} older entr${result.purgedByRetention === 1 ? "y was" : "ies were"} removed under the retention policy (12 months; AI challenge records 2 years) and checked from ${result.purgedByRetention === 1 ? "its" : "their"} kept hash.`}
               {result &&
                 !result.valid &&
                 `Broken at log #${result.brokenAtId}: ${result.reason}`}

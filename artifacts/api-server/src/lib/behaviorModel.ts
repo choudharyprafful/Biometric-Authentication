@@ -27,6 +27,13 @@ const META_EVENT_TYPES: string[] = [
   "AI_CHALLENGE_RESOLVED",
   "AI_CHALLENGE_ACKNOWLEDGED",
   "PRIVACY_POLICY_ACKNOWLEDGED",
+  // Staff steps and a notice everyone affected receives at once: not behaviour worth predicting.
+  "DATA_BREACH_RECORDED",
+  "DATA_BREACH_ASSESSED",
+  "DATA_BREACH_USERS_NOTIFIED",
+  "DATA_BREACH_REGULATOR_NOTIFIED",
+  "DATA_BREACH_NOTICE_ACKNOWLEDGED",
+  "GOVERNMENT_DISCLOSURE_RECORDED",
 ];
 
 // Anti-poisoning cap: limits how many of one user's transitions can enter

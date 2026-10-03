@@ -293,6 +293,8 @@ export interface Threat {
 }
 
 export interface LogChainVerification {
+  /** Entries removed under the retention policy (12 months; AI challenge records 2 years); their hash-only stubs were checked in their place */
+  purgedByRetention: number;
   valid: boolean;
   rowsChecked: number;
   /** @nullable */
@@ -1017,6 +1019,217 @@ export interface AiOversight {
   systems: AiSystemStaffState[];
   outcomes: AiOutcomeWindow[];
   openChallenges: number;
+}
+
+export interface BreachNotice {
+  id: number;
+  title: string;
+  /** What happened */
+  description: string;
+  dataInvolved: string;
+  /** What the person can do */
+  userGuidance: string;
+  notifiedAt: string;
+  /** @nullable */
+  acknowledgedAt: string | null;
+}
+
+/**
+ * eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed
+ * @nullable
+ */
+export type DataBreachAssessment = typeof DataBreachAssessment[keyof typeof DataBreachAssessment] | null;
+
+
+export const DataBreachAssessment = {
+  eligible: 'eligible',
+  'not-eligible': 'not-eligible',
+} as const;
+
+/**
+ * What still needs doing
+ */
+export type DataBreachNextStep = typeof DataBreachNextStep[keyof typeof DataBreachNextStep];
+
+
+export const DataBreachNextStep = {
+  assess: 'assess',
+  'notify-people-and-regulator': 'notify-people-and-regulator',
+  'notify-people': 'notify-people',
+  'notify-regulator': 'notify-regulator',
+  done: 'done',
+} as const;
+
+export interface DataBreach {
+  id: number;
+  title: string;
+  description: string;
+  dataInvolved: string;
+  userGuidance: string;
+  discoveredAt: string;
+  /** @nullable */
+  containedAt: string | null;
+  /**
+     * eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed
+     * @nullable
+     */
+  assessment: DataBreachAssessment;
+  /** @nullable */
+  assessmentNote: string | null;
+  /** @nullable */
+  assessedAt: string | null;
+  /** 30 days after discovery (Notifiable Data Breaches scheme) */
+  assessBy: string;
+  assessmentOverdue: boolean;
+  /** @nullable */
+  usersNotifiedAt: string | null;
+  /** @nullable */
+  regulatorNotifiedAt: string | null;
+  /** @nullable */
+  regulatorReference: string | null;
+  recordedByEmail: string;
+  createdAt: string;
+  /** What still needs doing */
+  nextStep: DataBreachNextStep;
+  noticesSent: number;
+  noticesAcknowledged: number;
+}
+
+export interface RecordDataBreachInput {
+  /**
+     * @minLength 3
+     * @maxLength 200
+     */
+  title: string;
+  /**
+     * What happened, in words the people affected will understand
+     * @minLength 10
+     * @maxLength 4000
+     */
+  description: string;
+  /**
+     * @minLength 3
+     * @maxLength 1000
+     */
+  dataInvolved: string;
+  /**
+     * What the people affected should do
+     * @minLength 3
+     * @maxLength 2000
+     */
+  userGuidance: string;
+  discoveredAt: string;
+}
+
+export interface AssessDataBreachInput {
+  /** True if the breach is likely to cause serious harm to any of the people affected */
+  eligible: boolean;
+  /**
+     * The reasons for the decision
+     * @minLength 5
+     * @maxLength 2000
+     */
+  note: string;
+  /** @nullable */
+  containedAt?: string | null;
+}
+
+/**
+ * all = every account; listed = the accounts in emails
+ */
+export type NotifyDataBreachUsersInputAudience = typeof NotifyDataBreachUsersInputAudience[keyof typeof NotifyDataBreachUsersInputAudience];
+
+
+export const NotifyDataBreachUsersInputAudience = {
+  all: 'all',
+  listed: 'listed',
+} as const;
+
+export interface NotifyDataBreachUsersInput {
+  /** all = every account; listed = the accounts in emails */
+  audience: NotifyDataBreachUsersInputAudience;
+  /**
+     * @maxItems 1000
+     * @items.maxLength 320
+     */
+  emails?: string[];
+}
+
+export interface NotifyDataBreachUsersResult {
+  notified: number;
+  alreadyNotified: number;
+  /** Notices also sent by email (0 when email isn't set up) */
+  emailed: number;
+  unknownEmails: string[];
+  breach: DataBreach;
+}
+
+export interface RegulatorNotificationInput {
+  notifiedAt: string;
+  /**
+     * The OAIC's reference for the notification
+     * @minLength 1
+     * @maxLength 200
+     */
+  reference: string;
+}
+
+export interface GovernmentDisclosure {
+  id: number;
+  agency: string;
+  legalBasis: string;
+  /** @nullable */
+  reference: string | null;
+  /** @nullable */
+  subjectEmail: string | null;
+  informationDisclosed: string;
+  disclosedAt: string;
+  /** @nullable */
+  personToldAt: string | null;
+  /** @nullable */
+  notTellingReason: string | null;
+  recordedByEmail: string;
+  createdAt: string;
+}
+
+export interface RecordGovernmentDisclosureInput {
+  /**
+     * The agency that asked
+     * @minLength 2
+     * @maxLength 200
+     */
+  agency: string;
+  /**
+     * The law or document that required or authorised it (for example a warrant or court order)
+     * @minLength 5
+     * @maxLength 500
+     */
+  legalBasis: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  reference?: string | null;
+  /**
+     * The account whose information was disclosed, if one
+     * @maxLength 320
+     * @nullable
+     */
+  subjectEmail?: string | null;
+  /**
+     * @minLength 5
+     * @maxLength 2000
+     */
+  informationDisclosed: string;
+  disclosedAt: string;
+  /** @nullable */
+  personToldAt?: string | null;
+  /**
+     * Required when the person hasn't been told; the law may forbid telling them
+     * @maxLength 1000
+     * @nullable
+     */
+  notTellingReason?: string | null;
 }
 
 export type ListSecurityLogsParams = {

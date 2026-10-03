@@ -257,6 +257,60 @@ async function probeAuthBypass() {
     asUser.status === 401 || asUser.status === 403,
     `got ${asUser.status}`,
   );
+
+  // The breach register and the government disclosure record (docs/12) are staff-only, and the
+  // readable data copy is only ever the signed-in person's own.
+  for (const path of [
+    "/api/data-breaches",
+    "/api/government-disclosures",
+    "/api/users/me/export/readable",
+    "/api/users/me/breach-notices",
+  ]) {
+    const anonRes = await fetch(`${BASE}${path}`, {
+      headers: { Origin: BASE },
+    });
+    record(
+      `no session -> ${path}`,
+      anonRes.status === 401,
+      `got ${anonRes.status}`,
+    );
+  }
+  for (const path of ["/api/data-breaches", "/api/government-disclosures"]) {
+    const read = await fetch(`${BASE}${path}`, {
+      headers: { Origin: BASE, Cookie: session.cookies },
+    });
+    record(
+      `regular user -> staff-only ${path}`,
+      read.status === 401 || read.status === 403,
+      `got ${read.status}`,
+    );
+    const write = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": session.csrf,
+        Cookie: session.cookies,
+      },
+      body: JSON.stringify({
+        title: "Probe breach",
+        description: "Recorded by a regular account",
+        dataInvolved: "None",
+        userGuidance: "None",
+        discoveredAt: new Date().toISOString(),
+        agency: "Probe agency",
+        legalBasis: "No basis at all",
+        informationDisclosed: "Nothing",
+        disclosedAt: new Date().toISOString(),
+        notTellingReason: "Probe only",
+      }),
+    });
+    record(
+      `regular user -> record in staff-only ${path}`,
+      write.status === 401 || write.status === 403,
+      `got ${write.status}`,
+    );
+  }
 }
 
 async function probeIdor() {
@@ -323,6 +377,7 @@ async function probeStoredXss() {
       dateOfBirth: "1995-01-01",
     }),
   });
+  mergeSetCookie(session, res);
   const body =
     res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
   const storedVerbatim = body?.user?.name === payload;
@@ -332,6 +387,25 @@ async function probeStoredXss() {
     storedVerbatim
       ? "stored as inert text, not stripped or transformed"
       : `unexpected: status ${res.status}, stored value ${JSON.stringify(body?.user?.name)}`,
+  );
+
+  // Unlike the rest of the app, the readable data copy is HTML the server builds itself (no React
+  // to escape it), opened straight from the person's downloads, so the escaping is checked here.
+  const copy = await fetch(`${BASE}/api/users/me/export/readable`, {
+    headers: { Origin: BASE, Cookie: session.cookies },
+  });
+  const html = copy.status === 200 ? await copy.text() : "";
+  const escaped =
+    html.includes("&lt;script&gt;window.__xss_probe_fired") &&
+    !/<script/i.test(html);
+  record(
+    "Stored XSS: <script> name in the readable data copy",
+    copy.status === 200 &&
+      (copy.headers.get("content-type") ?? "").startsWith("text/html") &&
+      escaped,
+    escaped
+      ? "escaped, and the page carries no script at all"
+      : `unexpected: status ${copy.status}, raw <script> present: ${/<script/i.test(html)}`,
   );
 }
 

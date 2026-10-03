@@ -17,6 +17,7 @@ import { computeUploadAnomalyAlerts } from "./uploadAnomalyDetector";
 import { computeAccountSharingAlerts } from "./sessionLimit";
 import { computePaymentAbuseAlerts } from "./paymentLifecycle";
 import { computeChallengeAlerts } from "./aiGovernance";
+import { computeBreachAlerts } from "./dataBreaches";
 
 const ALERT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_SPIKE_THRESHOLD = 3;
@@ -119,6 +120,7 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
     computeAccountSharingAlerts(),
     computePaymentAbuseAlerts(),
     computeChallengeAlerts(),
+    computeBreachAlerts(),
   ]);
   alerts.push(...groups.flat());
 

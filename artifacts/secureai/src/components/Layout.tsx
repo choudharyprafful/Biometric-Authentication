@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { useAuth } from "../contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { PrivacyPolicyNotice } from "./PrivacyPolicyNotice";
+import { BreachNotices } from "./BreachNotices";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -27,6 +28,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div
           className={`p-4 md:p-8 max-w-7xl mx-auto h-full ${user ? "pt-20 md:pt-8" : ""}`}
         >
+          {user && <BreachNotices />}
           {user && <PrivacyPolicyNotice />}
           {children}
         </div>

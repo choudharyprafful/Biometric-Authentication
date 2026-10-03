@@ -571,6 +571,7 @@ export const ListThreatsResponse = zod.array(ListThreatsResponseItem)
  * @summary Recompute the audit log hash chain and report whether it's intact (admin only)
  */
 export const VerifyLogIntegrityResponse = zod.object({
+  "purgedByRetention": zod.number().describe('Entries removed under the retention policy (12 months; AI challenge records 2 years); their hash-only stubs were checked in their place'),
   "valid": zod.boolean(),
   "rowsChecked": zod.number(),
   "brokenAtId": zod.number().nullable(),
@@ -586,6 +587,7 @@ export const RepairLogChainResponse = zod.object({
   "removedCount": zod.number(),
   "removedFromId": zod.number().nullable(),
   "verification": zod.object({
+  "purgedByRetention": zod.number().describe('Entries removed under the retention policy (12 months; AI challenge records 2 years); their hash-only stubs were checked in their place'),
   "valid": zod.boolean(),
   "rowsChecked": zod.number(),
   "brokenAtId": zod.number().nullable(),
@@ -603,6 +605,7 @@ export const RestoreLogChainResponse = zod.object({
   "restoredIds": zod.array(zod.number()),
   "unrecoverableIds": zod.array(zod.number()).describe('Ids confirmed missing but with no deletion-audit snapshot to restore from'),
   "verification": zod.object({
+  "purgedByRetention": zod.number().describe('Entries removed under the retention policy (12 months; AI challenge records 2 years); their hash-only stubs were checked in their place'),
   "valid": zod.boolean(),
   "rowsChecked": zod.number(),
   "brokenAtId": zod.number().nullable(),
@@ -662,6 +665,334 @@ export const AcknowledgePrivacyPolicyResponse = zod.object({
  * @summary Download a copy of this account's personal data (privacy policy section 11)
  */
 export const ExportMyDataResponse = zod.record(zod.string(), zod.unknown()).describe('A personal data export. Its sections are described in the file\'s own notes field.')
+
+
+/**
+ * A self-contained HTML page (no scripts) that opens in any browser and can be printed or saved as a PDF, written for someone who isn't technical. Lists files rather than including their contents. Shares the 5-an-hour limit with the JSON export; each download is audit-logged as DATA_EXPORTED.
+ * @summary The same personal data as one readable web page, for people rather than programs (privacy policy section 11)
+ */
+export const ExportMyDataReadableResponse = zod.unknown()
+
+
+/**
+ * @summary Data breach notices sent to this account, newest first
+ */
+export const ListMyBreachNoticesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string().describe('What happened'),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string().describe('What the person can do'),
+  "notifiedAt": zod.coerce.date(),
+  "acknowledgedAt": zod.coerce.date().nullable()
+})
+export const ListMyBreachNoticesResponse = zod.array(ListMyBreachNoticesResponseItem)
+
+
+/**
+ * @summary Confirm this account has read a data breach notice; recorded as DATA_BREACH_NOTICE_ACKNOWLEDGED
+ */
+export const acknowledgeBreachNoticePathIdMax = 2147483647;
+
+
+
+export const AcknowledgeBreachNoticeParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(acknowledgeBreachNoticePathIdMax)
+})
+
+export const AcknowledgeBreachNoticeResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string().describe('What happened'),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string().describe('What the person can do'),
+  "notifiedAt": zod.coerce.date(),
+  "acknowledgedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary The data breach register, newest first, with each breach's deadlines and next step (security analysts and administrators)
+ */
+export const ListDataBreachesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string(),
+  "discoveredAt": zod.coerce.date(),
+  "containedAt": zod.coerce.date().nullable(),
+  "assessment": zod.union([zod.literal('eligible'),zod.literal('not-eligible'),zod.literal(null)]).nullable().describe('eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed'),
+  "assessmentNote": zod.string().nullable(),
+  "assessedAt": zod.coerce.date().nullable(),
+  "assessBy": zod.coerce.date().describe('30 days after discovery (Notifiable Data Breaches scheme)'),
+  "assessmentOverdue": zod.boolean(),
+  "usersNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorReference": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "nextStep": zod.enum(['assess', 'notify-people-and-regulator', 'notify-people', 'notify-regulator', 'done']).describe('What still needs doing'),
+  "noticesSent": zod.number().int(),
+  "noticesAcknowledged": zod.number().int()
+})
+export const ListDataBreachesResponse = zod.array(ListDataBreachesResponseItem)
+
+
+/**
+ * @summary Record a suspected data breach; its 30-day assessment deadline starts from when it was discovered (security analysts and administrators)
+ */
+export const recordDataBreachBodyTitleMin = 3;
+export const recordDataBreachBodyTitleMax = 200;
+
+export const recordDataBreachBodyDescriptionMin = 10;
+export const recordDataBreachBodyDescriptionMax = 4000;
+
+export const recordDataBreachBodyDataInvolvedMin = 3;
+export const recordDataBreachBodyDataInvolvedMax = 1000;
+
+export const recordDataBreachBodyUserGuidanceMin = 3;
+export const recordDataBreachBodyUserGuidanceMax = 2000;
+
+
+
+export const RecordDataBreachBody = zod.object({
+  "title": zod.string().min(recordDataBreachBodyTitleMin).max(recordDataBreachBodyTitleMax),
+  "description": zod.string().min(recordDataBreachBodyDescriptionMin).max(recordDataBreachBodyDescriptionMax).describe('What happened, in words the people affected will understand'),
+  "dataInvolved": zod.string().min(recordDataBreachBodyDataInvolvedMin).max(recordDataBreachBodyDataInvolvedMax),
+  "userGuidance": zod.string().min(recordDataBreachBodyUserGuidanceMin).max(recordDataBreachBodyUserGuidanceMax).describe('What the people affected should do'),
+  "discoveredAt": zod.coerce.date()
+})
+
+export const RecordDataBreachResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string(),
+  "discoveredAt": zod.coerce.date(),
+  "containedAt": zod.coerce.date().nullable(),
+  "assessment": zod.union([zod.literal('eligible'),zod.literal('not-eligible'),zod.literal(null)]).nullable().describe('eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed'),
+  "assessmentNote": zod.string().nullable(),
+  "assessedAt": zod.coerce.date().nullable(),
+  "assessBy": zod.coerce.date().describe('30 days after discovery (Notifiable Data Breaches scheme)'),
+  "assessmentOverdue": zod.boolean(),
+  "usersNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorReference": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "nextStep": zod.enum(['assess', 'notify-people-and-regulator', 'notify-people', 'notify-regulator', 'done']).describe('What still needs doing'),
+  "noticesSent": zod.number().int(),
+  "noticesAcknowledged": zod.number().int()
+})
+
+
+/**
+ * @summary Record whether the breach is likely to cause serious harm (an eligible data breach that must be notified) (security analysts and administrators)
+ */
+export const assessDataBreachPathIdMax = 2147483647;
+
+
+
+export const AssessDataBreachParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(assessDataBreachPathIdMax)
+})
+
+export const assessDataBreachBodyNoteMin = 5;
+export const assessDataBreachBodyNoteMax = 2000;
+
+
+
+export const AssessDataBreachBody = zod.object({
+  "eligible": zod.boolean().describe('True if the breach is likely to cause serious harm to any of the people affected'),
+  "note": zod.string().min(assessDataBreachBodyNoteMin).max(assessDataBreachBodyNoteMax).describe('The reasons for the decision'),
+  "containedAt": zod.coerce.date().nullish()
+})
+
+export const AssessDataBreachResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string(),
+  "discoveredAt": zod.coerce.date(),
+  "containedAt": zod.coerce.date().nullable(),
+  "assessment": zod.union([zod.literal('eligible'),zod.literal('not-eligible'),zod.literal(null)]).nullable().describe('eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed'),
+  "assessmentNote": zod.string().nullable(),
+  "assessedAt": zod.coerce.date().nullable(),
+  "assessBy": zod.coerce.date().describe('30 days after discovery (Notifiable Data Breaches scheme)'),
+  "assessmentOverdue": zod.boolean(),
+  "usersNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorReference": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "nextStep": zod.enum(['assess', 'notify-people-and-regulator', 'notify-people', 'notify-regulator', 'done']).describe('What still needs doing'),
+  "noticesSent": zod.number().int(),
+  "noticesAcknowledged": zod.number().int()
+})
+
+
+/**
+ * @summary Tell the people affected, by email and with a notice in the app until they confirm reading it (administrators)
+ */
+export const notifyDataBreachUsersPathIdMax = 2147483647;
+
+
+
+export const NotifyDataBreachUsersParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(notifyDataBreachUsersPathIdMax)
+})
+
+export const notifyDataBreachUsersBodyEmailsItemMax = 320;
+
+export const notifyDataBreachUsersBodyEmailsMax = 1000;
+
+
+
+export const NotifyDataBreachUsersBody = zod.object({
+  "audience": zod.enum(['all', 'listed']).describe('all = every account; listed = the accounts in emails'),
+  "emails": zod.array(zod.string().max(notifyDataBreachUsersBodyEmailsItemMax)).max(notifyDataBreachUsersBodyEmailsMax).optional()
+})
+
+export const NotifyDataBreachUsersResponse = zod.object({
+  "notified": zod.number().int(),
+  "alreadyNotified": zod.number().int(),
+  "emailed": zod.number().int().describe('Notices also sent by email (0 when email isn\'t set up)'),
+  "unknownEmails": zod.array(zod.string()),
+  "breach": zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string(),
+  "discoveredAt": zod.coerce.date(),
+  "containedAt": zod.coerce.date().nullable(),
+  "assessment": zod.union([zod.literal('eligible'),zod.literal('not-eligible'),zod.literal(null)]).nullable().describe('eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed'),
+  "assessmentNote": zod.string().nullable(),
+  "assessedAt": zod.coerce.date().nullable(),
+  "assessBy": zod.coerce.date().describe('30 days after discovery (Notifiable Data Breaches scheme)'),
+  "assessmentOverdue": zod.boolean(),
+  "usersNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorReference": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "nextStep": zod.enum(['assess', 'notify-people-and-regulator', 'notify-people', 'notify-regulator', 'done']).describe('What still needs doing'),
+  "noticesSent": zod.number().int(),
+  "noticesAcknowledged": zod.number().int()
+})
+})
+
+
+/**
+ * @summary Record when the Office of the Australian Information Commissioner was told, and its reference (administrators)
+ */
+export const recordRegulatorNotificationPathIdMax = 2147483647;
+
+
+
+export const RecordRegulatorNotificationParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(recordRegulatorNotificationPathIdMax)
+})
+
+export const recordRegulatorNotificationBodyReferenceMax = 200;
+
+
+
+export const RecordRegulatorNotificationBody = zod.object({
+  "notifiedAt": zod.coerce.date(),
+  "reference": zod.string().min(1).max(recordRegulatorNotificationBodyReferenceMax).describe('The OAIC\'s reference for the notification')
+})
+
+export const RecordRegulatorNotificationResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "dataInvolved": zod.string(),
+  "userGuidance": zod.string(),
+  "discoveredAt": zod.coerce.date(),
+  "containedAt": zod.coerce.date().nullable(),
+  "assessment": zod.union([zod.literal('eligible'),zod.literal('not-eligible'),zod.literal(null)]).nullable().describe('eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed'),
+  "assessmentNote": zod.string().nullable(),
+  "assessedAt": zod.coerce.date().nullable(),
+  "assessBy": zod.coerce.date().describe('30 days after discovery (Notifiable Data Breaches scheme)'),
+  "assessmentOverdue": zod.boolean(),
+  "usersNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorNotifiedAt": zod.coerce.date().nullable(),
+  "regulatorReference": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "nextStep": zod.enum(['assess', 'notify-people-and-regulator', 'notify-people', 'notify-regulator', 'done']).describe('What still needs doing'),
+  "noticesSent": zod.number().int(),
+  "noticesAcknowledged": zod.number().int()
+})
+
+
+/**
+ * @summary The written record of personal information disclosed to government or law-enforcement agencies (security analysts and administrators)
+ */
+export const ListGovernmentDisclosuresResponseItem = zod.object({
+  "id": zod.number().int(),
+  "agency": zod.string(),
+  "legalBasis": zod.string(),
+  "reference": zod.string().nullable(),
+  "subjectEmail": zod.string().nullable(),
+  "informationDisclosed": zod.string(),
+  "disclosedAt": zod.coerce.date(),
+  "personToldAt": zod.coerce.date().nullable(),
+  "notTellingReason": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListGovernmentDisclosuresResponse = zod.array(ListGovernmentDisclosuresResponseItem)
+
+
+/**
+ * @summary Record a disclosure made because the law required or authorised it (Australian Privacy Principle 6.5 written note) (administrators)
+ */
+export const recordGovernmentDisclosureBodyAgencyMin = 2;
+export const recordGovernmentDisclosureBodyAgencyMax = 200;
+
+export const recordGovernmentDisclosureBodyLegalBasisMin = 5;
+export const recordGovernmentDisclosureBodyLegalBasisMax = 500;
+
+export const recordGovernmentDisclosureBodyReferenceMax = 200;
+
+export const recordGovernmentDisclosureBodySubjectEmailMax = 320;
+
+export const recordGovernmentDisclosureBodyInformationDisclosedMin = 5;
+export const recordGovernmentDisclosureBodyInformationDisclosedMax = 2000;
+
+export const recordGovernmentDisclosureBodyNotTellingReasonMax = 1000;
+
+
+
+export const RecordGovernmentDisclosureBody = zod.object({
+  "agency": zod.string().min(recordGovernmentDisclosureBodyAgencyMin).max(recordGovernmentDisclosureBodyAgencyMax).describe('The agency that asked'),
+  "legalBasis": zod.string().min(recordGovernmentDisclosureBodyLegalBasisMin).max(recordGovernmentDisclosureBodyLegalBasisMax).describe('The law or document that required or authorised it (for example a warrant or court order)'),
+  "reference": zod.string().max(recordGovernmentDisclosureBodyReferenceMax).nullish(),
+  "subjectEmail": zod.string().max(recordGovernmentDisclosureBodySubjectEmailMax).nullish().describe('The account whose information was disclosed, if one'),
+  "informationDisclosed": zod.string().min(recordGovernmentDisclosureBodyInformationDisclosedMin).max(recordGovernmentDisclosureBodyInformationDisclosedMax),
+  "disclosedAt": zod.coerce.date(),
+  "personToldAt": zod.coerce.date().nullish(),
+  "notTellingReason": zod.string().max(recordGovernmentDisclosureBodyNotTellingReasonMax).nullish().describe('Required when the person hasn\'t been told; the law may forbid telling them')
+})
+
+export const RecordGovernmentDisclosureResponse = zod.object({
+  "id": zod.number().int(),
+  "agency": zod.string(),
+  "legalBasis": zod.string(),
+  "reference": zod.string().nullable(),
+  "subjectEmail": zod.string().nullable(),
+  "informationDisclosed": zod.string(),
+  "disclosedAt": zod.coerce.date(),
+  "personToldAt": zod.coerce.date().nullable(),
+  "notTellingReason": zod.string().nullable(),
+  "recordedByEmail": zod.string(),
+  "createdAt": zod.coerce.date()
+})
 
 
 /**

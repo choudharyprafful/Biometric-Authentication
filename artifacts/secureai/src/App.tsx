@@ -20,6 +20,7 @@ import AiSecurity from "./pages/AiSecurity";
 import ResponsibleAi from "./pages/ResponsibleAi";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AiOversight from "./pages/AiOversight";
+import PrivacyCompliance from "./pages/PrivacyCompliance";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +86,11 @@ function Router() {
       <Route path="/ai-oversight">
         <Layout>
           <AiOversight />
+        </Layout>
+      </Route>
+      <Route path="/privacy-compliance">
+        <Layout>
+          <PrivacyCompliance />
         </Layout>
       </Route>
       <Route path="/enroll">

@@ -1,6 +1,8 @@
 // SecureAI's privacy policy. Written by Team 2 (Ethics & Governance), draft of 23 September 2026;
 // updated by Team 1 on 26 September 2026 so every statement matches what the app does (the changes
-// are listed in docs/08, section 5c). The version must match PRIVACY_POLICY_VERSION in
+// are listed in docs/08, section 5c); updated on 4 October 2026 for the client's requirements on
+// retention, government requests, readable data copies and data breaches (docs/08, section 5d).
+// The version must match PRIVACY_POLICY_VERSION in
 // artifacts/api-server/src/lib/privacyPolicy.ts; scripts/check-privacy-policy-version.mjs checks it
 // in CI. Change the version whenever the text changes, and signed-in users are asked to review it.
 //
@@ -18,10 +20,10 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: "2026-09-26.2",
-  effectiveDate: "26 September 2026",
+  version: "2026-10-04",
+  effectiveDate: "4 October 2026",
   status:
-    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times. Pending review by Team 2 and a legal adviser; not legal advice.",
+    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times, and on 4 October 2026 to add the client's requirements: how long records are kept, requests from government agencies, a readable copy of your data, and data breaches. Pending review by Team 2 and a legal adviser; not legal advice.",
   demoNotice:
     "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead.",
   contact: "privacy@secureai.example",
@@ -279,6 +281,10 @@ export const PRIVACY_POLICY = {
           kind: "p",
           text: "Storing data in the United States is a disclosure outside Australia under Australian Privacy Principle 8, and a transfer outside the EU/UK for GDPR purposes. The safeguards for these transfers are being reviewed as part of this draft.",
         },
+        {
+          kind: "p",
+          text: "Government and law enforcement: we give your personal information to a government or law-enforcement agency only when the law requires or allows it, for example under a warrant, subpoena or court order. We check the request is genuine, give only what it covers, and keep a written record of each disclosure: the agency, the law or order relied on, what was given and when (Australian Privacy Principle 6.5). We tell you unless the law forbids it, and disclosures we have told you about appear in your data download.",
+        },
       ],
     },
     {
@@ -291,7 +297,32 @@ export const PRIVACY_POLICY = {
         },
         {
           kind: "p",
-          text: "Expired password-reset and parental-consent links are deleted automatically. Security records and payment records are kept for a defined period rather than indefinitely once that period is set; at the time of writing it has not been set, so they are currently kept without a limit. We will publish a specific number of days for each before this policy is treated as final.",
+          text: "Expired password-reset and parental-consent links are deleted automatically. The records below are kept for a set time, whether or not you delete your account, and are then deleted automatically:",
+        },
+        {
+          kind: "table",
+          head: ["Record", "Kept for", "Why"],
+          rows: [
+            [
+              "Payment records",
+              "7 years after the payment",
+              "Australian company law (Corporations Act 2001, section 286) requires financial records to be kept for 7 years.",
+            ],
+            [
+              "Security records (sign-ins, changes to your account, downloads and other activity)",
+              "12 months",
+              "To protect your account and investigate misuse.",
+            ],
+            [
+              "Records of challenges to AI decisions (the challenge, its acknowledgement and the outcome)",
+              "2 years",
+              "So a decision can still be reviewed, or challenged again, after it is made.",
+            ],
+          ],
+        },
+        {
+          kind: "p",
+          text: "When a security record is deleted, we keep only its fingerprint (a hash, from which none of your information can be read back), so the remaining records can still be shown not to have been altered. Records of data breaches and of disclosures to government agencies (sections 9 and 14) are kept as long as the law requires.",
         },
       ],
     },
@@ -302,7 +333,7 @@ export const PRIVACY_POLICY = {
         {
           kind: "list",
           items: [
-            "Access and export: download a copy of your data at any time from [Security Settings](/enroll) (a JSON file). Your face template is described but not included, to avoid creating another copy of it.",
+            "Access and export: download a copy of your data at any time from [Security Settings](/enroll), on the website or the phone app. Choose a readable copy, a page you can open in any web browser, print or save as a PDF, written so you don't need technical knowledge to understand it; or a data file (JSON) that also contains your files, for moving your data to another service. Your face template is described but not included, to avoid creating another copy of it.",
             "Correction: contact us to correct any of your details.",
             "Deletion: delete your whole account in Security Settings, or individual files in the Data Vault, and remove your face template at any time.",
             "Withdrawing consent: switch off each AI use separately in Security Settings. It applies to the very next request, because both models are rebuilt from current data each time.",
@@ -335,6 +366,28 @@ export const PRIVACY_POLICY = {
         {
           kind: "p",
           text: "When this policy changes, you'll see a notice in the app the next time you sign in, and we record which version you were shown. We won't apply an expanded use of your existing data without asking again, consistent with the \"current\" consent test in section 3.",
+        },
+      ],
+    },
+    {
+      id: "data-breaches",
+      title: "14. Data breaches",
+      blocks: [
+        {
+          kind: "p",
+          text: "A data breach is when personal information is accessed or disclosed without permission, or lost. If we suspect one, we act straight away to contain it and assess it within 30 days. If it is likely to result in serious harm to you, we tell you and the Office of the Australian Information Commissioner (OAIC) as soon as practicable, as Australia's Notifiable Data Breaches scheme requires.",
+        },
+        {
+          kind: "list",
+          items: [
+            "How you are told: by email, and with a notice at the top of SecureAI (website and phone app) until you confirm you have read it.",
+            "What the notice says: what happened, the kinds of information involved, and what you should do to protect yourself.",
+            "What we record: every suspected breach, whether or not it had to be notified, with when it was discovered, contained and assessed, and when you and the OAIC were told.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "Notices you receive also appear in your data download (section 11). If you are not satisfied with how we handle a breach, you can complain to the OAIC (section 12).",
         },
       ],
     },

@@ -1,17 +1,16 @@
-import { lt, or, isNotNull } from "drizzle-orm";
+import { lt, or, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   passwordResetTokensTable,
   parentConsentTokensTable,
-  securityLogsTable,
   paymentsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 
 // Used/expired tokens have no further purpose once the audit log has
 // captured the event, so purge them unconditionally — this isn't a policy
-// call. Audit logs, payments, and uploads are NOT purged unconditionally —
-// see below.
+// call. Security logs and payments follow the retention periods below; uploads
+// are kept until their owner deletes them or the account.
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // hourly
 
 export async function purgeExpiredResetTokens(): Promise<number> {
@@ -43,54 +42,43 @@ export async function purgeExpiredParentConsentTokens(): Promise<number> {
 }
 
 /**
- * Security logs and payments have NO default retention ceiling — disposal
- * duration for these two is a policy call, not a number to invent. Gated
- * behind env vars that default to unset (no ceiling, today's behavior
- * unchanged); setting SECURITY_LOGS_RETENTION_DAYS / PAYMENTS_RETENTION_DAYS
- * turns the ceiling on without further code changes.
+ * How long records are kept after they stop being needed day to day (privacy policy section 10),
+ * set at the client's request on 2026-10-02: payment records 7 years, security log entries
+ * 12 months, AI challenge records 2 years. Fixed here rather than configurable, so the policy
+ * text and what the app does can't drift apart.
  */
-export interface RetentionPolicy {
-  securityLogsMaxAgeDays: number | null;
-  paymentsMaxAgeDays: number | null;
-}
+export const RETENTION = {
+  paymentRecordsYears: 7,
+  securityLogMonths: 12,
+  aiChallengeRecordYears: 2,
+} as const;
 
-function parsePositiveDays(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-export function readRetentionPolicyFromEnv(): RetentionPolicy {
+// The security-log periods are applied inside the database (lib/retentionSql.mjs), so the app
+// can trigger the purge but not change what it removes.
+export async function purgeAgedSecurityLogs(): Promise<{
+  entries: number;
+  deletionCopies: number;
+}> {
+  const result = await db.execute<{
+    purged_entries: number;
+    purged_deletion_copies: number;
+  }>(sql`SELECT * FROM purge_aged_security_logs()`);
+  const row = result.rows[0];
   return {
-    securityLogsMaxAgeDays: parsePositiveDays(
-      process.env["SECURITY_LOGS_RETENTION_DAYS"],
-    ),
-    paymentsMaxAgeDays: parsePositiveDays(
-      process.env["PAYMENTS_RETENTION_DAYS"],
-    ),
+    entries: Number(row?.purged_entries ?? 0),
+    deletionCopies: Number(row?.purged_deletion_copies ?? 0),
   };
 }
 
-function cutoffFor(maxAgeDays: number): Date {
-  return new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000);
-}
-
-// Runs through the existing deletion-audit trigger like any other
-// deletion — a policy-driven purge doesn't bypass the tamper-evidence mechanism.
-export async function purgeAgedSecurityLogs(
-  maxAgeDays: number,
-): Promise<number> {
-  const deleted = await db
-    .delete(securityLogsTable)
-    .where(lt(securityLogsTable.timestamp, cutoffFor(maxAgeDays)))
-    .returning({ id: securityLogsTable.id });
-  return deleted.length;
-}
-
-export async function purgeAgedPayments(maxAgeDays: number): Promise<number> {
+export async function purgeAgedPayments(): Promise<number> {
   const deleted = await db
     .delete(paymentsTable)
-    .where(lt(paymentsTable.createdAt, cutoffFor(maxAgeDays)))
+    .where(
+      lt(
+        paymentsTable.createdAt,
+        sql`now() - make_interval(years => ${RETENTION.paymentRecordsYears})`,
+      ),
+    )
     .returning({ id: paymentsTable.id });
   return deleted.length;
 }
@@ -110,34 +98,35 @@ async function runRetentionPass(): Promise<void> {
       "Retention: purged expired/used parent consent tokens",
     );
 
-  const policy = readRetentionPolicyFromEnv();
-  if (policy.securityLogsMaxAgeDays !== null) {
-    const count = await purgeAgedSecurityLogs(policy.securityLogsMaxAgeDays);
-    if (count > 0)
+  const payments = await purgeAgedPayments();
+  if (payments > 0)
+    logger.info(
+      { count: payments, years: RETENTION.paymentRecordsYears },
+      "Retention: deleted payment records past their retention period",
+    );
+
+  try {
+    const logs = await purgeAgedSecurityLogs();
+    if (logs.entries > 0 || logs.deletionCopies > 0)
       logger.info(
-        { count, maxAgeDays: policy.securityLogsMaxAgeDays },
-        "Retention: purged aged security logs (SECURITY_LOGS_RETENTION_DAYS configured)",
+        { ...logs, ...RETENTION },
+        "Retention: removed security log entries past their retention period",
       );
-  }
-  if (policy.paymentsMaxAgeDays !== null) {
-    const count = await purgeAgedPayments(policy.paymentsMaxAgeDays);
-    if (count > 0)
-      logger.info(
-        { count, maxAgeDays: policy.paymentsMaxAgeDays },
-        "Retention: purged aged payments (PAYMENTS_RETENTION_DAYS configured)",
-      );
+  } catch (err) {
+    // Missing until scripts/ops/migrate-retention-and-breaches.mjs has run (see lib/dbBootstrap.ts).
+    // Never fall back to deleting entries directly: that would break the hash chain.
+    logger.warn(
+      { err },
+      "Retention: security log purge unavailable (purge_aged_security_logs() not installed); old entries are being kept",
+    );
   }
 }
 
 // Runs once immediately, then hourly. unref() so it never blocks shutdown.
 export function startRetentionJob(): void {
-  const policy = readRetentionPolicyFromEnv();
   logger.info(
-    {
-      securityLogsMaxAgeDays: policy.securityLogsMaxAgeDays,
-      paymentsMaxAgeDays: policy.paymentsMaxAgeDays,
-    },
-    "Retention: job starting — null means no ceiling configured (Team 2 policy pending), not a bug",
+    RETENTION,
+    "Retention: job starting (payment records, security log entries, AI challenge records)",
   );
 
   runRetentionPass().catch((err) =>

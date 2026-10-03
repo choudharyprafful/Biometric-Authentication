@@ -783,6 +783,321 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/me/export/readable:
+    get:
+      operationId: exportMyDataReadable
+      tags: [users]
+      summary: The same personal data as one readable web page, for people rather than programs (privacy policy section 11)
+      description: A self-contained HTML page (no scripts) that opens in any browser and can be printed or saved as a PDF, written for someone who isn't technical. Lists files rather than including their contents. Shares the 5-an-hour limit with the JSON export; each download is audit-logged as DATA_EXPORTED.
+      responses:
+        "200":
+          description: The readable copy, as an attachment
+          content:
+            text/html:
+              schema:
+                type: string
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many exports in the last hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/breach-notices:
+    get:
+      operationId: listMyBreachNotices
+      tags: [privacy]
+      summary: Data breach notices sent to this account, newest first
+      responses:
+        "200":
+          description: The notices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BreachNotice"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/breach-notices/{id}/acknowledge:
+    post:
+      operationId: acknowledgeBreachNotice
+      tags: [privacy]
+      summary: Confirm this account has read a data breach notice; recorded as DATA_BREACH_NOTICE_ACKNOWLEDGED
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      responses:
+        "200":
+          description: Acknowledged (or already acknowledged)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreachNotice"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such notice for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /data-breaches:
+    get:
+      operationId: listDataBreaches
+      tags: [privacy]
+      summary: The data breach register, newest first, with each breach's deadlines and next step (security analysts and administrators)
+      responses:
+        "200":
+          description: The register
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DataBreach"
+        "403":
+          description: Not a security analyst or administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: recordDataBreach
+      tags: [privacy]
+      summary: Record a suspected data breach; its 30-day assessment deadline starts from when it was discovered (security analysts and administrators)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordDataBreachInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataBreach"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a security analyst or administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /data-breaches/{id}/assess:
+    post:
+      operationId: assessDataBreach
+      tags: [privacy]
+      summary: Record whether the breach is likely to cause serious harm (an eligible data breach that must be notified) (security analysts and administrators)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessDataBreachInput"
+      responses:
+        "200":
+          description: Assessed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataBreach"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such breach
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /data-breaches/{id}/notify-users:
+    post:
+      operationId: notifyDataBreachUsers
+      tags: [privacy]
+      summary: Tell the people affected, by email and with a notice in the app until they confirm reading it (administrators)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotifyDataBreachUsersInput"
+      responses:
+        "200":
+          description: Notices created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotifyDataBreachUsersResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such breach
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /data-breaches/{id}/regulator:
+    post:
+      operationId: recordRegulatorNotification
+      tags: [privacy]
+      summary: Record when the Office of the Australian Information Commissioner was told, and its reference (administrators)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegulatorNotificationInput"
+      responses:
+        "200":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataBreach"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such breach
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already recorded; the date and reference can't be changed afterwards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /government-disclosures:
+    get:
+      operationId: listGovernmentDisclosures
+      tags: [privacy]
+      summary: The written record of personal information disclosed to government or law-enforcement agencies (security analysts and administrators)
+      responses:
+        "200":
+          description: The record, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GovernmentDisclosure"
+        "403":
+          description: Not a security analyst or administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: recordGovernmentDisclosure
+      tags: [privacy]
+      summary: Record a disclosure made because the law required or authorised it (Australian Privacy Principle 6.5 written note) (administrators)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordGovernmentDisclosureInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernmentDisclosure"
+        "400":
+          description: Invalid input, or neither when the person was told nor why they can't be
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/me/training-consent:
     post:
       operationId: setTrainingConsent
@@ -1826,8 +2141,11 @@ components:
 
     LogChainVerification:
       type: object
-      required: [valid, rowsChecked, brokenAtId, reason]
+      required: [valid, rowsChecked, brokenAtId, reason, purgedByRetention]
       properties:
+        purgedByRetention:
+          description: Entries removed under the retention policy (12 months; AI challenge records 2 years); their hash-only stubs were checked in their place
+          type: number
         valid:
           type: boolean
         rowsChecked:
@@ -2819,3 +3137,288 @@ components:
             $ref: "#/components/schemas/AiOutcomeWindow"
         openChallenges:
           type: number
+
+    BreachNotice:
+      type: object
+      required:
+        [
+          id,
+          title,
+          description,
+          dataInvolved,
+          userGuidance,
+          notifiedAt,
+          acknowledgedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          description: What happened
+          type: string
+        dataInvolved:
+          type: string
+        userGuidance:
+          description: What the person can do
+          type: string
+        notifiedAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    DataBreach:
+      type: object
+      required:
+        [
+          id,
+          title,
+          description,
+          dataInvolved,
+          userGuidance,
+          discoveredAt,
+          containedAt,
+          assessment,
+          assessmentNote,
+          assessedAt,
+          assessBy,
+          assessmentOverdue,
+          usersNotifiedAt,
+          regulatorNotifiedAt,
+          regulatorReference,
+          recordedByEmail,
+          createdAt,
+          nextStep,
+          noticesSent,
+          noticesAcknowledged,
+        ]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        dataInvolved:
+          type: string
+        userGuidance:
+          type: string
+        discoveredAt:
+          type: string
+          format: date-time
+        containedAt:
+          type: ["string", "null"]
+          format: date-time
+        assessment:
+          description: eligible = likely to cause serious harm, so the people affected and the OAIC must be told; not-eligible = no notification needed
+          type: ["string", "null"]
+          enum: [eligible, not-eligible, null]
+        assessmentNote:
+          type: ["string", "null"]
+        assessedAt:
+          type: ["string", "null"]
+          format: date-time
+        assessBy:
+          description: 30 days after discovery (Notifiable Data Breaches scheme)
+          type: string
+          format: date-time
+        assessmentOverdue:
+          type: boolean
+        usersNotifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        regulatorNotifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        regulatorReference:
+          type: ["string", "null"]
+        recordedByEmail:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        nextStep:
+          description: What still needs doing
+          type: string
+          enum:
+            [
+              assess,
+              notify-people-and-regulator,
+              notify-people,
+              notify-regulator,
+              done,
+            ]
+        noticesSent:
+          type: integer
+        noticesAcknowledged:
+          type: integer
+
+    RecordDataBreachInput:
+      type: object
+      required: [title, description, dataInvolved, userGuidance, discoveredAt]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 200
+        description:
+          description: What happened, in words the people affected will understand
+          type: string
+          minLength: 10
+          maxLength: 4000
+        dataInvolved:
+          type: string
+          minLength: 3
+          maxLength: 1000
+        userGuidance:
+          description: What the people affected should do
+          type: string
+          minLength: 3
+          maxLength: 2000
+        discoveredAt:
+          type: string
+          format: date-time
+
+    AssessDataBreachInput:
+      type: object
+      required: [eligible, note]
+      properties:
+        eligible:
+          description: True if the breach is likely to cause serious harm to any of the people affected
+          type: boolean
+        note:
+          description: The reasons for the decision
+          type: string
+          minLength: 5
+          maxLength: 2000
+        containedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    NotifyDataBreachUsersInput:
+      type: object
+      required: [audience]
+      properties:
+        audience:
+          description: all = every account; listed = the accounts in emails
+          type: string
+          enum: [all, listed]
+        emails:
+          type: array
+          maxItems: 1000
+          items:
+            type: string
+            maxLength: 320
+
+    NotifyDataBreachUsersResult:
+      type: object
+      required: [notified, alreadyNotified, emailed, unknownEmails, breach]
+      properties:
+        notified:
+          type: integer
+        alreadyNotified:
+          type: integer
+        emailed:
+          description: Notices also sent by email (0 when email isn't set up)
+          type: integer
+        unknownEmails:
+          type: array
+          items:
+            type: string
+        breach:
+          $ref: "#/components/schemas/DataBreach"
+
+    RegulatorNotificationInput:
+      type: object
+      required: [notifiedAt, reference]
+      properties:
+        notifiedAt:
+          type: string
+          format: date-time
+        reference:
+          description: The OAIC's reference for the notification
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    GovernmentDisclosure:
+      type: object
+      required:
+        [
+          id,
+          agency,
+          legalBasis,
+          reference,
+          subjectEmail,
+          informationDisclosed,
+          disclosedAt,
+          personToldAt,
+          notTellingReason,
+          recordedByEmail,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        agency:
+          type: string
+        legalBasis:
+          type: string
+        reference:
+          type: ["string", "null"]
+        subjectEmail:
+          type: ["string", "null"]
+        informationDisclosed:
+          type: string
+        disclosedAt:
+          type: string
+          format: date-time
+        personToldAt:
+          type: ["string", "null"]
+          format: date-time
+        notTellingReason:
+          type: ["string", "null"]
+        recordedByEmail:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RecordGovernmentDisclosureInput:
+      type: object
+      required: [agency, legalBasis, informationDisclosed, disclosedAt]
+      properties:
+        agency:
+          description: The agency that asked
+          type: string
+          minLength: 2
+          maxLength: 200
+        legalBasis:
+          description: The law or document that required or authorised it (for example a warrant or court order)
+          type: string
+          minLength: 5
+          maxLength: 500
+        reference:
+          type: ["string", "null"]
+          maxLength: 200
+        subjectEmail:
+          description: The account whose information was disclosed, if one
+          type: ["string", "null"]
+          maxLength: 320
+        informationDisclosed:
+          type: string
+          minLength: 5
+          maxLength: 2000
+        disclosedAt:
+          type: string
+          format: date-time
+        personToldAt:
+          type: ["string", "null"]
+          format: date-time
+        notTellingReason:
+          description: Required when the person hasn't been told; the law may forbid telling them
+          type: ["string", "null"]
+          maxLength: 1000

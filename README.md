@@ -36,6 +36,7 @@ Built as a student deliverable for **Team 1 (Technical Security)**, per the cour
 | [09 — Data Source Acceptability Matrix](docs/09_Team2_Data_Source_Acceptability_Matrix.md) | Team 2's matrix of which data sources the AI features may use, as implemented                     |
 | [10 — Production Launch Readiness](docs/10_Production_Launch_Readiness.md)                 | What a real Australian public launch would still need                                             |
 | [11 — Responsible AI Governance](docs/11_Responsible_AI_Governance.md)                     | The AI system register and Team 2's 20 Responsible AI elements, element by element                |
+| [12 — Data Breach Response Plan](docs/12_Data_Breach_Response_Plan.md)                     | Breach register, deadlines and notification, requests from government agencies                    |
 
 ## Quick start
 
@@ -184,7 +185,6 @@ then step 3.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, `EMAIL_FROM` | No         | Real email delivery for password-reset and parent-consent links. Leave `SMTP_HOST` unset to keep using the dev-only link returned in the API response instead                                                               |
 | `CLAMD_HOST`, `CLAMD_PORT`                                                      | No         | ClamAV daemon for upload scanning (port defaults to 3310). Unset, uploads get the built-in signature checks only; set but unreachable, uploads are refused (R-DP-2)                                                         |
 | `SECURITY_ALERT_WEBHOOK_URL`                                                    | No         | Where suspicious-activity alerts are posted, in addition to the security dashboard                                                                                                                                          |
-| `SECURITY_LOGS_RETENTION_DAYS`, `PAYMENTS_RETENTION_DAYS`                       | No         | Retention limits; unset means kept without limit, pending Team 2's retention periods ([docs/05](docs/05_Consent_and_Deletion_Design.md) §3)                                                                                 |
 | `BEHAVIOR_MODEL_DP_EPSILON`                                                     | No         | Differential-privacy budget for the behaviour model; unset turns it off ([docs/04](docs/04_Threat_Model_Risk_Assessment.md) §2.2)                                                                                           |
 
 **Demo accounts** (all use password `Password123!`), seeded into an empty database:

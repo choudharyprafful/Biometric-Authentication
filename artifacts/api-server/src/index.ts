@@ -4,7 +4,10 @@ import { seedIfEmpty } from "./lib/seed";
 import { startRetentionJob } from "./lib/retention";
 import { startKeyRotationJob } from "./lib/keyRotation";
 import { startSecurityAlertingJob } from "./lib/securityAlerting";
-import { ensureDeletionAuditTrigger } from "./lib/dbBootstrap";
+import {
+  ensureDeletionAuditTrigger,
+  ensureRetentionPurge,
+} from "./lib/dbBootstrap";
 import { logClamdStatusAtStartup } from "./lib/clamdClient";
 
 const rawPort = process.env["PORT"];
@@ -30,6 +33,7 @@ app.listen(port, async (err) => {
   logger.info({ port }, "Server listening");
 
   await ensureDeletionAuditTrigger();
+  await ensureRetentionPurge();
 
   // Seed demo data if DB is empty
   try {

@@ -39,6 +39,8 @@ const EB_APP = "secureai-api";
 const CERT_PATH_ON_EB = "/var/app/current/certs/rds-global-bundle.pem";
 // --grants-only re-applies grants to an existing role without touching its password or the live site.
 const GRANTS_ONLY = process.argv.includes("--grants-only");
+// Tables the app may read but never write (see the REVOKE after the blanket grant).
+const READ_ONLY_TABLES = new Set(["security_log_retention"]);
 const ROTATE = process.argv.includes("--rotate-password");
 const SWITCH =
   !REHEARSE && !GRANTS_ONLY && !process.argv.includes("--no-switch");
@@ -342,6 +344,19 @@ try {
   await master.query(
     `ALTER DEFAULT PRIVILEGES FOR ROLE ${MASTER} IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO ${APP_ROLE}`,
   );
+  // The one exception: retention stubs are written only by purge_aged_security_logs() (security
+  // definer). If the app could add stubs, it could pass off a deleted audit entry as retention
+  // (docs/04 R-LOG-5), so the blanket grant above is taken back here.
+  if (
+    (
+      await master.query(
+        `SELECT to_regclass('public.security_log_retention') AS t`,
+      )
+    ).rows[0].t
+  )
+    await master.query(
+      `REVOKE INSERT, UPDATE, DELETE ON security_log_retention FROM ${APP_ROLE}`,
+    );
   // Needed by the next deploy; additive and safe to run on the current version.
   await master.query(
     `ALTER TABLE uploads ADD COLUMN IF NOT EXISTS content_source text NOT NULL DEFAULT 'unspecified'`,
@@ -403,9 +418,18 @@ try {
       [APP_ROLE, `public."${t}"`],
     );
     const p = r.rows[0];
+    if (READ_ONLY_TABLES.has(t)) {
+      if (!(p.s && !p.i && !p.u && !p.d))
+        fail(`${t} should be read-only for ${APP_ROLE}`);
+      continue;
+    }
     if (!(p.s && p.i && p.u && p.d)) fail(`missing privileges on ${t}`);
   }
-  ok(`read/write confirmed on all ${tables.length} tables`);
+  const readOnly = tables.filter((t) => READ_ONLY_TABLES.has(t));
+  ok(
+    `read/write confirmed on ${tables.length - readOnly.length} tables` +
+      (readOnly.length ? `; read-only on ${readOnly.join(", ")}` : ""),
+  );
   if (
     !(
       await master.query(`SELECT has_sequence_privilege($1, $2, 'UPDATE') u`, [
