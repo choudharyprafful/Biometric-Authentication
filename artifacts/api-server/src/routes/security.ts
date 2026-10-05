@@ -1,6 +1,14 @@
 import { Router, type IRouter } from "express";
 import { desc, gte, lte, eq, and, ilike, count, sql, type SQL } from "drizzle-orm";
-import { db, securityLogsTable, threatsTable, usersTable, sessionsTable } from "@workspace/db";
+import {
+  db,
+  securityLogsTable,
+  threatsTable,
+  usersTable,
+  sessionsTable,
+  passkeysTable,
+  biometricKeysTable,
+} from "@workspace/db";
 import {
   ListSecurityLogsQueryParams,
   ListSecurityLogsResponse,
@@ -36,7 +44,16 @@ router.get("/security/dashboard", async (req, res): Promise<void> => {
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const [totalUsersResult] = await db.select({ count: count() }).from(usersTable);
-  const [faceEnrolledResult] = await db.select({ count: count() }).from(usersTable).where(eq(usersTable.faceEnrolled, true));
+  const [faceEnrolledResult] = await db
+  .select({ count: sql<number>`count(distinct ${usersTable.id})` })
+  .from(usersTable)
+  .leftJoin(passkeysTable, eq(passkeysTable.userId, usersTable.id))
+  .leftJoin(biometricKeysTable, eq(biometricKeysTable.userId, usersTable.id))
+  .where(
+    sql`${usersTable.faceEnrolled} = true
+        OR ${passkeysTable.id} IS NOT NULL
+        OR ${biometricKeysTable.id} IS NOT NULL`
+  );
   const [loginAttemptsResult] = await db.select({ count: count() }).from(securityLogsTable).where(gte(securityLogsTable.timestamp, yesterday));
   const [failedLoginsResult] = await db.select({ count: count() }).from(securityLogsTable).where(
     eq(securityLogsTable.eventType, "LOGIN_FAILED")
