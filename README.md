@@ -216,6 +216,15 @@ For the mobile app, see [`artifacts/mobile/README.md`](artifacts/mobile/README.m
 
 Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards).
 
+## Contributing
+
+`main` is protected on GitHub. Changes reach it only through a pull request, and a pull request can be merged only when:
+
+- CI has passed: typecheck and dependency audit, Semgrep, and the live-server load test and attack probes;
+- the repository owner, @choudharyprafful, has approved it (`.github/CODEOWNERS` names him as owner of every file). An approval is dismissed if more commits are pushed, so what is merged is what was approved.
+
+Work on a branch (`feature/…`, `fix/…` or `docs/…`), push it, open a pull request against `main`, and ask for a review. Force-pushing or deleting `main` is blocked.
+
 ## Progress tracking
 
 Work is tracked week-by-week against the brief as [GitHub Issues](../../issues), each with a checklist mapping brief requirements to the actual files that satisfy them. The current status of every requirement, and every risk found along the way, is in the risk register in [`docs/04`](docs/04_Threat_Model_Risk_Assessment.md).
