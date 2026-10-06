@@ -64,14 +64,11 @@ router.get("/security/dashboard", async (req, res): Promise<void> => {
   const [totalUsersResult] = await db
     .select({ count: count() })
     .from(usersTable);
-    const [faceEnrolledResult] = await db
+  const [faceEnrolledResult] = await db
     .select({ count: sql<number>`count(distinct ${usersTable.id})` })
     .from(usersTable)
     .leftJoin(passkeysTable, eq(passkeysTable.userId, usersTable.id))
-    .leftJoin(
-      biometricKeysTable,
-      eq(biometricKeysTable.userId, usersTable.id),
-    )
+    .leftJoin(biometricKeysTable, eq(biometricKeysTable.userId, usersTable.id))
     .where(
       sql`${usersTable.faceEnrolled} = true
           OR ${passkeysTable.id} IS NOT NULL
