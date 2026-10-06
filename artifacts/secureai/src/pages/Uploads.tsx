@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from "react";
 import {
   useListUploads,
   useCreateUpload,
@@ -6,15 +6,37 @@ import {
   getUpload,
   getListUploadsQueryKey,
   UploadMeta,
-} from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, Card } from '../components/ui';
-import { Loader2, Lock, FileText, ImageIcon, Video, Music, Upload as UploadIcon, Download, Trash2, Eye, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { AiLabel } from '../components/AiLabel';
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Badge,
+  Button,
+  Card,
+} from "../components/ui";
+import {
+  Loader2,
+  Lock,
+  FileText,
+  ImageIcon,
+  Video,
+  Music,
+  Upload as UploadIcon,
+  Download,
+  Trash2,
+  Eye,
+  X,
+} from "lucide-react";
+import { format } from "date-fns";
+import { AiLabel } from "../components/AiLabel";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // must match artifacts/api-server/src/routes/uploads.ts
-const ACCEPTED_TYPES = 'image/*,video/*,audio/*,text/plain';
+const ACCEPTED_TYPES = "image/*,video/*,audio/*,text/plain";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -24,10 +46,14 @@ function formatBytes(bytes: number): string {
 
 function fileTypeIcon(fileType: string) {
   switch (fileType) {
-    case 'image': return ImageIcon;
-    case 'video': return Video;
-    case 'audio': return Music;
-    default: return FileText;
+    case "image":
+      return ImageIcon;
+    case "video":
+      return Video;
+    case "audio":
+      return Music;
+    default:
+      return FileText;
   }
 }
 
@@ -37,10 +63,11 @@ function readAsBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      const commaIndex = result.indexOf(',');
+      const commaIndex = result.indexOf(",");
       resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
     };
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 }
@@ -52,10 +79,14 @@ function base64ToBytes(dataBase64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-function triggerDownload(dataBase64: string, mimeType: string, fileName: string): void {
+function triggerDownload(
+  dataBase64: string,
+  mimeType: string,
+  fileName: string,
+): void {
   const blob = new Blob([base64ToBytes(dataBase64)], { type: mimeType });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
   a.click();
@@ -68,18 +99,21 @@ function triggerDownload(dataBase64: string, mimeType: string, fileName: string)
 // matrix's own vocabulary ("third-party content"), since the person picking
 // one has not read that document.
 type ContentSource =
-  | 'own_work'
-  | 'third_party_individual'
-  | 'published_work'
-  | 'social_media'
-  | 'incidental_third_party_ip';
+  | "own_work"
+  | "third_party_individual"
+  | "published_work"
+  | "social_media"
+  | "incidental_third_party_ip";
 
 const CONTENT_SOURCE_OPTIONS: Array<{ value: ContentSource; label: string }> = [
-  { value: 'own_work', label: 'My own work' },
-  { value: 'third_party_individual', label: "Someone else's work" },
-  { value: 'published_work', label: 'Published book / article / news' },
-  { value: 'social_media', label: 'From social media' },
-  { value: 'incidental_third_party_ip', label: "Mine, but contains someone else's IP" },
+  { value: "own_work", label: "My own work" },
+  { value: "third_party_individual", label: "Someone else's work" },
+  { value: "published_work", label: "Published book / article / news" },
+  { value: "social_media", label: "From social media" },
+  {
+    value: "incidental_third_party_ip",
+    label: "Mine, but contains someone else's IP",
+  },
 ];
 
 interface PreviewState {
@@ -103,17 +137,17 @@ export default function Uploads() {
   // the consequence of the choice is visible rather than buried. The server
   // still defaults to "unspecified" when the field is absent entirely; that
   // fail-closed path covers API callers and every pre-existing row.
-  const [contentSource, setContentSource] = useState<ContentSource>('own_work');
-  const [error, setError] = useState('');
+  const [contentSource, setContentSource] = useState<ContentSource>("own_work");
+  const [error, setError] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [previewingId, setPreviewingId] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = '';
+    e.target.value = "";
     if (!file) return;
-    setError('');
+    setError("");
 
     if (file.size > MAX_UPLOAD_BYTES) {
       setError(`File too large — max ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB.`);
@@ -125,43 +159,57 @@ export default function Uploads() {
       await createMutation.mutateAsync({
         data: {
           fileName: file.name,
-          mimeType: file.type || 'text/plain',
+          mimeType: file.type || "text/plain",
           dataBase64,
           contentSource,
         },
       });
       queryClient.invalidateQueries({ queryKey: getListUploadsQueryKey() });
     } catch (err: any) {
-      setError(err?.data?.error || 'Upload failed.');
+      setError(err?.data?.error || "Upload failed.");
     }
   };
 
-  const handleDownload = async (id: number, fileName: string, mimeType: string) => {
-    setError('');
+  const handleDownload = async (
+    id: number,
+    fileName: string,
+    mimeType: string,
+  ) => {
+    setError("");
     setDownloadingId(id);
     try {
       const content = await getUpload(id);
       triggerDownload(content.dataBase64, mimeType, fileName);
     } catch (err: any) {
-      setError(err?.data?.error || 'Download failed.');
+      setError(err?.data?.error || "Download failed.");
     } finally {
       setDownloadingId(null);
     }
   };
 
   const handlePreview = async (upload: UploadMeta) => {
-    setError('');
+    setError("");
     setPreviewingId(upload.id);
     try {
       const content = await getUpload(upload.id);
-      if (upload.fileType === 'text') {
-        setPreview({ meta: upload, objectUrl: null, text: atob(content.dataBase64) });
+      if (upload.fileType === "text") {
+        setPreview({
+          meta: upload,
+          objectUrl: null,
+          text: atob(content.dataBase64),
+        });
       } else {
-        const blob = new Blob([base64ToBytes(content.dataBase64)], { type: upload.mimeType });
-        setPreview({ meta: upload, objectUrl: URL.createObjectURL(blob), text: null });
+        const blob = new Blob([base64ToBytes(content.dataBase64)], {
+          type: upload.mimeType,
+        });
+        setPreview({
+          meta: upload,
+          objectUrl: URL.createObjectURL(blob),
+          text: null,
+        });
       }
     } catch (err: any) {
-      setError(err?.data?.error || 'Preview failed.');
+      setError(err?.data?.error || "Preview failed.");
     } finally {
       setPreviewingId(null);
     }
@@ -177,7 +225,7 @@ export default function Uploads() {
       await deleteMutation.mutateAsync({ id });
       queryClient.invalidateQueries({ queryKey: getListUploadsQueryKey() });
     } catch (err: any) {
-      setError(err?.data?.error || 'Delete failed.');
+      setError(err?.data?.error || "Delete failed.");
     }
   };
 
@@ -190,11 +238,13 @@ export default function Uploads() {
             Encrypted Data Vault
           </h1>
           <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">
-            Text, image, video &amp; audio files — AES-256-GCM encrypted at rest, visible only to you
+            Text, image, video &amp; audio files — AES-256-GCM encrypted at
+            rest, visible only to you
           </p>
           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-2 flex-wrap">
             <AiLabel system="anomaly-alerts" text="Automated monitoring" />
-            Upload activity is watched for unusual bursts, which alert security staff. It never reads, blocks or deletes your files.
+            Upload activity is watched for unusual bursts, which alert security
+            staff. It never reads, blocks or deletes your files.
           </p>
         </div>
 
@@ -214,7 +264,9 @@ export default function Uploads() {
             <select
               id="upload-content-source"
               value={contentSource}
-              onChange={(e) => setContentSource(e.target.value as ContentSource)}
+              onChange={(e) =>
+                setContentSource(e.target.value as ContentSource)
+              }
               className="bg-card border border-border text-xs font-mono px-2 py-2 text-foreground"
               data-testid="select-content-source"
             >
@@ -225,13 +277,21 @@ export default function Uploads() {
               ))}
             </select>
           </label>
-          <Button onClick={() => fileInputRef.current?.click()} isLoading={createMutation.isPending} data-testid="button-upload">
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            isLoading={createMutation.isPending}
+            data-testid="button-upload"
+          >
             <UploadIcon className="w-4 h-4 mr-2" /> Upload File
           </Button>
         </div>
       </div>
 
-      {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
+      {error && (
+        <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+          {error}
+        </p>
+      )}
 
       <div className="flex-1 overflow-hidden flex flex-col border border-border bg-card">
         {isLoading ? (
@@ -266,7 +326,10 @@ export default function Uploads() {
                         {formatBytes(upload.sizeBytes)}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(upload.createdAt), 'MMM dd, yyyy HH:mm')}
+                        {format(
+                          new Date(upload.createdAt),
+                          "MMM dd, yyyy HH:mm",
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -284,7 +347,13 @@ export default function Uploads() {
                             variant="ghost"
                             size="icon"
                             isLoading={downloadingId === upload.id}
-                            onClick={() => handleDownload(upload.id, upload.fileName, upload.mimeType)}
+                            onClick={() =>
+                              handleDownload(
+                                upload.id,
+                                upload.fileName,
+                                upload.mimeType,
+                              )
+                            }
                             title="Download"
                             data-testid={`button-download-upload-${upload.id}`}
                           >
@@ -306,7 +375,10 @@ export default function Uploads() {
                 })}
                 {(!uploads || uploads.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center font-mono text-muted-foreground uppercase tracking-widest">
+                    <TableCell
+                      colSpan={5}
+                      className="h-24 text-center font-mono text-muted-foreground uppercase tracking-widest"
+                    >
                       Vault is empty.
                     </TableCell>
                   </TableRow>
@@ -324,28 +396,49 @@ export default function Uploads() {
               <h2 className="text-lg font-mono uppercase tracking-widest text-foreground truncate pr-4">
                 {preview.meta.fileName}
               </h2>
-              <Button variant="ghost" size="icon" onClick={closePreview} data-testid="button-close-preview">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closePreview}
+                data-testid="button-close-preview"
+              >
                 <X className="w-4 h-4" />
               </Button>
             </div>
             <div className="overflow-auto flex-1 flex items-center justify-center bg-background/40 border border-border p-4">
-              {preview.meta.fileType === 'image' && preview.objectUrl && (
-                <img src={preview.objectUrl} alt={preview.meta.fileName} className="max-w-full max-h-full object-contain" />
+              {preview.meta.fileType === "image" && preview.objectUrl && (
+                <img
+                  src={preview.objectUrl}
+                  alt={preview.meta.fileName}
+                  className="max-w-full max-h-full object-contain"
+                />
               )}
-              {preview.meta.fileType === 'video' && preview.objectUrl && (
-                <video src={preview.objectUrl} controls className="max-w-full max-h-full" />
+              {preview.meta.fileType === "video" && preview.objectUrl && (
+                <video
+                  src={preview.objectUrl}
+                  controls
+                  className="max-w-full max-h-full"
+                />
               )}
-              {preview.meta.fileType === 'audio' && preview.objectUrl && (
+              {preview.meta.fileType === "audio" && preview.objectUrl && (
                 <audio src={preview.objectUrl} controls className="w-full" />
               )}
-              {preview.meta.fileType === 'text' && preview.text !== null && (
-                <pre className="w-full font-mono text-xs text-foreground whitespace-pre-wrap break-words">{preview.text}</pre>
+              {preview.meta.fileType === "text" && preview.text !== null && (
+                <pre className="w-full font-mono text-xs text-foreground whitespace-pre-wrap break-words">
+                  {preview.text}
+                </pre>
               )}
             </div>
             <div className="flex justify-end mt-4 shrink-0">
               <Button
                 variant="outline"
-                onClick={() => handleDownload(preview.meta.id, preview.meta.fileName, preview.meta.mimeType)}
+                onClick={() =>
+                  handleDownload(
+                    preview.meta.id,
+                    preview.meta.fileName,
+                    preview.meta.mimeType,
+                  )
+                }
                 isLoading={downloadingId === preview.meta.id}
               >
                 <Download className="w-4 h-4 mr-2" /> Download

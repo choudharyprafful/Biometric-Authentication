@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { eq, count } from "drizzle-orm";
-import { db, usersTable, passkeysTable, biometricKeysTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  passkeysTable,
+  biometricKeysTable,
+} from "@workspace/db";
 
 // Blocks access until MFA enrollment is complete — face descriptor, passkey,
 // or device biometric key, any one satisfies it. Not AND: a mobile-created
@@ -11,14 +16,21 @@ import { db, usersTable, passkeysTable, biometricKeysTable } from "@workspace/db
 // actually asked for. The frontend already redirects unenrolled users to
 // /enroll, but that's just UX — this is the server-side enforcement so a
 // direct API call can't skip it.
-export async function requireMfaEnrolled(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireMfaEnrolled(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const userId = req.session.userId;
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
-  const [user] = await db.select({ faceEnrolled: usersTable.faceEnrolled }).from(usersTable).where(eq(usersTable.id, userId));
+  const [user] = await db
+    .select({ faceEnrolled: usersTable.faceEnrolled })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
   if (!user) {
     req.session.destroy(() => {});
     res.status(401).json({ error: "Session invalid" });
@@ -30,15 +42,24 @@ export async function requireMfaEnrolled(req: Request, res: Response, next: Next
     return;
   }
 
-  const [passkeyCount] = await db.select({ count: count() }).from(passkeysTable).where(eq(passkeysTable.userId, userId));
+  const [passkeyCount] = await db
+    .select({ count: count() })
+    .from(passkeysTable)
+    .where(eq(passkeysTable.userId, userId));
   if (Number(passkeyCount?.count ?? 0) > 0) {
     next();
     return;
   }
 
-  const [biometricKeyCount] = await db.select({ count: count() }).from(biometricKeysTable).where(eq(biometricKeysTable.userId, userId));
+  const [biometricKeyCount] = await db
+    .select({ count: count() })
+    .from(biometricKeysTable)
+    .where(eq(biometricKeysTable.userId, userId));
   if (Number(biometricKeyCount?.count ?? 0) === 0) {
-    res.status(403).json({ error: "Face, passkey, or device biometric key enrollment required", code: "MFA_ENROLLMENT_REQUIRED" });
+    res.status(403).json({
+      error: "Face, passkey, or device biometric key enrollment required",
+      code: "MFA_ENROLLMENT_REQUIRED",
+    });
     return;
   }
 

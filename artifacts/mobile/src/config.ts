@@ -21,10 +21,12 @@ declare const process: { env: Record<string, string | undefined> };
 // EXPO_PUBLIC_API_BASE_URL is inlined at build time (Expo's convention for
 // client-exposed env vars — anything prefixed EXPO_PUBLIC_ gets baked into
 // the JS bundle, same mechanism as Vite's VITE_ prefix). Set it when
-// building a release APK against a live deployed backend, e.g.:
-//   EXPO_PUBLIC_API_BASE_URL=https://secureai-api.onrender.com/api eas build ...
+// building a release APK against a live deployed backend, e.g. in a
+// git-ignored .env (see .env.example):
+//   EXPO_PUBLIC_API_BASE_URL=https://d2zb1uxt99m5ks.cloudfront.net/api
 // Falls back to the local-dev adb-reverse tunnel when unset.
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api';
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api";
 
 // Sent as the Origin header on every request — must be on the backend's
 // FRONTEND_ORIGINS/ALLOWED_ORIGINS allowlist (see allowedOrigins.ts) for
@@ -34,7 +36,20 @@ export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://loca
 // origin for a native client the way a browser has one, so this is
 // necessarily an arbitrary-but-consistent placeholder the backend is
 // configured to trust specifically for the mobile app.
-export const APP_ORIGIN = process.env.EXPO_PUBLIC_APP_ORIGIN ?? 'http://localhost:8081';
+export const APP_ORIGIN =
+  process.env.EXPO_PUBLIC_APP_ORIGIN ?? "http://localhost:8081";
 
 // The privacy policy is one page for web and mobile: the live site's /privacy.
-export const PRIVACY_POLICY_URL = process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ?? 'https://d2zb1uxt99m5ks.cloudfront.net/privacy';
+export const PRIVACY_POLICY_URL =
+  process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ??
+  "https://d2zb1uxt99m5ks.cloudfront.net/privacy";
+
+// The policy version the sign-up screen points to. Must equal the web text's version and the
+// API's PRIVACY_POLICY_VERSION (CI checks all three: scripts/check-privacy-policy-version.mjs).
+// An older build sending an older version is harmless: the API records an acknowledgement only
+// for the current version, and otherwise asks the person to review the policy after signing in.
+export const PRIVACY_POLICY_VERSION = "2026-10-04";
+
+// Must match MINOR_CONSENT_AGE_THRESHOLD in api-server's auth.ts. Only decides whether to show
+// the guardian field; the server recomputes age from the date of birth.
+export const MINOR_CONSENT_AGE_THRESHOLD = 18;

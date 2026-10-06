@@ -1,4 +1,4 @@
- 1# Consent, Deletion & Retention — Design Note
+1# Consent, Deletion & Retention — Design Note
 
 Brief §8 deliverable; brief §6 overlap points with Team 2 ("Consent — Team 2 decides how consent &
 withdrawal work; Team 1 enforces it, blocks non-consented data from training" / "Deletion — Team 2
@@ -15,11 +15,11 @@ to make is collected in one place, organized against Team 2's own deliverables, 
 
 Two separate, independently-tracked consent flags on `users`, not one blanket flag:
 
-| Flag | Set when | Cleared when | Required before |
-|---|---|---|---|
-| `dataConsentGiven` / `dataConsentAt` | `POST /auth/register` with `dataConsent: true` | Never (only account deletion removes it, by removing the row) | Registration succeeds at all |
-| `biometricConsentGiven` / `biometricConsentAt` | `POST /users/:id/enroll-face` with `consent: true` | `DELETE /users/:id/face` (withdrawal) | A face descriptor is stored |
-| `trainingConsentGiven` / `trainingConsentAt` | `POST /auth/register` with `trainingConsent: true` (optional, defaults to false), or `POST /users/me/training-consent` with `consent: true` afterward | `POST /users/me/training-consent` with `consent: false` — freely toggleable either direction, any time, regardless of what was chosen at registration. **Defect found and fixed 2026-09-25 (docs/04 R-CONSENT-2):** for an account that had not enrolled MFA yet, or was awaiting parental consent, this endpoint (and `POST /users/me/content-personalization-consent`) returned `403` because an MFA gate from another router leaked onto it. The gates are now scoped to their own paths, and both withdrawals return `200` for those accounts (verified locally and on the live site) | Nothing — gates whether activity contributes to the behavior model (§5b), not any core feature |
+| Flag                                           | Set when                                                                                                                                              | Cleared when                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Required before                                                                                |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `dataConsentGiven` / `dataConsentAt`           | `POST /auth/register` with `dataConsent: true`                                                                                                        | Never (only account deletion removes it, by removing the row)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Registration succeeds at all                                                                   |
+| `biometricConsentGiven` / `biometricConsentAt` | `POST /users/:id/enroll-face` with `consent: true`                                                                                                    | `DELETE /users/:id/face` (withdrawal)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | A face descriptor is stored                                                                    |
+| `trainingConsentGiven` / `trainingConsentAt`   | `POST /auth/register` with `trainingConsent: true` (optional, defaults to false), or `POST /users/me/training-consent` with `consent: true` afterward | `POST /users/me/training-consent` with `consent: false` — freely toggleable either direction, any time, regardless of what was chosen at registration. **Defect found and fixed 2026-09-25 (docs/04 R-CONSENT-2):** for an account that had not enrolled MFA yet, or was awaiting parental consent, this endpoint (and `POST /users/me/content-personalization-consent`) returned `403` because an MFA gate from another router leaked onto it. The gates are now scoped to their own paths, and both withdrawals return `200` for those accounts (verified locally and on the live site) | Nothing — gates whether activity contributes to the behavior model (§5b), not any core feature |
 
 Design assumption: biometric data is treated as a distinct, higher-sensitivity category from general
 account data, requiring its own explicit opt-in rather than being covered by general registration
@@ -52,34 +52,35 @@ either) — the age threshold is `MINOR_CONSENT_AGE_THRESHOLD = 18` (`auth.ts`),
 open to Team 2 override (tracked in `08_Requests_to_Team2.md`).
 
 This is a different problem from third-party consent: minor consent (this section) is about whether
-the *account holder themselves* is old enough to consent for themselves. Third-party consent — someone
+the _account holder themselves_ is old enough to consent for themselves. Third-party consent — someone
 else appearing in a photo the account holder uploads — is a separate, still-entirely-unbuilt problem; see
 `08_Requests_to_Team2.md` §1 for that one. Solving this one doesn't touch that one.
 
 Mechanism:
+
 1. `POST /auth/register` requires `dateOfBirth`; age is computed server-side (`computeAge`), never trusted
    from a client-reported boolean — the same principle applied to biometric MFA elsewhere in this app.
 2. If under threshold, `parentGuardianEmail` becomes required too. The account is created (so a real row,
    real audit trail entry, exists — not a separate "pending signup" limbo state) with `parentConsentGiven:
-   false`, and a single-use, 7-day token is minted (`parentConsentTokensTable`, same shape as
+false`, and a single-use, 7-day token is minted (`parentConsentTokensTable`, same shape as
    `passwordResetTokensTable`) — 7 days because a parent confirming isn't a time-pressured security action
    the way a password reset is.
 3. **`requireParentConsent` middleware blocks every route that does something new or sensitive** —
-   uploads, payments, the security dashboard, user management, and critically, *enrollment itself*
+   uploads, payments, the security dashboard, user management, and critically, _enrollment itself_
    (`enroll-face`, passkey/biometric-key registration, device-link-code creation) — until consent clears.
    Registration and login are deliberately NOT blocked (a gated account still gets a session, same
-   philosophy as MFA enrollment not blocking registration either) — only what it can *do* with that
+   philosophy as MFA enrollment not blocking registration either) — only what it can _do_ with that
    session is restricted. Verified live: a registered-minor session gets `403
-   PARENT_CONSENT_REQUIRED` on both a protected route and a face-enrollment attempt; after
+PARENT_CONSENT_REQUIRED` on both a protected route and a face-enrollment attempt; after
    `/auth/parent-consent/verify` succeeds, the same session correctly falls through to the next gate
    (`403 MFA_ENROLLMENT_REQUIRED`) rather than silently granting full access.
 4. Delivered by real email when an SMTP provider is configured (`lib/mailer.ts`, added 2026-09-13, same
    mechanism as password reset); `devParentConsentLink` is separately returned directly in the register
    response too, gated by the `devAuthLinksEnabled()` allow-list regardless of whether email is also sent.
 
-Not built: re-verification if the account's *reported* age later needs re-checking, a "resend the
+Not built: re-verification if the account's _reported_ age later needs re-checking, a "resend the
 consent email" flow (matching password reset's own lack of one), and — deliberately — any mechanism for
-the parent/guardian to later *revoke* consent once granted (mirrors this app's broader pattern of no
+the parent/guardian to later _revoke_ consent once granted (mirrors this app's broader pattern of no
 backup/long-tail account-recovery flows being in scope, see honest-limits §6 below).
 
 ## 2. Deletion mechanism
@@ -87,10 +88,12 @@ backup/long-tail account-recovery flows being in scope, see honest-limits §6 be
 Two independent deletion paths, matching two different real-world "delete" requests:
 
 ### a) Delete just the biometric data (`DELETE /users/:id/face`)
+
 Used when a user wants to stop using face-scan MFA without deleting their whole account (e.g., after
 switching primary MFA to passkey-only, or explicitly withdrawing biometric consent per above).
 
 ### b) Delete the whole account (`DELETE /users/:id`)
+
 Self-service ("delete my profile") or admin-driven. Self-service deletion is always reachable, like
 consent withdrawal: it is not behind the MFA-enrollment or parental-consent gates, so an account that is
 still mid-setup, or a minor awaiting a parent, can still erase itself. It does require re-entering the
@@ -99,13 +102,13 @@ current password (docs/04 R-AC-3). Deleting someone else's account is admin-only
 
 Foreign-key behaviour is deliberately asymmetric, by data category:
 
-| Related table | On user deletion | Why |
-|---|---|---|
-| `uploads` | `CASCADE` (deleted) | No reason to retain another user's files after they've left — nothing else references them |
-| `passkeys`, `biometric_keys` | `CASCADE` (deleted) | Device credentials are meaningless without the account they authenticate. **Corrected 2026-09-26:** this row said `passkeys` cascaded, but neither key table had a foreign key at all, so every deleted account left its passkeys and phone keys behind (11 and 17 orphaned rows in the dev database). Both now have `ON DELETE CASCADE` foreign keys (`scripts/ops/migrate-account-deletion.mjs` removes existing orphans and adds them), and `DELETE /users/:id` also deletes them explicitly in the same transaction (docs/04 R-CONSENT-3) |
-| `session` (signed-in sessions) | Deleted in the same transaction | A deleted account's other devices are signed out at once rather than when their sessions expire (up to 12 hours). Added 2026-09-26 |
-| `payments` | `userId` → `SET NULL` (row kept, `userEmail` text column retained for attribution) | Financial records need to outlive the account for accounting/dispute purposes |
-| `security_logs` | `userId` → left exactly as originally written, no foreign key at all (row kept, `userEmail` text column retained) | Audit trail integrity matters after an account is gone — an incident investigation into a now-deleted account still needs its history. This table previously used `SET NULL` like `payments`, but `SET NULL` mutates the row's stored `userId` after its tamper-evident hash was already computed, silently breaking `/security/logs/verify` on every account deletion. A hash-chained row must never change post-write, so this column deliberately isn't a live foreign key — see `04_Threat_Model_Risk_Assessment.md`, R-LOG-3 |
+| Related table                  | On user deletion                                                                                                  | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `uploads`                      | `CASCADE` (deleted)                                                                                               | No reason to retain another user's files after they've left — nothing else references them                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `passkeys`, `biometric_keys`   | `CASCADE` (deleted)                                                                                               | Device credentials are meaningless without the account they authenticate. **Corrected 2026-09-26:** this row said `passkeys` cascaded, but neither key table had a foreign key at all, so every deleted account left its passkeys and phone keys behind (11 and 17 orphaned rows in the dev database). Both now have `ON DELETE CASCADE` foreign keys (`scripts/ops/migrate-account-deletion.mjs` removes existing orphans and adds them), and `DELETE /users/:id` also deletes them explicitly in the same transaction (docs/04 R-CONSENT-3) |
+| `session` (signed-in sessions) | Deleted in the same transaction                                                                                   | A deleted account's other devices are signed out at once rather than when their sessions expire (up to 12 hours). Added 2026-09-26                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `payments`                     | `userId` → `SET NULL` (row kept, `userEmail` text column retained for attribution)                                | Financial records need to outlive the account for accounting/dispute purposes                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `security_logs`                | `userId` → left exactly as originally written, no foreign key at all (row kept, `userEmail` text column retained) | Audit trail integrity matters after an account is gone — an incident investigation into a now-deleted account still needs its history. This table previously used `SET NULL` like `payments`, but `SET NULL` mutates the row's stored `userId` after its tamper-evident hash was already computed, silently breaking `/security/logs/verify` on every account deletion. A hash-chained row must never change post-write, so this column deliberately isn't a live foreign key — see `04_Threat_Model_Risk_Assessment.md`, R-LOG-3             |
 
 This is the concrete answer to brief §6's "What 'delete my profile' means" — the limit being stated
 explicitly here: deleting a profile does not delete financial or audit history. If Team 2's policy
@@ -116,28 +119,33 @@ financial/audit retention practice worth raising with them directly.
 
 Brief §6's retention row: Team 2 sets the retention/disposal policy per data category, Team 1 implements
 the actual limits and secure disposal. Each category gets the retention behaviour that's correct for it
-rather than one blanket rule — most of this app's data has a real reason to persist indefinitely:
+rather than one blanket rule. The periods for payments, security logs and AI challenge records are the
+client's (Miifile Pty Ltd, 2 October 2026) and are fixed in code (`RETENTION` in `lib/retention.ts`), not
+configuration, so a deploy can't quietly change a period the privacy policy promises:
 
-| Data | Retention | Disposal mechanism |
-|---|---|---|
-| Password reset tokens | Deleted once used, or once past `expiresAt` | Implemented, running: `lib/retention.ts` purges used/expired rows on server startup and hourly thereafter. This is the one category with an unambiguous "no further purpose" point — the audit trail already records `PASSWORD_RESET_REQUESTED`/`PASSWORD_RESET_COMPLETED` separately, so the token row itself isn't forensic evidence |
-| Parent/guardian consent tokens | Deleted once used, or once past `expiresAt` | Implemented, running — same job, same reasoning as password reset tokens above. Added 2026-08-28; previously the only token category the job didn't cover |
-| Security/audit logs | Indefinite by default; a hard ceiling is a Team 2 policy call | Mechanism now exists and is real (`purgeAgedSecurityLogs(maxAgeDays)`), but stays inert until `SECURITY_LOGS_RETENTION_DAYS` is set — unset (today's state) means no ceiling, unchanged from before. Deletions this job performs still go through the existing deletion-audit trigger (`security_log_deletions`) like any other deletion — a policy-driven purge is tracked, not a bypass. `07_Data_Classification.md` §1 explains why this category is classified by *integrity* need, not confidentiality, which is exactly why Team 1 isn't the one who should pick the number |
-| Payments | Indefinite by default; a hard ceiling is a Team 2 policy call | Same shape as security logs — `purgeAgedPayments(maxAgeDays)` exists and is real, gated behind `PAYMENTS_RETENTION_DAYS`, unset by default. Financial records typically have a regulatory retention *floor*, not a ceiling Team 1 should guess at, which is why the default stays "don't purge" until told otherwise |
-| Uploads, face descriptors, passkeys | Until the user deletes them or their account | User-driven disposal, already covered above. Deliberately NOT given a Team-2-configurable ceiling like security logs/payments — an automatic ceiling here would mean silently deleting a user's own kept files without their action, a materially different (and more consequential) kind of change than trimming records with no user-facing purpose |
-| Sessions | `express-session` store TTL (`app.ts`) | Already time-bounded; connect-pg-simple's own default pruning (`pruneSessionInterval`, on unless explicitly disabled — confirmed not disabled here) removes expired rows from the `session` table on its own schedule |
+| Data                                | Retention                                                                                                                                         | Disposal mechanism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Password reset tokens               | Deleted once used, or once past `expiresAt`                                                                                                       | Implemented, running: `lib/retention.ts` purges used/expired rows on server startup and hourly thereafter. This is the one category with an unambiguous "no further purpose" point — the audit trail already records `PASSWORD_RESET_REQUESTED`/`PASSWORD_RESET_COMPLETED` separately, so the token row itself isn't forensic evidence                                                                                                                                                                                                                                                                                                                                                                                 |
+| Parent/guardian consent tokens      | Deleted once used, or once past `expiresAt`                                                                                                       | Implemented, running — same job, same reasoning as password reset tokens above. Added 2026-08-28; previously the only token category the job didn't cover                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Security/audit logs                 | **12 months**; records of challenges to AI decisions (`AI_DECISION_CHALLENGED`, `AI_CHALLENGE_ACKNOWLEDGED`, `AI_CHALLENGE_RESOLVED`) **2 years** | Implemented 2026-10-04 (docs/04 R-LOG-5). The hourly job calls `purge_aged_security_logs()`, a `SECURITY DEFINER` function owned by the table owner: the app's database login may run it but cannot delete log rows itself, and cannot write the retention table. Before deleting an entry the function keeps a hash-only stub (`security_log_retention`: id, previous hash, hash, time, class), so `/security/logs/verify` still proves the remaining chain is unbroken and reports how many entries retention removed. A purge is therefore not recorded as tampering, while any other deletion still is (the deletion-audit trigger skips only rows with a stub). Verified by `verify:retention` (21 checks, in CI) |
+| Payments                            | **7 years** after the payment                                                                                                                     | Implemented 2026-10-04: `purgeAgedPayments()` deletes rows older than 7 years on the same hourly job. Seven years is the Corporations Act 2001 s 286 period for financial records, a floor the client chose to keep as the ceiling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Uploads, face descriptors, passkeys | Until the user deletes them or their account                                                                                                      | User-driven disposal, already covered above. Deliberately NOT given a Team-2-configurable ceiling like security logs/payments — an automatic ceiling here would mean silently deleting a user's own kept files without their action, a materially different (and more consequential) kind of change than trimming records with no user-facing purpose                                                                                                                                                                                                                                                                                                                                                                  |
+| Sessions                            | `express-session` store TTL (`app.ts`)                                                                                                            | Already time-bounded; connect-pg-simple's own default pruning (`pruneSessionInterval`, on unless explicitly disabled — confirmed not disabled here) removes expired rows from the `session` table on its own schedule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
-What's real vs. what's still a policy gap, stated precisely: every category above now has a working
-disposal mechanism — the only thing genuinely still missing is the two *numbers* (security-log and
-payment retention ceilings) that only Team 2's policy can supply. That's a narrower, more honest gap than
-"no job exists," which was true before 2026-08-28. Verified live: seeded an aged (91-day-old) and a fresh
-security-log row and payment row each; a 90-day purge removed only the aged rows, leaving the fresh ones
-untouched, for both categories.
+Every category above now has both a disposal mechanism and a period. Until 2026-10-04 the security-log
+and payment purges existed but were switched off by default (`SECURITY_LOGS_RETENTION_DAYS` and
+`PAYMENTS_RETENTION_DAYS`, both unset), because nobody had set the periods; the client's requirements set
+them, and the two settings were removed. The breach register and the record of disclosures to government
+agencies are not purged: they are the evidence that the law was followed (docs/12, section 4).
+
+Production ran `node scripts/ops/migrate-retention-and-breaches.mjs` on 2026-10-06, before API v22 (any
+other database needs it once, before the API version that uses it): it installs the purge function with the right owner and permissions, and the API refuses to purge
+(and says so in its log) rather than falling back to deleting rows directly.
 
 ## 5. AI/ML training-data consent & deletion
 
 The three sections above cover the live application's own account/biometric/upload data. Brief §8
-separately asks for the *training-pipeline* case — consent checked at ingestion, and a deletion mechanism
+separately asks for the _training-pipeline_ case — consent checked at ingestion, and a deletion mechanism
 that addresses (without claiming to solve) a model that's already learned from the data. That's
 demonstrated two ways: a standalone PoC (`artifacts/ai-model/model_starter.py`, §5a below) on synthetic
 data, and — since 2026-08-28 — a real, live-wired pipeline inside the app itself (§5b below) that trains
@@ -157,7 +165,7 @@ is correctly blocked, with 10 of 11 synthetic records allowed through.
 
 Update 2026-09-09 — `source_id` now has a real list to check against: every record has always carried
 a `source_id`, but until Team 2's Acceptability Matrix arrived there was no allowed-sources list for it to
-be checked against — `consent_gate()` verified *that* consent existed, not *what kind* of source was
+be checked against — `consent_gate()` verified _that_ consent existed, not _what kind_ of source was
 consenting. `09_Team2_Data_Source_Acceptability_Matrix.md` §3 is that list now: each `source_id` category
 this PoC's synthetic data represents maps to a matrix row with its own tier, training-consent rule, and
 third-party flag. Extending `consent_gate()` to check `source_id` against the matrix (not just
@@ -166,7 +174,7 @@ presence/absence of `consent_id`) is real follow-up work this document is flaggi
 Deletion mechanism: `delete_user(records, user_id)` removes every record belonging to that user from
 the corpus; the model is then retrained from the reduced corpus (10 → 8 records after deleting one user
 in the demo run, retraining in well under a second). This is the correct mechanism for the part of the
-brief's ask that's actually solvable: the user's data no longer influences any *future* training run or
+brief's ask that's actually solvable: the user's data no longer influences any _future_ training run or
 any model retrained after the request.
 
 The genuinely hard part, stated honestly rather than solved: what a model already deployed and served
@@ -186,7 +194,7 @@ left for a reader to discover, per this document's own standard of stating what'
 ### 5b. Live app — the behavior-transition model
 
 `artifacts/api-server/src/lib/behaviorModel.ts`, wired into `POST /users/me/training-consent` and `GET
-/behavior/suggested-action`. Trains on the *sequence of audit-log event types* an account's activity
+/behavior/suggested-action`. Trains on the _sequence of audit-log event types_ an account's activity
 produces (login, upload, enroll, etc.) — never on the content of anything a user uploads, which stays
 AES-256-GCM encrypted and unread by this or any model, matching this app's existing "don't decrypt data
 unnecessarily" posture (see `03_Data_Flow.md`). What it predicts is deliberately modest: given an
@@ -201,7 +209,7 @@ matching two-event context or it doesn't independently clear `MIN_DISTINCT_USERS
 hard failure, always a step down to the next-best evidence. The response reports which table actually
 answered (`contextDepth: 1` or `2`), so a caller can see honestly which one fired rather than the upgrade
 being invisible. The SAME `MIN_DISTINCT_USERS = 3` memorisation bar applies to both tables — a two-event
-context is a *narrower* signal than a single event, so if anything it deserves an equal or stricter bar,
+context is a _narrower_ signal than a single event, so if anything it deserves an equal or stricter bar,
 not a relaxed one. Verified live with a deliberately constructed disagreement: two groups of consented
 test accounts (3 vs. 5) shared the same last event but arrived via a different one and diverged on what
 came next. An account whose own last two events matched the smaller group's context exactly correctly
@@ -209,9 +217,9 @@ received that group's answer instead of the naive single-event global majority; 
 matching two-event context correctly fell back to that same global majority.
 
 Open question against the received matrix, not yet resolved:
-`09_Team2_Data_Source_Acceptability_Matrix.md` §3 lists *Account and login data (name, email)*, T1, as
+`09_Team2_Data_Source_Acceptability_Matrix.md` §3 lists _Account and login data (name, email)_, T1, as
 "Not usable for personalisation or training under any circumstance." This model trains on login/logout
-*event types*, never the PII fields themselves, and only for accounts with `trainingConsentGiven`. Whether
+_event types_, never the PII fields themselves, and only for accounts with `trainingConsentGiven`. Whether
 that rule is meant to reach event-type metadata like this, or only the PII fields it names, is a genuine
 ambiguity Team 1 can't resolve unilaterally — sent back to Team 2 as a direct question in
 `08_Requests_to_Team2.md` §3 rather than assumed either way. If Team 2 confirms the broader reading, this
@@ -256,7 +264,7 @@ request, not a general solution to "unlearning." A model expensive enough to req
 long-lived training (which this deliberately small, honestly-scoped model is not) would still face the
 same unsolved problem the brief flags. Stated here for the same reason the PoC states its own limit in
 §5a: per this document's standard of saying what's proven vs. merely built, this is a real property of
-*this* model's shape, not a claim about model deletion in general.
+_this_ model's shape, not a claim about model deletion in general.
 
 Anti-poisoning — proven, not just implemented: `MAX_TRANSITIONS_PER_USER = 50` caps how many of one
 consented user's own event transitions can enter a single corpus build — the direct live-data analog of
@@ -275,11 +283,11 @@ accounts was correctly surfaced — the live-data equivalent of the PoC's own ca
 
 Differential privacy — built, measured, and honestly reported as unusable at this corpus size (added
 2026-09-18): `artifacts/api-server/src/lib/behaviorModelPrivacy.ts` adds a Laplace mechanism over the
-transition counts, because `MIN_DISTINCT_USERS` alone is a *deterministic* bar — it withholds a count-1
+transition counts, because `MIN_DISTINCT_USERS` alone is a _deterministic_ bar — it withholds a count-1
 cell, but an attacker who can watch cells appear and disappear as the corpus changes still learns
 something from exactly where the boundary sits. DP closes that gap by making the release itself
 randomised. The full sensitivity derivation, the stability-based threshold, and the ε/corpus-size
-frontier are in `04_Threat_Model_Risk_Assessment.md` §2.2; what matters for *this* document is the
+frontier are in `04_Threat_Model_Risk_Assessment.md` §2.2; what matters for _this_ document is the
 consent and deletion consequence:
 
 - `train()` now enforces `MAX_CONTRIBUTED_TRANSITIONS_PER_USER = 12` distinct transitions per account,
@@ -288,7 +296,7 @@ consent and deletion consequence:
   anti-poisoning story above: one account's influence on any single cell is now bounded by construction.
 - The noise layer itself ships **disabled by default** (`BEHAVIOR_MODEL_DP_EPSILON` unset). This is a
   deliberate, measured choice, not an unfinished feature. At ε=1 the release threshold requires ~153
-  distinct consented accounts before *any* transition is publishable; this app's consented corpus is far
+  distinct consented accounts before _any_ transition is publishable; this app's consented corpus is far
   smaller, so enabling it would return `null` for every query. Turning it on would make the model look
   private while actually making it useless, which is the failure mode §6 of this document exists to
   refuse.
@@ -330,7 +338,7 @@ things, not one, so both exist:
 A third, distinct AI/ML feature from §5a/§5b above, deliberately different in shape rather than a variant
 of the behavior model: `artifacts/api-server/src/lib/contentPersonalizationModel.ts`, wired into `POST
 /users/me/content-personalization-consent` and `GET /users/me/content-profile`. Where §5b trains on
-event-type *metadata* and pools consented users into a shared corpus, this reads upload *content* —
+event-type _metadata_ and pools consented users into a shared corpus, this reads upload _content_ —
 and deliberately never pools anything across accounts. The two differences are linked: content is more
 sensitive than metadata, so the model that reads it is scoped to be strictly less shared, not more.
 
@@ -350,7 +358,7 @@ is depicted the way a photo/video/audio recording of someone can be. `buildConte
 the database query itself, not as a downstream check.
 
 Extended 2026-09-18 — the scope above was only half the matrix, and the missing half was the one that
-mattered. The file-type line described here was correct, but it was the *only* axis being enforced, and
+mattered. The file-type line described here was correct, but it was the _only_ axis being enforced, and
 the matrix is a two-dimensional table. Nothing recorded where an upload's content came from, so a
 `fileType === "text"` filter admitted the uploader's own diary and an uploaded copy of a published book
 on exactly equal terms — the matrix's `published_work`, `third_party_individual` and `social_media` rows
@@ -430,12 +438,14 @@ are all unchanged by this — only the ranking mathematics improved.
    face is routed back to `/enroll` until it enrolls something.
 3. Backups are out of scope: this PoC has no backup/restore mechanism, so "does deletion also purge
    backups" isn't an answerable question here — a real deployment with backups would need an explicit
-   retention/purge policy for them too.
+   retention/purge policy for them too. Confirmed for the live site on 2026-09-30: the production database
+   has automated backups turned off (`04_Threat_Model_Risk_Assessment.md` R-DP-5, which recommends turning
+   them on; this limit then becomes a retention question for Team 2).
 4. Consent timestamps are evidence of consent, not a legal consent-management system:
-   `dataConsentAt`/`biometricConsentAt` support answering "did this user consent, and when" for an audit,
-   but this PoC has no versioned consent-text/policy tracking (e.g., which version of the privacy policy
-   they consented to) — a real system handling actual personal data would need that, and it's Team 2's
-   policy question to answer before Team 1 could build it.
+   `dataConsentAt`/`biometricConsentAt` support answering "did this user consent, and when" for an audit.
+   Which version of the privacy policy each person was shown is now recorded (§7, added 2026-09-26), but
+   the consent choices themselves are not tied to a versioned consent wording: the timestamp says when,
+   not which text. A real system handling actual personal data would version that wording too.
 
 ## 7. Privacy policy, acknowledgement and data export (added 2026-09-26)
 
@@ -458,5 +468,40 @@ corrected by Team 1 so every statement matches the app; the corrections are list
   face template is described but deliberately not included, since a copy in a file is only another place
   it could leak; the password hash is not included. 5 exports per hour; each is audit-logged as `DATA_EXPORTED`.
   Available from Security Settings and the policy page.
+- **Readable copy (added 2026-10-04, client requirement).** `GET /users/me/export/readable` returns the same
+  information as one web page written for someone who isn't technical: headings like "How you sign in" and
+  "Your payments", dates in Sydney time, events described in words ("Signed in with your password" rather
+  than `LOGIN_SUCCESS`, `lib/eventDescriptions.ts`), devices named from the browser string, and what is kept
+  and for how long. It opens in any browser, prints, and saves as a PDF; it has no scripts, every value is
+  escaped (CI's stored-XSS probe checks this), and on a phone its tables stack. Files are listed, not
+  included; the JSON file still carries their contents. Both downloads share the 5-an-hour limit.
+  Security Settings (web) and Privacy & Your Data (mobile) offer both.
 - **Open to every signed-in account**, like consent withdrawal (R-CONSENT-2): an account still setting up
   sign-in or awaiting a parent can read, acknowledge and export.
+- **Correcting your details (APP 13; added 2026-09-27).** Security Settings has a Your Details form to change
+  the name on the account (1 to 100 characters, audited as "Name of x changed by themselves", without the
+  name). The email address is the sign-in identity, so changing it goes through us, as the policy says (R-PRIV-3).
+- **Mobile (added 2026-09-27).** Until then the mobile sign-up sent `dataConsent: true` without asking and
+  no date of birth, so it both claimed a consent nobody gave and failed on every attempt (R-CONSENT-4). It
+  now asks exactly what the web form asks: date of birth (and a guardian's email under 18), the data
+  consent as an unticked box, the optional training consent, and the policy, whose version it sends. The
+  Privacy & Your Data screen gives mobile the same rights: read and acknowledge the policy (a banner
+  appears when it changes), change the optional consents, download a copy of your data, delete the
+  account. CI checks the policy version is the same in the web text, the mobile app and the API.
+
+## 8. Data breaches and government requests (added 2026-10-04)
+
+The client's requirements of 2 October 2026 asked for data breach notification (when the breach happened,
+when users were told, when the authorities were told) and for disclosure to government when asked. The
+procedure is in `12_Data_Breach_Response_Plan.md`; the design choices that touch consent and deletion:
+
+- **People are told directly.** An eligible breach produces an email and a notice in the app, shown until
+  the person confirms reading it. The notice is theirs: deleting the account deletes it
+  (`data_breach_notices.user_id` cascades), while the breach itself stays in the register.
+- **Disclosures are recorded, and shown once the person has been told.** A disclosure the person may not be
+  told about stays out of their data download, so the download can't tip them off. The record keeps a copy
+  of the email address rather than a link to the account, so it outlives a deleted account, as the evidence
+  it is meant to be.
+- **Both registers are staff-only** (security analysts read; administrators notify and disclose), and every
+  step is a hash-chained audit event. The behaviour model ignores these events: they are staff work, not
+  behaviour to predict.

@@ -1,9 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import { logout, logoutAll, getDashboard, type SecurityDashboard } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
-import { Card, Button, Badge, StatCard, Centered } from '../components/ui';
-import { colors, fonts } from '../theme';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import {
+  logout,
+  logoutAll,
+  getDashboard,
+  type SecurityDashboard,
+} from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { Card, Button, Badge, StatCard, Centered } from "../components/ui";
+import { colors, fonts } from "../theme";
 
 export function DashboardScreen() {
   const { user, refetchUser } = useAuth();
@@ -32,7 +44,10 @@ export function DashboardScreen() {
     setBusy(true);
     try {
       const result = await logoutAll();
-      Alert.alert('Signed out everywhere', `${result.terminatedSessions} session(s) terminated.`);
+      Alert.alert(
+        "Signed out everywhere",
+        `${result.terminatedSessions} session(s) terminated.`,
+      );
     } finally {
       await refetchUser();
       setBusy(false);
@@ -58,17 +73,25 @@ export function DashboardScreen() {
       ) : dashboard ? (
         <>
           <View style={styles.statGrid}>
-            <StatCard label="Active Operators" value={dashboard.totalUsers} tone="info" />
-            <StatCard label="Biometric Enrolled" value={dashboard.faceEnrolledUsers} tone="primary" />
+            <StatCard
+              label="Active Operators"
+              value={dashboard.totalUsers}
+              tone="info"
+            />
+            <StatCard
+              label="Biometric Enrolled"
+              value={dashboard.faceEnrolledUsers}
+              tone="primary"
+            />
             <StatCard
               label="Failed Access (24h)"
               value={dashboard.failedLogins24h}
-              tone={dashboard.failedLogins24h > 10 ? 'destructive' : 'warning'}
+              tone={dashboard.failedLogins24h > 10 ? "destructive" : "warning"}
             />
             <StatCard
               label="Active Threats"
               value={dashboard.threatsDetected}
-              tone={dashboard.threatsDetected > 0 ? 'destructive' : 'success'}
+              tone={dashboard.threatsDetected > 0 ? "destructive" : "success"}
             />
           </View>
 
@@ -77,14 +100,33 @@ export function DashboardScreen() {
               <Text style={styles.sectionTitle}>Recent Audit Trail</Text>
               <Card style={styles.logsCard}>
                 {dashboard.recentLogs.map((log, i) => (
-                  <View key={log.id} style={[styles.logRow, i === dashboard.recentLogs.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View
+                    key={log.id}
+                    style={[
+                      styles.logRow,
+                      i === dashboard.recentLogs.length - 1 && {
+                        borderBottomWidth: 0,
+                      },
+                    ]}
+                  >
                     <View style={styles.logRowTop}>
-                      <Badge tone={log.eventType.includes('FAILED') || log.eventType === 'UNAUTHORIZED_ACCESS' ? 'destructive' : 'outline'}>
+                      <Badge
+                        tone={
+                          log.eventType.includes("FAILED") ||
+                          log.eventType === "UNAUTHORIZED_ACCESS"
+                            ? "destructive"
+                            : "outline"
+                        }
+                      >
                         {log.eventType}
                       </Badge>
-                      <Text style={styles.logTime}>{new Date(log.timestamp).toLocaleString()}</Text>
+                      <Text style={styles.logTime}>
+                        {new Date(log.timestamp).toLocaleString()}
+                      </Text>
                     </View>
-                    <Text style={styles.logDetails} numberOfLines={2}>{log.details}</Text>
+                    <Text style={styles.logDetails} numberOfLines={2}>
+                      {log.details}
+                    </Text>
                   </View>
                 ))}
               </Card>
@@ -97,22 +139,41 @@ export function DashboardScreen() {
       <Card topAccent style={styles.card}>
         <Row label="Email" value={user.email} />
         <Row label="Role" value={user.role} />
-        <Row label="Device biometric enrolled" value={user.passkeyEnrolled ? 'Yes' : 'No'} />
-        <Row label="Face enrolled" value={user.faceEnrolled ? 'Yes (web)' : 'No'} />
+        <Row
+          label="Device biometric enrolled"
+          value={user.passkeyEnrolled ? "Yes" : "No"}
+        />
+        <Row
+          label="Face enrolled"
+          value={user.faceEnrolled ? "Yes (web)" : "No"}
+        />
         <Row label="Plan" value={user.subscriptionPlan} last />
       </Card>
 
       <Button onPress={handleLogout} disabled={busy} style={styles.button}>
         Log Out
       </Button>
-      <Button onPress={handleLogoutAll} disabled={busy} variant="destructive" style={styles.button}>
+      <Button
+        onPress={handleLogoutAll}
+        disabled={busy}
+        variant="destructive"
+        style={styles.button}
+      >
         Sign Out of All Devices
       </Button>
     </ScrollView>
   );
 }
 
-function Row({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function Row({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
   return (
     <View style={[styles.row, last && { borderBottomWidth: 0 }]}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -122,30 +183,49 @@ function Row({ label, value, last }: { label: string; value: string; last?: bool
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: colors.background, padding: 20, paddingBottom: 40 },
-  statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  container: {
+    flexGrow: 1,
+    backgroundColor: colors.background,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  statusRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
   subtitle: {
     fontFamily: fonts.mono,
     color: colors.mutedForeground,
     fontSize: 11,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
   },
-  statusRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  statusRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+  },
   statusText: {
     fontFamily: fonts.mono,
     color: colors.success,
     fontSize: 10,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1.5,
   },
-  statGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  statGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
   sectionTitle: {
     fontFamily: fonts.mono,
     color: colors.foreground,
     fontSize: 13,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1.5,
     marginTop: 8,
     marginBottom: 12,
@@ -154,14 +234,32 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   logsCard: { padding: 0, marginBottom: 24 },
-  logRow: { padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
-  logRowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  logTime: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 9 },
-  logDetails: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 11, lineHeight: 16 },
+  logRow: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  logRowTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  logTime: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 9,
+  },
+  logDetails: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 11,
+    lineHeight: 16,
+  },
   card: { marginBottom: 24 },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -170,9 +268,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.mono,
     color: colors.mutedForeground,
     fontSize: 11,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1,
   },
-  rowValue: { fontFamily: fonts.mono, color: colors.foreground, fontSize: 13, fontWeight: '600' },
+  rowValue: {
+    fontFamily: fonts.mono,
+    color: colors.foreground,
+    fontSize: 13,
+    fontWeight: "600",
+  },
   button: { marginBottom: 12 },
 });

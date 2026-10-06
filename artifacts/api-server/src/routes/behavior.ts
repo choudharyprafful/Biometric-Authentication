@@ -1,13 +1,22 @@
 import { Router, type IRouter, type Request } from "express";
 import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
-import { SetTrainingConsentBody, SetTrainingConsentResponse, GetSuggestedActionResponse } from "@workspace/api-zod";
+import {
+  SetTrainingConsentBody,
+  SetTrainingConsentResponse,
+  GetSuggestedActionResponse,
+} from "@workspace/api-zod";
 import { logEvent } from "../lib/auditLog";
 import { mapUser } from "../lib/mapUser";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
-import { buildTrainingCorpus, train, predictNext, getRecentEventTypes } from "../lib/behaviorModel";
+import {
+  buildTrainingCorpus,
+  train,
+  predictNext,
+  getRecentEventTypes,
+} from "../lib/behaviorModel";
 import { getClientIp } from "../lib/clientIp";
 import { isAiSystemEnabled } from "../lib/aiGovernance";
 
@@ -27,20 +36,28 @@ router.post("/users/me/training-consent", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
   if (!user) {
     res.status(401).json({ error: "Session invalid" });
     return;
   }
 
   const { consent } = parsed.data;
-  await db.update(usersTable).set({
-    trainingConsentGiven: consent,
-    trainingConsentAt: consent ? new Date() : null,
-  }).where(eq(usersTable.id, userId));
+  await db
+    .update(usersTable)
+    .set({
+      trainingConsentGiven: consent,
+      trainingConsentAt: consent ? new Date() : null,
+    })
+    .where(eq(usersTable.id, userId));
 
   await logEvent({
-    eventType: consent ? "TRAINING_CONSENT_GIVEN" : "TRAINING_CONSENT_WITHDRAWN",
+    eventType: consent
+      ? "TRAINING_CONSENT_GIVEN"
+      : "TRAINING_CONSENT_WITHDRAWN",
     details: `${consent ? "Granted" : "Withdrew"} consent for ${user.email}'s activity to contribute to the behavior model's training corpus`,
     userId,
     userEmail: user.email,
@@ -48,45 +65,86 @@ router.post("/users/me/training-consent", async (req, res): Promise<void> => {
     userAgent: req.headers["user-agent"],
   });
 
-  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  const [updated] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
   res.json(SetTrainingConsentResponse.parse(await mapUser(updated!)));
 });
 
 // Model-extraction defense (brief §8) — this is the one model-serving endpoint in the project. There's no numeric/embedding output to scrape, just a discrete suggestion, so throttling query volume against repeated crafted-session-state queries is the applicable control here.
-const suggestedActionRateLimit = requestRateLimit("behavior-suggested-action", 30, 5 * 60 * 1000);
+const suggestedActionRateLimit = requestRateLimit(
+  "behavior-suggested-action",
+  30,
+  5 * 60 * 1000,
+);
 
-router.get("/behavior/suggested-action", requireParentConsent, requireMfaEnrolled, suggestedActionRateLimit, async (req, res): Promise<void> => {
-  const userId = req.session.userId as number;
+router.get(
+  "/behavior/suggested-action",
+  requireParentConsent,
+  requireMfaEnrolled,
+  suggestedActionRateLimit,
+  async (req, res): Promise<void> => {
+    const userId = req.session.userId as number;
 
-  // An administrator's off switch (lib/aiGovernance.ts): the model isn't trained or queried at all.
-  if (!(await isAiSystemEnabled("behaviour-suggestions"))) {
-    res.json(GetSuggestedActionResponse.parse({ suggestion: null, distinctUsersSupporting: 0, modelTrainedFromUsers: 0, contextDepth: null, disabled: true }));
-    return;
-  }
+    // An administrator's off switch (lib/aiGovernance.ts): the model isn't trained or queried at all.
+    if (!(await isAiSystemEnabled("behaviour-suggestions"))) {
+      res.json(
+        GetSuggestedActionResponse.parse({
+          suggestion: null,
+          distinctUsersSupporting: 0,
+          modelTrainedFromUsers: 0,
+          contextDepth: null,
+          disabled: true,
+        }),
+      );
+      return;
+    }
 
-  const { lastEvent, previousEvent } = await getRecentEventTypes(userId);
-  if (!lastEvent) {
-    await logQuery(req, userId, "no prior activity to predict from");
-    res.json(GetSuggestedActionResponse.parse({ suggestion: null, distinctUsersSupporting: 0, modelTrainedFromUsers: 0, contextDepth: null, disabled: false }));
-    return;
-  }
+    const { lastEvent, previousEvent } = await getRecentEventTypes(userId);
+    if (!lastEvent) {
+      await logQuery(req, userId, "no prior activity to predict from");
+      res.json(
+        GetSuggestedActionResponse.parse({
+          suggestion: null,
+          distinctUsersSupporting: 0,
+          modelTrainedFromUsers: 0,
+          contextDepth: null,
+          disabled: false,
+        }),
+      );
+      return;
+    }
 
-  const corpus = await buildTrainingCorpus();
-  const model = train(corpus);
-  const prediction = predictNext(model, previousEvent, lastEvent);
+    const corpus = await buildTrainingCorpus();
+    const model = train(corpus);
+    const prediction = predictNext(model, previousEvent, lastEvent);
 
-  await logQuery(req, userId, prediction ? `suggested "${prediction.eventType}" (order-${prediction.contextDepth} context)` : "no prediction cleared the distinct-user threshold");
-  res.json(GetSuggestedActionResponse.parse({
-    suggestion: prediction?.eventType ?? null,
-    distinctUsersSupporting: prediction?.distinctUsers ?? 0,
-    modelTrainedFromUsers: model.usersIncluded,
-    contextDepth: prediction?.contextDepth ?? null,
-    disabled: false,
-  }));
-});
+    await logQuery(
+      req,
+      userId,
+      prediction
+        ? `suggested "${prediction.eventType}" (order-${prediction.contextDepth} context)`
+        : "no prediction cleared the distinct-user threshold",
+    );
+    res.json(
+      GetSuggestedActionResponse.parse({
+        suggestion: prediction?.eventType ?? null,
+        distinctUsersSupporting: prediction?.distinctUsers ?? 0,
+        modelTrainedFromUsers: model.usersIncluded,
+        contextDepth: prediction?.contextDepth ?? null,
+        disabled: false,
+      }),
+    );
+  },
+);
 
 // Query monitoring, distinct from the rate limit above: that only logs once someone's already over threshold, this logs every query so a slow, under-the-limit extraction pattern is still visible. Deliberately not one of the queryable-by-behaviorModel event types — see behaviorModel.ts's META_EVENT_TYPES for why this must never feed back into the corpus it was generated by querying.
-async function logQuery(req: Request, userId: number, outcome: string): Promise<void> {
+async function logQuery(
+  req: Request,
+  userId: number,
+  outcome: string,
+): Promise<void> {
   await logEvent({
     eventType: "BEHAVIOR_MODEL_QUERIED",
     details: `GET /behavior/suggested-action — ${outcome}`,

@@ -115,7 +115,11 @@ export function sampleLaplace(scale: number): number {
   const sign = uniform >= 0 ? 1 : -1;
   // log(0) guard: |uniform| is at most 0.5, so 1 - 2|uniform| is 0 only at
   // the single exact endpoint; clamp keeps it finite.
-  return -scale * sign * Math.log(Math.max(1 - 2 * Math.abs(uniform), Number.MIN_VALUE));
+  return (
+    -scale *
+    sign *
+    Math.log(Math.max(1 - 2 * Math.abs(uniform), Number.MIN_VALUE))
+  );
 }
 
 export interface PrivacyParameters {
@@ -138,10 +142,14 @@ export interface PrivacyParameters {
  *   ½·exp(−(threshold − (k−1))/b) ≤ δ
  *   threshold ≥ (k−1) + b·ln(1/(2δ))
  */
-export function deriveParameters(epsilon: number, leakProbability = MAX_LEAK_PROBABILITY): PrivacyParameters {
+export function deriveParameters(
+  epsilon: number,
+  leakProbability = MAX_LEAK_PROBABILITY,
+): PrivacyParameters {
   const sensitivity = MAX_CONTRIBUTED_TRANSITIONS_PER_USER;
   const noiseScale = sensitivity / epsilon;
-  const threshold = MIN_DISTINCT_USERS - 1 + noiseScale * Math.log(1 / (2 * leakProbability));
+  const threshold =
+    MIN_DISTINCT_USERS - 1 + noiseScale * Math.log(1 / (2 * leakProbability));
   return { epsilon, sensitivity, noiseScale, threshold, leakProbability };
 }
 
@@ -158,20 +166,34 @@ export function deriveParameters(epsilon: number, leakProbability = MAX_LEAK_PRO
  * corpus size it requires would be exactly the kind of half-true guarantee
  * this module is trying not to ship.
  */
-export function minimumUsersForEpsilon(epsilon: number, leakProbability = MAX_LEAK_PROBABILITY): number {
+export function minimumUsersForEpsilon(
+  epsilon: number,
+  leakProbability = MAX_LEAK_PROBABILITY,
+): number {
   const perTable = deriveParameters(epsilon / 2, leakProbability);
   return Math.ceil(perTable.threshold) + 1;
 }
 
 /** The inverse: the smallest ε at which a transition shared by `users`
  *  distinct accounts is releasable. Larger ε = weaker formal guarantee. */
-export function minimumEpsilonForUsers(users: number, leakProbability = MAX_LEAK_PROBABILITY): number | null {
+export function minimumEpsilonForUsers(
+  users: number,
+  leakProbability = MAX_LEAK_PROBABILITY,
+): number | null {
   const headroom = users - 1 - (MIN_DISTINCT_USERS - 1);
   if (headroom <= 0) return null; // unreachable at any ε: below the k-anonymity floor itself
-  return (2 * MAX_CONTRIBUTED_TRANSITIONS_PER_USER * Math.log(1 / (2 * leakProbability))) / headroom;
+  return (
+    (2 *
+      MAX_CONTRIBUTED_TRANSITIONS_PER_USER *
+      Math.log(1 / (2 * leakProbability))) /
+    headroom
+  );
 }
 
-function noiseTable(table: Map<string, Map<string, number>>, params: PrivacyParameters): Map<string, Map<string, number>> {
+function noiseTable(
+  table: Map<string, Map<string, number>>,
+  params: PrivacyParameters,
+): Map<string, Map<string, number>> {
   const noised = new Map<string, Map<string, number>>();
   for (const [context, candidates] of table) {
     const noisedCandidates = new Map<string, number>();
@@ -195,7 +217,10 @@ function noiseTable(table: Map<string, Map<string, number>>, params: PrivacyPara
  * same underlying users: by sequential composition the total spend is the sum,
  * so each table gets ε/2 to keep the overall guarantee at ε.
  */
-export function applyDifferentialPrivacy(model: BehaviorTransitionModel, epsilon: number): BehaviorTransitionModel {
+export function applyDifferentialPrivacy(
+  model: BehaviorTransitionModel,
+  epsilon: number,
+): BehaviorTransitionModel {
   const perTable = deriveParameters(epsilon / 2);
   return {
     ...model,
@@ -224,7 +249,10 @@ export interface PrivacyReport {
  * guarantee. Intended for the security dashboard and for writing up the
  * trade-off with actual figures.
  */
-export function privacyReport(model: BehaviorTransitionModel, epsilon: number | null): PrivacyReport {
+export function privacyReport(
+  model: BehaviorTransitionModel,
+  epsilon: number | null,
+): PrivacyReport {
   const cellsBeforeNoise = countCells(model);
 
   if (epsilon === null) {
@@ -278,7 +306,9 @@ export function privacyReport(model: BehaviorTransitionModel, epsilon: number | 
 
 function countCells(model: BehaviorTransitionModel): number {
   let total = 0;
-  for (const candidates of model.transitionsOrder1.values()) total += candidates.size;
-  for (const candidates of model.transitionsOrder2.values()) total += candidates.size;
+  for (const candidates of model.transitionsOrder1.values())
+    total += candidates.size;
+  for (const candidates of model.transitionsOrder2.values())
+    total += candidates.size;
   return total;
 }

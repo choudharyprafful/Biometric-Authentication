@@ -67,12 +67,22 @@ function readBox(buffer: Buffer, offset: number, limit: number): Box | null {
   }
 
   if (size < headerSize || offset + size > limit) return null;
-  return { type, headerSize, start: offset, contentStart: offset + headerSize, end: offset + size };
+  return {
+    type,
+    headerSize,
+    start: offset,
+    contentStart: offset + headerSize,
+    end: offset + size,
+  };
 }
 
 /** Walks every sibling box in [offset, limit). Returns null if any box in
  *  the sequence fails to parse cleanly. */
-function readBoxes(buffer: Buffer, offset: number, limit: number): Box[] | null {
+function readBoxes(
+  buffer: Buffer,
+  offset: number,
+  limit: number,
+): Box[] | null {
   const boxes: Box[] = [];
   let pos = offset;
   while (pos < limit) {
@@ -136,16 +146,26 @@ export function stripVideoMetadata(buffer: Buffer): Buffer {
 
     if (!udtaChildren.some((b) => b.type === GPS_ATOM_TYPE)) return buffer; // nothing to strip
 
-    const keptUdtaChildren = udtaChildren.filter((b) => b.type !== GPS_ATOM_TYPE);
-    const newUdtaContent = Buffer.concat(keptUdtaChildren.map((b) => buffer.subarray(b.start, b.end)));
+    const keptUdtaChildren = udtaChildren.filter(
+      (b) => b.type !== GPS_ATOM_TYPE,
+    );
+    const newUdtaContent = Buffer.concat(
+      keptUdtaChildren.map((b) => buffer.subarray(b.start, b.end)),
+    );
     const newUdta = rebuildBox("udta", newUdtaContent);
 
     const newMoovContent = Buffer.concat(
-      moovChildren.map((b) => (b.type === "udta" ? newUdta : buffer.subarray(b.start, b.end))),
+      moovChildren.map((b) =>
+        b.type === "udta" ? newUdta : buffer.subarray(b.start, b.end),
+      ),
     );
     const newMoov = rebuildBox("moov", newMoovContent);
 
-    return Buffer.concat(topLevel.map((b) => (b.type === "moov" ? newMoov : buffer.subarray(b.start, b.end))));
+    return Buffer.concat(
+      topLevel.map((b) =>
+        b.type === "moov" ? newMoov : buffer.subarray(b.start, b.end),
+      ),
+    );
   } catch {
     return buffer; // stripping must never be the reason an upload fails
   }

@@ -23,7 +23,7 @@
 // every module found through it. Leaving it unset lets Metro derive the
 // search paths from the root it was actually given, which is correct under
 // either path.
-const { getDefaultConfig } = require('expo/metro-config');
+const { getDefaultConfig } = require("expo/metro-config");
 
 const config = getDefaultConfig(__dirname);
 

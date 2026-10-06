@@ -9,3 +9,5 @@ export * from "./uploads";
 export * from "./passwordResetTokens";
 export * from "./parentConsentTokens";
 export * from "./biometricKeys";
+export * from "./securityLogRetention";
+export * from "./dataBreaches";

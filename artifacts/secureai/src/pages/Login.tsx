@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, Link } from 'wouter';
-import { useAuth } from '../contexts/AuthContext';
-import { useLoginUser, useFaceVerify } from '@workspace/api-client-react';
-import { Card, Input, Label, Button } from '../components/ui';
-import { Shield, Fingerprint } from 'lucide-react';
-import { FaceCamera } from '../components/FaceCamera';
-import { KeyRound } from 'lucide-react';
-import { loginWithPasskey } from '../lib/passkey';
-import { rememberSecurityNotice } from '../lib/securityNotice';
-import { AiLabel } from '../components/AiLabel';
+import React, { useState, useEffect } from "react";
+import { useLocation, Link } from "wouter";
+import { useAuth } from "../contexts/AuthContext";
+import { useLoginUser, useFaceVerify } from "@workspace/api-client-react";
+import { Card, Input, Label, Button } from "../components/ui";
+import { Shield, Fingerprint } from "lucide-react";
+import { FaceCamera } from "../components/FaceCamera";
+import { KeyRound } from "lucide-react";
+import { loginWithPasskey } from "../lib/passkey";
+import { rememberSecurityNotice } from "../lib/securityNotice";
+import { AiLabel } from "../components/AiLabel";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [scanAttempt, setScanAttempt] = useState(0);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [faceAvailable, setFaceAvailable] = useState(false);
@@ -21,19 +21,27 @@ export default function Login() {
   // Passkey is the signed-challenge factor and is preferred; face scan is
   // only shown up front when no passkey is registered, or on request.
   const [useFaceInstead, setUseFaceInstead] = useState(false);
-  
-  const { requiresFaceVerification, tempToken, setTempToken, setRequiresFaceVerification, refetchUser } = useAuth();
+
+  const {
+    requiresFaceVerification,
+    tempToken,
+    setTempToken,
+    setRequiresFaceVerification,
+    refetchUser,
+  } = useAuth();
   const [, setLocation] = useLocation();
-  
+
   const loginMutation = useLoginUser();
   const faceVerifyMutation = useFaceVerify();
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    
+    setError("");
+
     try {
-      const res = await loginMutation.mutateAsync({ data: { email, password } });
+      const res = await loginMutation.mutateAsync({
+        data: { email, password },
+      });
       rememberSecurityNotice(res.securityNotice);
 
       if (res.requiresFaceVerification && res.tempToken) {
@@ -46,13 +54,16 @@ export default function Login() {
         await refetchUser();
         // Accounts without a passkey go to enrollment (a passkey alone is enough; face is optional)
         if (res.user && !res.user.passkeyEnrolled) {
-          setLocation('/enroll');
+          setLocation("/enroll");
         } else {
-          setLocation('/dashboard');
+          setLocation("/dashboard");
         }
       }
     } catch (err: any) {
-      setError(err?.data?.error || 'Authentication failed. Unauthorized access attempt logged.');
+      setError(
+        err?.data?.error ||
+          "Authentication failed. Unauthorized access attempt logged.",
+      );
     }
   };
 
@@ -65,7 +76,7 @@ export default function Login() {
   }, [requiresFaceVerification]);
 
   const handlePasskeyLogin = async () => {
-    setError('');
+    setError("");
     setPasskeyBusy(true);
     try {
       const result = await loginWithPasskey();
@@ -74,21 +85,25 @@ export default function Login() {
       await refetchUser();
       // If passkey MFA passed but enrollment isn't fully complete, go to enroll
       if (result?.user && !result.user.passkeyEnrolled) {
-        setLocation('/enroll');
+        setLocation("/enroll");
       } else {
-        setLocation('/dashboard');
+        setLocation("/dashboard");
       }
     } catch (err: any) {
-      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+      if (err?.name === "NotAllowedError" || err?.name === "AbortError") {
         let inIframe = true;
-        try { inIframe = window.self !== window.top; } catch { /* cross-origin parent */ }
+        try {
+          inIframe = window.self !== window.top;
+        } catch {
+          /* cross-origin parent */
+        }
         setError(
           inIframe
-            ? 'The browser blocked the passkey prompt inside the embedded preview. Open the app in its own tab and try again.'
-            : 'Passkey prompt was cancelled or timed out. Please try again.',
+            ? "The browser blocked the passkey prompt inside the embedded preview. Open the app in its own tab and try again."
+            : "Passkey prompt was cancelled or timed out. Please try again.",
         );
       } else {
-        setError(err?.message || 'Passkey verification failed.');
+        setError(err?.message || "Passkey verification failed.");
       }
     } finally {
       setPasskeyBusy(false);
@@ -97,10 +112,12 @@ export default function Login() {
 
   const handleFaceScan = async (descriptor: number[]) => {
     if (!tempToken) return;
-    setError('');
-    
+    setError("");
+
     try {
-      const result = await faceVerifyMutation.mutateAsync({ data: { descriptor, tempToken } });
+      const result = await faceVerifyMutation.mutateAsync({
+        data: { descriptor, tempToken },
+      });
       setTempToken(null);
       setRequiresFaceVerification(false);
       await refetchUser();
@@ -108,12 +125,12 @@ export default function Login() {
       // but guard anyway so we never land on dashboard before enrollment
       // (face + passkey) is fully complete.
       if (result?.user && !result.user.passkeyEnrolled) {
-        setLocation('/enroll');
+        setLocation("/enroll");
       } else {
-        setLocation('/dashboard');
+        setLocation("/dashboard");
       }
     } catch (err: any) {
-      setError(err?.data?.error || 'Biometric verification failed.');
+      setError(err?.data?.error || "Biometric verification failed.");
       // Mount a fresh scanner after a failed comparison so the operator can
       // deliberately position their face and try again.
       setScanAttempt((attempt) => attempt + 1);
@@ -126,8 +143,12 @@ export default function Login() {
         <div className="bg-primary/10 p-4 border border-primary/30 mb-4 animate-pulse">
           <Shield className="w-12 h-12 text-primary" />
         </div>
-        <h1 className="font-mono text-3xl tracking-widest uppercase">SecureAI</h1>
-        <p className="font-mono text-sm text-primary/70 tracking-widest uppercase mt-2">Identity Verification</p>
+        <h1 className="font-mono text-3xl tracking-widest uppercase">
+          SecureAI
+        </h1>
+        <p className="font-mono text-sm text-primary/70 tracking-widest uppercase mt-2">
+          Identity Verification
+        </p>
       </div>
 
       <Card className="w-full max-w-md relative overflow-hidden">
@@ -142,12 +163,12 @@ export default function Login() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Operator ID (Email)</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  required 
+                <Input
+                  id="email"
+                  type="email"
+                  required
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   data-testid="input-email"
                 />
@@ -166,7 +187,7 @@ export default function Login() {
                   type="password"
                   required
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   data-testid="input-password"
                 />
@@ -174,32 +195,49 @@ export default function Login() {
             </div>
 
             <div className="border border-primary/20 bg-primary/5 p-3">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Biometric MFA</p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-primary">
+                Biometric MFA
+              </p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
-                Enrolled operators continue to a live face scan after password verification.
+                Enrolled operators continue to a live face scan after password
+                verification.
               </p>
             </div>
-            
-            {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
-            
-            <Button 
-              type="submit" 
-              className="w-full" 
+
+            {error && (
+              <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+                {error}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full"
               isLoading={loginMutation.isPending}
               data-testid="button-login"
             >
               Authenticate
             </Button>
-            
+
             {/* Development builds only: Vite replaces import.meta.env.DEV with false in production, so these credentials never reach the deployed bundle. */}
             {import.meta.env.DEV && (
               <div className="pt-4 text-center border-t border-border">
                 <p className="text-xs font-mono text-muted-foreground">
-                  Demo access: <span className="text-primary cursor-pointer" onClick={() => { setEmail('admin_user@prafful.com'); setPassword('Password123!'); }}>admin_user@prafful.com</span> / Password123!
+                  Demo access:{" "}
+                  <span
+                    className="text-primary cursor-pointer"
+                    onClick={() => {
+                      setEmail("admin_user@prafful.com");
+                      setPassword("Password123!");
+                    }}
+                  >
+                    admin_user@prafful.com
+                  </span>{" "}
+                  / Password123!
                 </p>
               </div>
             )}
-            
+
             <div className="text-center pt-2 space-y-2">
               <Link href="/register">
                 <span className="block text-xs font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider">
@@ -207,12 +245,18 @@ export default function Login() {
                 </span>
               </Link>
               <Link href="/ai">
-                <span className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider" data-testid="link-how-we-use-ai">
+                <span
+                  className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
+                  data-testid="link-how-we-use-ai"
+                >
                   How SecureAI uses AI
                 </span>
               </Link>
               <Link href="/privacy">
-                <span className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider" data-testid="link-privacy-policy">
+                <span
+                  className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
+                  data-testid="link-privacy-policy"
+                >
                   Privacy Policy
                 </span>
               </Link>
@@ -221,27 +265,38 @@ export default function Login() {
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             {(() => {
-              const showFaceCamera = faceAvailable && (useFaceInstead || !passkeyAvailable);
+              const showFaceCamera =
+                faceAvailable && (useFaceInstead || !passkeyAvailable);
               return (
                 <>
                   <div className="text-center space-y-2">
                     <Fingerprint className="w-8 h-8 text-primary mx-auto mb-2 animate-pulse" />
                     <h2 className="font-mono text-lg uppercase tracking-widest text-primary">
-                      {showFaceCamera ? 'Biometric Step Required' : 'Passkey Step Required'}
+                      {showFaceCamera
+                        ? "Biometric Step Required"
+                        : "Passkey Step Required"}
                     </h2>
                     {showFaceCamera ? (
                       <>
-                        <p className="text-xs font-mono text-muted-foreground">Position face clearly in the reticle.</p>
+                        <p className="text-xs font-mono text-muted-foreground">
+                          Position face clearly in the reticle.
+                        </p>
                         <p className="text-[10px] font-mono text-muted-foreground flex items-center justify-center gap-2 flex-wrap">
-                          <AiLabel system="face-recognition" text="AI face matching" /> If it doesn't recognise you, use your passkey instead.
+                          <AiLabel
+                            system="face-recognition"
+                            text="AI face matching"
+                          />{" "}
+                          If it doesn't recognise you, use your passkey instead.
                         </p>
                         <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                          Camera permission is required. The scan starts automatically once your face is detected.
+                          Camera permission is required. The scan starts
+                          automatically once your face is detected.
                         </p>
                       </>
                     ) : (
                       <p className="text-xs font-mono text-muted-foreground">
-                        Your device passkey signs a one-time server challenge — that signature is the real second factor.
+                        Your device passkey signs a one-time server challenge —
+                        that signature is the real second factor.
                       </p>
                     )}
                   </div>
@@ -267,15 +322,23 @@ export default function Login() {
                     </Button>
                   )}
 
-                  {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
-                  {faceVerifyMutation.isPending && <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">Verifying biometric signature...</p>}
+                  {error && (
+                    <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">
+                      {error}
+                    </p>
+                  )}
+                  {faceVerifyMutation.isPending && (
+                    <p className="text-primary font-mono text-xs uppercase tracking-wider text-center animate-pulse">
+                      Verifying biometric signature...
+                    </p>
+                  )}
 
                   {showFaceCamera && error && (
                     <Button
                       variant="outline"
                       className="w-full"
                       onClick={() => {
-                        setError('');
+                        setError("");
                         setScanAttempt((attempt) => attempt + 1);
                       }}
                       disabled={faceVerifyMutation.isPending}
@@ -288,9 +351,14 @@ export default function Login() {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => { setError(''); setUseFaceInstead((v) => !v); }}
+                      onClick={() => {
+                        setError("");
+                        setUseFaceInstead((v) => !v);
+                      }}
                     >
-                      {showFaceCamera ? 'Use device passkey instead' : 'Use face scan instead'}
+                      {showFaceCamera
+                        ? "Use device passkey instead"
+                        : "Use face scan instead"}
                     </Button>
                   )}
                 </>
@@ -300,7 +368,10 @@ export default function Login() {
             <Button
               variant="ghost"
               className="w-full"
-              onClick={() => { setRequiresFaceVerification(false); setTempToken(null); }}
+              onClick={() => {
+                setRequiresFaceVerification(false);
+                setTempToken(null);
+              }}
             >
               Abort sequence
             </Button>

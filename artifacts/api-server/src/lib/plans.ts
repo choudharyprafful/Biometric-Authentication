@@ -13,7 +13,11 @@ export const PLANS = {
     currency: "USD",
     interval: "month",
     description: "SecureAI Plus — monthly subscription",
-    features: ["Priority threat monitoring", "90-day audit log retention", "Email alerts"],
+    features: [
+      "Priority threat monitoring",
+      "90-day audit log retention",
+      "Email alerts",
+    ],
   },
   pro: {
     id: "pro",
@@ -22,7 +26,12 @@ export const PLANS = {
     currency: "USD",
     interval: "month",
     description: "SecureAI Pro — monthly subscription",
-    features: ["Everything in Plus", "Full API access", "Advanced analytics", "Priority support"],
+    features: [
+      "Everything in Plus",
+      "Full API access",
+      "Advanced analytics",
+      "Priority support",
+    ],
   },
   team: {
     id: "team",
@@ -31,7 +40,12 @@ export const PLANS = {
     currency: "USD",
     interval: "month",
     description: "SecureAI Team — monthly subscription",
-    features: ["Everything in Pro", "Multi-seat management", "SSO", "Dedicated support"],
+    features: [
+      "Everything in Pro",
+      "Multi-seat management",
+      "SSO",
+      "Dedicated support",
+    ],
   },
 } as const;
 

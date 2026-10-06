@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Nothing this app stores leaves the phone through Android's backup or device-to-device transfer
+  (MASVS-STORAGE; docs/04 R-MOBILE-3). The app's data includes the native cookie store, which holds
+  the signed-in session. android:allowBackup="false" covers Android 11 and earlier and cloud backup;
+  on Android 12 and later, device-to-device transfer ignores it and needs these rules.
+-->
+<data-extraction-rules>
+  <cloud-backup>
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+  </cloud-backup>
+  <device-transfer>
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+  </device-transfer>
+</data-extraction-rules>

@@ -5,10 +5,14 @@ import { usersTable } from "./users";
 
 export const uploadsTable = pgTable("uploads", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
   fileName: text("file_name").notNull(),
   mimeType: text("mime_type").notNull(),
-  fileType: text("file_type", { enum: ["image", "video", "text", "audio"] }).notNull(),
+  fileType: text("file_type", {
+    enum: ["image", "video", "text", "audio"],
+  }).notNull(),
   sizeBytes: integer("size_bytes").notNull(),
   // AES-256-GCM ciphertext/iv/authTag, each base64-encoded. Plaintext file
   // bytes never touch the database — see lib/fileEncryption.ts.
@@ -22,13 +26,25 @@ export const uploadsTable = pgTable("uploads", {
   // training rather than assumed to be the uploader's own work. The rules
   // that read this live in api-server/src/lib/dataProvenance.ts.
   contentSource: text("content_source", {
-    enum: ["own_work", "third_party_individual", "published_work", "social_media", "incidental_third_party_ip", "unspecified"],
+    enum: [
+      "own_work",
+      "third_party_individual",
+      "published_work",
+      "social_media",
+      "incidental_third_party_ip",
+      "unspecified",
+    ],
   })
     .notNull()
     .default("unspecified"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
-export const insertUploadSchema = createInsertSchema(uploadsTable).omit({ id: true, createdAt: true });
+export const insertUploadSchema = createInsertSchema(uploadsTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type InsertUpload = z.infer<typeof insertUploadSchema>;
 export type Upload = typeof uploadsTable.$inferSelect;

@@ -27,7 +27,11 @@ export interface ClamdResult {
   reason: string | null;
 }
 
-const NOT_CONFIGURED: ClamdResult = { available: false, clean: true, reason: null };
+const NOT_CONFIGURED: ClamdResult = {
+  available: false,
+  clean: true,
+  reason: null,
+};
 
 // clamd's own documented default chunk-size ceiling is much larger, but a
 // conservative fixed size keeps this simple and keeps any one chunk well
@@ -47,7 +51,11 @@ const RESPONSE_TIMEOUT_MS = 10000;
  *    outage degrades to signature-only scanning rather than blocking every
  *    upload or (worse) silently treating an unreachable scanner as "clean".
  */
-export function scanWithClamd(buffer: Buffer, host: string | undefined, port: number): Promise<ClamdResult> {
+export function scanWithClamd(
+  buffer: Buffer,
+  host: string | undefined,
+  port: number,
+): Promise<ClamdResult> {
   if (!host) return Promise.resolve(NOT_CONFIGURED);
 
   return new Promise((resolve) => {
@@ -63,8 +71,16 @@ export function scanWithClamd(buffer: Buffer, host: string | undefined, port: nu
     };
 
     socket.setTimeout(CONNECT_TIMEOUT_MS);
-    socket.once("timeout", () => finish({ available: false, clean: true, reason: "clamd connection timed out" }));
-    socket.once("error", () => finish({ available: false, clean: true, reason: "clamd unreachable" }));
+    socket.once("timeout", () =>
+      finish({
+        available: false,
+        clean: true,
+        reason: "clamd connection timed out",
+      }),
+    );
+    socket.once("error", () =>
+      finish({ available: false, clean: true, reason: "clamd unreachable" }),
+    );
 
     socket.once("connect", () => {
       socket.setTimeout(RESPONSE_TIMEOUT_MS);
@@ -86,7 +102,10 @@ export function scanWithClamd(buffer: Buffer, host: string | undefined, port: nu
     });
 
     socket.on("data", (data: Buffer | string) => {
-      responseBuffer = Buffer.concat([responseBuffer, Buffer.isBuffer(data) ? data : Buffer.from(data)]);
+      responseBuffer = Buffer.concat([
+        responseBuffer,
+        Buffer.isBuffer(data) ? data : Buffer.from(data),
+      ]);
       // clamd terminates its INSTREAM reply with a NUL byte.
       if (responseBuffer.includes(0)) {
         const line = responseBuffer.toString("utf8").replace(/\0/g, "").trim();
@@ -94,9 +113,17 @@ export function scanWithClamd(buffer: Buffer, host: string | undefined, port: nu
           finish({ available: true, clean: true, reason: null });
         } else if (line.includes("FOUND")) {
           const match = /stream:\s*(.+?)\s+FOUND/.exec(line);
-          finish({ available: true, clean: false, reason: `clamd detected: ${match?.[1] ?? "unknown signature"}` });
+          finish({
+            available: true,
+            clean: false,
+            reason: `clamd detected: ${match?.[1] ?? "unknown signature"}`,
+          });
         } else {
-          finish({ available: false, clean: true, reason: `unrecognised clamd response: ${line}` });
+          finish({
+            available: false,
+            clean: true,
+            reason: `unrecognised clamd response: ${line}`,
+          });
         }
       }
     });
@@ -109,7 +136,12 @@ export function scanWithClamd(buffer: Buffer, host: string | undefined, port: nu
  * Sends one short clamd command ("PING", "VERSION") and returns its reply
  * line, or null if clamd is unreachable or silent.
  */
-export function clamdCommand(command: string, host: string, port: number, timeoutMs = CONNECT_TIMEOUT_MS): Promise<string | null> {
+export function clamdCommand(
+  command: string,
+  host: string,
+  port: number,
+  timeoutMs = CONNECT_TIMEOUT_MS,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     let reply = Buffer.alloc(0);
@@ -125,10 +157,18 @@ export function clamdCommand(command: string, host: string, port: number, timeou
     socket.once("error", () => finish(null));
     socket.once("connect", () => socket.write(`z${command}\0`));
     socket.on("data", (data: Buffer | string) => {
-      reply = Buffer.concat([reply, Buffer.isBuffer(data) ? data : Buffer.from(data)]);
-      if (reply.includes(0)) finish(reply.toString("utf8").replace(/\0/g, "").trim());
+      reply = Buffer.concat([
+        reply,
+        Buffer.isBuffer(data) ? data : Buffer.from(data),
+      ]);
+      if (reply.includes(0))
+        finish(reply.toString("utf8").replace(/\0/g, "").trim());
     });
-    socket.once("end", () => finish(reply.length ? reply.toString("utf8").replace(/\0/g, "").trim() : null));
+    socket.once("end", () =>
+      finish(
+        reply.length ? reply.toString("utf8").replace(/\0/g, "").trim() : null,
+      ),
+    );
     socket.connect(port, host);
   });
 }
@@ -141,7 +181,9 @@ export function clamdTarget(): { host: string; port: number } | null {
   return { host, port: Number(process.env["CLAMD_PORT"] ?? 3310) };
 }
 
-export function scanWithClamdIfConfigured(buffer: Buffer): Promise<ClamdResult> {
+export function scanWithClamdIfConfigured(
+  buffer: Buffer,
+): Promise<ClamdResult> {
   const target = clamdTarget();
   return scanWithClamd(buffer, target?.host, target?.port ?? 3310);
 }
@@ -152,7 +194,10 @@ export function scanWithClamdIfConfigured(buffer: Buffer): Promise<ClamdResult> 
  * its signatures when the API starts. Informational only: uploads decide
  * per request.
  */
-export async function logClamdStatusAtStartup(log: { info: (o: object, m: string) => void; warn: (o: object, m: string) => void }): Promise<void> {
+export async function logClamdStatusAtStartup(log: {
+  info: (o: object, m: string) => void;
+  warn: (o: object, m: string) => void;
+}): Promise<void> {
   const target = clamdTarget();
   if (!target) {
     log.info({}, "Upload scanning: signature checks only (CLAMD_HOST not set)");
@@ -166,5 +211,8 @@ export async function logClamdStatusAtStartup(log: { info: (o: object, m: string
     }
     await new Promise((r) => setTimeout(r, 10_000));
   }
-  log.warn(target, "Upload scanning: ClamAV not reachable; uploads are refused until it answers");
+  log.warn(
+    target,
+    "Upload scanning: ClamAV not reachable; uploads are refused until it answers",
+  );
 }

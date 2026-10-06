@@ -12,10 +12,19 @@ const router: IRouter = Router();
 router.use("/ai-security", requireParentConsent, requireMfaEnrolled);
 
 // The validation is synthetic and fast, but it trains the model six times per call, so it gets the same kind of per-account cap as the model endpoint itself.
-const reportRateLimit = requestRateLimit("ai-security-report", 20, 5 * 60 * 1000);
+const reportRateLimit = requestRateLimit(
+  "ai-security-report",
+  20,
+  5 * 60 * 1000,
+);
 
 router.get("/ai-security/report", reportRateLimit, (_req, res): void => {
-  res.json(GetAiSecurityReportResponse.parse({ live: runLiveModelValidation(), poc: pocReport }));
+  res.json(
+    GetAiSecurityReportResponse.parse({
+      live: runLiveModelValidation(),
+      poc: pocReport,
+    }),
+  );
 });
 
 export default router;

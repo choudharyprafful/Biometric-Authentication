@@ -1,0 +1,163 @@
+name: Quick start check
+
+# Runs README.md "Quick start" as written on clean GitHub-hosted Windows, macOS and Linux machines.
+# Every command is taken from the README itself (scripts/ci/quickstart-block.mjs), so the README
+# can't drift from what works; the only change is that the clone line fetches the commit under test
+# instead of GitHub's main branch. Windows runs its boxes in Command Prompt, as the README says.
+# A fourth job repeats steps 2 and 3 on the oldest Node the README allows.
+
+on:
+  push:
+    branches: [main, quickstart-check]
+    paths:
+      - README.md
+      - .env.example
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/setup-local.mjs
+      - scripts/ci/**
+      - lib/db/**
+      - artifacts/api-server/package.json
+      - artifacts/secureai/package.json
+      - artifacts/secureai/vite.config.ts
+      - .github/workflows/quickstart.yml
+  pull_request:
+    paths:
+      - README.md
+      - .env.example
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - scripts/setup-local.mjs
+      - scripts/ci/**
+      - lib/db/**
+      - artifacts/api-server/package.json
+      - artifacts/secureai/package.json
+      - artifacts/secureai/vite.config.ts
+      - .github/workflows/quickstart.yml
+  workflow_dispatch:
+
+jobs:
+  readme:
+    name: README Quick start (${{ matrix.system }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { system: Windows, os: windows-latest }
+          - { system: macOS, os: macos-latest }
+          - { system: Linux, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: under-test
+      - name: A home folder to run the steps in
+        run: |
+          mkdir -p "$RUNNER_TEMP/home"
+          echo "HOME_DIR=$RUNNER_TEMP/home" >> "$GITHUB_ENV"
+          echo "BLOCK=$GITHUB_WORKSPACE/under-test/scripts/ci/quickstart-block.mjs" >> "$GITHUB_ENV"
+
+      # GitHub's Windows machines come with PostgreSQL 17 installed but disabled, password "root", so the
+      # README's winget line would find it "already installed" and do nothing. Remove it, so the README
+      # installs PostgreSQL as it would on a computer without it.
+      - name: "Fresh machine (Windows): remove the runner's own PostgreSQL"
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $uninstaller = Join-Path $env:PGROOT "uninstall-postgresql.exe"
+          Start-Process -FilePath $uninstaller -ArgumentList "--mode", "unattended" -Wait
+          Remove-Item -Recurse -Force $env:PGROOT, $env:PGDATA -ErrorAction SilentlyContinue
+          if (Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue) { throw "PostgreSQL service still present" }
+          winget list --id PostgreSQL.PostgreSQL.17 -e --accept-source-agreements
+          $global:LASTEXITCODE = 0  # "no installed package found" is the result wanted here
+          "Runner PostgreSQL removed"
+
+      # Step 1: install the tools.
+      - name: "Step 1 (Windows, Command Prompt): install the tools"
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "%BLOCK%" windows-install --cmd > step1.bat
+          node "%BLOCK%" windows-pnpm --cmd >> step1.bat
+          type step1.bat
+          call step1.bat
+      - name: "Step 1 (macOS): install the tools"
+        if: runner.os == 'macOS'
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "$BLOCK" macos-install > step1.sh
+          cat step1.sh
+          bash -e step1.sh
+      - name: "Step 1 (Linux): install the tools"
+        if: runner.os == 'Linux'
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "$BLOCK" linux-install > step1.sh
+          cat step1.sh
+          # A fresh Ubuntu has no Node.js: remove the runner's own copy so the README's is used.
+          for tool in node npm npx corepack pnpm; do (which -a "$tool" || true) | xargs -r sudo rm -f; done
+          hash -r
+          bash -e step1.sh
+
+      # Step 2: get the code and set it up.
+      - name: "Step 2 (Windows, Command Prompt): get the code and set it up"
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "%BLOCK%" setup --cmd --clone-from "%GITHUB_WORKSPACE%\under-test" > step2.bat
+          type step2.bat
+          call step2.bat
+      - name: "Step 2 (macOS): get the code and set it up"
+        if: runner.os == 'macOS'
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "$BLOCK" setup-macos --clone-from "$GITHUB_WORKSPACE/under-test" > step2.sh
+          cat step2.sh
+          bash -e step2.sh
+      - name: "Step 2 (Linux): get the code and set it up"
+        if: runner.os == 'Linux'
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "$BLOCK" setup --clone-from "$GITHUB_WORKSPACE/under-test" > step2.sh
+          cat step2.sh
+          bash -e step2.sh
+
+      - name: "Step 3: run it, sign in, build for production"
+        run: bash "$GITHUB_WORKSPACE/under-test/scripts/ci/quickstart-run.sh" "$HOME_DIR"
+
+  oldest-node:
+    name: README Quick start (Linux, Node 22.12, the oldest supported)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: under-test
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.12.0"
+      - name: "Step 1: pnpm and PostgreSQL (Node 22.12 from setup-node)"
+        run: |
+          npm install -g pnpm@10
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres'"
+          mkdir -p "$RUNNER_TEMP/home"
+      - name: "Step 2: get the code and set it up"
+        working-directory: ${{ runner.temp }}/home
+        run: |
+          node "$GITHUB_WORKSPACE/under-test/scripts/ci/quickstart-block.mjs" setup --clone-from "$GITHUB_WORKSPACE/under-test" > step2.sh
+          cat step2.sh
+          bash -e step2.sh
+      - name: "Step 3: run it, sign in, build for production"
+        run: bash "$GITHUB_WORKSPACE/under-test/scripts/ci/quickstart-run.sh" "$RUNNER_TEMP/home"

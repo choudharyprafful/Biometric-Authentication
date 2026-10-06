@@ -1,7 +1,7 @@
 # Authentication Flow (with Biometric MFA) — SecureAI
 
-Addresses the brief's explicit warning: *"never trust a 'biometric OK' message coming from the app —
-the biometric should unlock a secret key on the device that signs a challenge from your server."*
+Addresses the brief's explicit warning: _"never trust a 'biometric OK' message coming from the app —
+the biometric should unlock a secret key on the device that signs a challenge from your server."_
 
 ## Registration + enrollment
 
@@ -102,13 +102,14 @@ regardless of what the client claims. This is why:
   auto-submitted (`lib/livenessDetection.ts`) — defends against the most obvious spoof (a static photo
   held to the webcam) but is explicitly a client-side behavioral check, not a cryptographic proof, unlike
   the passkey signature. See `04_Threat_Model_Risk_Assessment.md` (R-BIO-1) for the honest boundary.
-- The password-reset flow requires the *same* proof as login — a reset link alone is never sufficient,
+- The password-reset flow requires the _same_ proof as login — a reset link alone is never sufficient,
   closing the classic "account recovery becomes the MFA bypass" failure mode.
 
 ## Session model
 
 - `express-session`, PostgreSQL-backed (`connect-pg-simple`), `httpOnly`, `secure` in production,
-  `sameSite: lax`.
+  `sameSite: lax` in every environment (production used `none` until 2026-09-27, left from an earlier
+  deployment with the web app and API on different domains; R-SC-5).
 - The `pendingUserId`/`tempToken` pair created after step 1 is **not** a valid session — no protected
   route accepts it. Only after step 2 succeeds is `session.userId` set.
 - `MFA_CHALLENGE_TTL_MS` (2 minutes) and `MFA_MAX_ATTEMPTS` (3) bound how long/how many times a pending
@@ -135,15 +136,15 @@ asks for the trade-off to be documented. This app chose the more conservative de
 factor) + device-native biometric/passkey (second factor) — deliberately, not by default. Reasoning:
 
 A passkey-alone design would look like this — a WebAuthn passkey with `userVerification: "required"`
-already combines two of the three classic factor categories in one user gesture: *possession* of the
-enrolled device (the private key never leaves it) and *inherence* (the biometric gates release of that
+already combines two of the three classic factor categories in one user gesture: _possession_ of the
+enrolled device (the private key never leaves it) and _inherence_ (the biometric gates release of that
 key). NIST SP 800-63B recognizes this as a legitimate multi-factor authenticator. Under this design,
 registration and login would both collapse to a single passkey ceremony — no separate password field, no
 two-step login flow, no password-hash storage or reset-token infrastructure at all.
 
 Why this app kept the password anyway:
 
-- A third, independent factor category: password adds *knowledge* on top of *possession + inherence*.
+- A third, independent factor category: password adds _knowledge_ on top of _possession + inherence_.
   If a device is lost, stolen, or its Keystore/Secure Enclave is somehow compromised, a passkey-alone
   design has nothing left to fall back on — the single gesture that grants access is also the single
   point of failure. This app's password remains a genuinely separate secret an attacker needs even after
@@ -152,7 +153,7 @@ Why this app kept the password anyway:
 - Device-loss continuity: a brand-new, unenrolled device can still get the user to "I know the
   password" before any device-specific ceremony — useful for the recovery/re-enrollment flow
   (`02` above), where the password is what lets `POST /auth/forgot-password` + the reset-token flow work
-  at all as an *entry point*, even though the reset still can't *complete* without the live biometric/
+  at all as an _entry point_, even though the reset still can't _complete_ without the live biometric/
   passkey proof (see `04_Threat_Model_Risk_Assessment.md`'s recovery-abuse analysis, R-AUTH-6).
 - Matches the brief's own stated default: Section 2 decision #1 and Tier 1 §1 both specify
   "device-native biometric authentication as a **second factor** on top of the password" as the confirmed
@@ -175,8 +176,8 @@ one: `ReactNativeBiometrics` is constructed with `allowDeviceCredentials: false`
 device-bound signing key — a PIN/pattern/device-passcode can never substitute for it.
 
 Why, given the brief explicitly asks for a passcode fallback: the entire point of this app's MFA
-design is that the second factor is *inherence* (something you are), layered on top of the password's
-*knowledge* factor. A device passcode is itself a *knowledge* factor (something you know) — allowing it to
+design is that the second factor is _inherence_ (something you are), layered on top of the password's
+_knowledge_ factor. A device passcode is itself a _knowledge_ factor (something you know) — allowing it to
 satisfy the "biometric" second factor would silently collapse the design back to knowledge-plus-knowledge
 (password + device PIN), which is not meaningfully different from just having a longer password, and
 defeats the reason a second factor category was required in the first place. This mirrors the exact
@@ -186,7 +187,7 @@ quietly erase it for exactly the accounts that ever needed the fallback.
 This is not the same as having no fallback at all: the brief's actual underlying concern — a user
 being permanently locked out — is covered a different way: the password-reset flow (`02` above) is a
 complete, working recovery path that doesn't depend on the original device's biometric sensor at all,
-only on live re-proof via a *newly enrolled* device's biometric or passkey. A user who can't use their
+only on live re-proof via a _newly enrolled_ device's biometric or passkey. A user who can't use their
 enrolled device's biometric sensor (broken sensor, lost device) recovers via password + re-enrolling a
 working device, never via a passcode standing in for the biometric on the same device. Documented here as
 a deliberate departure from the brief's literal wording, in service of the brief's own stated intent

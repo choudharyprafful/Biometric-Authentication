@@ -1,6 +1,16 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { useGetCurrentUser, User, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
-import { useLocation } from 'wouter';
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+} from "react";
+import {
+  useGetCurrentUser,
+  User,
+  getGetCurrentUserQueryKey,
+} from "@workspace/api-client-react";
+import { useLocation } from "wouter";
 
 interface AuthContextType {
   user: User | null;
@@ -15,16 +25,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: user, isLoading, refetch } = useGetCurrentUser({
+  const {
+    data: user,
+    isLoading,
+    refetch,
+  } = useGetCurrentUser({
     query: {
       queryKey: getGetCurrentUserQueryKey(),
       retry: false,
       refetchOnWindowFocus: false,
-    }
+    },
   });
 
   const [tempToken, setTempToken] = useState<string | null>(null);
-  const [requiresFaceVerification, setRequiresFaceVerification] = useState(false);
+  const [requiresFaceVerification, setRequiresFaceVerification] =
+    useState(false);
   const [location, setLocation] = useLocation();
 
   // Route guard:
@@ -36,19 +51,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //   and mid-setup, since someone the face model fails is exactly who needs it
   useEffect(() => {
     if (!isLoading) {
-      const isPublicRoute = location === '/' || location === '/register' || location === '/forgot-password' || location === '/reset-password' || location === '/parent-consent';
-      const isOpenRoute = location === '/ai' || location === '/privacy';
-      const isEnrollRoute = location === '/enroll';
+      const isPublicRoute =
+        location === "/" ||
+        location === "/register" ||
+        location === "/forgot-password" ||
+        location === "/reset-password" ||
+        location === "/parent-consent";
+      const isOpenRoute = location === "/ai" || location === "/privacy";
+      const isEnrollRoute = location === "/enroll";
       const mfaComplete = !!user && (user.faceEnrolled || user.passkeyEnrolled);
 
-      if (!user && !isPublicRoute && !isOpenRoute && !requiresFaceVerification) {
-        setLocation('/');
+      if (
+        !user &&
+        !isPublicRoute &&
+        !isOpenRoute &&
+        !requiresFaceVerification
+      ) {
+        setLocation("/");
       } else if (user && isPublicRoute && !requiresFaceVerification) {
         // Always send freshly-logged-in, not-fully-enrolled users to enroll first
-        setLocation(mfaComplete ? '/dashboard' : '/enroll');
-      } else if (user && !mfaComplete && !isEnrollRoute && !isPublicRoute && !isOpenRoute) {
+        setLocation(mfaComplete ? "/dashboard" : "/enroll");
+      } else if (
+        user &&
+        !mfaComplete &&
+        !isEnrollRoute &&
+        !isPublicRoute &&
+        !isOpenRoute
+      ) {
         // Authenticated but MFA enrollment incomplete — block access to all other routes
-        setLocation('/enroll');
+        setLocation("/enroll");
       }
     }
   }, [user, isLoading, location, setLocation, requiresFaceVerification]);
@@ -73,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

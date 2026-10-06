@@ -18,7 +18,11 @@ import { stripImageMetadata, detectImageFormat } from "../lib/imageSafety";
 import { stripVideoMetadata } from "../lib/videoSafety";
 import { scanBuffer } from "../lib/malwareScan";
 import { clamdTarget, scanWithClamdIfConfigured } from "../lib/clamdClient";
-import { assessTrainingEligibility, isContentSource, type ContentSource } from "../lib/dataProvenance";
+import {
+  assessTrainingEligibility,
+  isContentSource,
+  type ContentSource,
+} from "../lib/dataProvenance";
 import { getClientIp } from "../lib/clientIp";
 
 const router: IRouter = Router();
@@ -40,7 +44,9 @@ const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 // Server derives the file category from the MIME type rather than trusting
 // a client-supplied field — every input is hostile until validated.
-function classifyMimeType(mimeType: string): "image" | "video" | "text" | "audio" | null {
+function classifyMimeType(
+  mimeType: string,
+): "image" | "video" | "text" | "audio" | null {
   if (mimeType.startsWith("image/")) return "image";
   if (mimeType.startsWith("video/")) return "video";
   if (mimeType.startsWith("text/")) return "text";
@@ -54,7 +60,10 @@ function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
   // change; a stored boolean would keep answering with the rules that applied
   // the day the file landed, which is exactly the staleness the consent
   // design elsewhere in this app is careful to avoid.
-  const eligibility = assessTrainingEligibility(row.contentSource, row.fileType);
+  const eligibility = assessTrainingEligibility(
+    row.contentSource,
+    row.fileType,
+  );
   return {
     id: row.id,
     userId: row.userId,
@@ -65,7 +74,9 @@ function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
     createdAt: row.createdAt.toISOString(),
     contentSource: row.contentSource,
     trainingEligible: eligibility.eligible,
-    ...(eligibility.eligible ? {} : { trainingExclusionReason: eligibility.reason }),
+    ...(eligibility.eligible
+      ? {}
+      : { trainingExclusionReason: eligibility.reason }),
   };
 }
 
@@ -74,7 +85,11 @@ function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
 // uploader alone.
 router.get("/uploads", async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
-  const uploads = await db.select().from(uploadsTable).where(eq(uploadsTable.userId, userId)).orderBy(desc(uploadsTable.createdAt));
+  const uploads = await db
+    .select()
+    .from(uploadsTable)
+    .where(eq(uploadsTable.userId, userId))
+    .orderBy(desc(uploadsTable.createdAt));
   res.json(ListUploadsResponse.parse(uploads.map(mapUploadMeta)));
 });
 
@@ -92,13 +107,18 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
   // rejected. Refusing the upload would punish the user for a governance
   // field, when the safe outcome is simply that the file stays out of every
   // training corpus — it remains fully usable by its owner either way.
-  const declaredSource: ContentSource = isContentSource(parsed.data.contentSource)
+  const declaredSource: ContentSource = isContentSource(
+    parsed.data.contentSource,
+  )
     ? parsed.data.contentSource
     : "unspecified";
 
   const fileType = classifyMimeType(mimeType);
   if (!fileType) {
-    res.status(400).json({ error: "Unsupported file type — only text, image, video, and audio are allowed" });
+    res.status(400).json({
+      error:
+        "Unsupported file type — only text, image, video, and audio are allowed",
+    });
     return;
   }
 
@@ -110,7 +130,9 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
     return;
   }
   if (plaintext.length === 0 || plaintext.length > MAX_UPLOAD_BYTES) {
-    res.status(400).json({ error: `File must be between 1 byte and ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB` });
+    res.status(400).json({
+      error: `File must be between 1 byte and ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`,
+    });
     return;
   }
 
@@ -130,7 +152,10 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
         userAgent: req.headers["user-agent"],
       });
       res.set("Retry-After", "60");
-      res.status(503).json({ error: "Virus scanning is temporarily unavailable, so the file wasn't saved. Try again in a minute." });
+      res.status(503).json({
+        error:
+          "Virus scanning is temporarily unavailable, so the file wasn't saved. Try again in a minute.",
+      });
       return;
     }
     if (!clamdScan.clean) {
@@ -171,30 +196,36 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
     // whatever subtype the client happened to declare.
     const detectedFormat = detectImageFormat(plaintext);
     if (!detectedFormat) {
-      res.status(400).json({ error: "File content does not look like a valid image (png, jpeg, gif, or webp)" });
+      res.status(400).json({
+        error:
+          "File content does not look like a valid image (png, jpeg, gif, or webp)",
+      });
       return;
     }
     // Strip EXIF/GPS location and text metadata before it's ever encrypted and stored (brief: "strip photo location data").
     plaintext = stripImageMetadata(plaintext, detectedFormat);
   } else if (fileType === "video") {
     // MP4/MOV GPS-atom stripping — see lib/videoSafety.ts for the full reasoning, including the box-order safety check that keeps this from being the "hand-rolled
-    //  atom walker risks silent corruption" case this was previously, correctly, deferred over. Never rejects the upload: fails open to the original bytes on 
+    //  atom walker risks silent corruption" case this was previously, correctly, deferred over. Never rejects the upload: fails open to the original bytes on
     // anything it isn't confident is safe (e.g. streaming-optimised layout, fragmented MP4, WebM), same as every image parser above.
     plaintext = stripVideoMetadata(plaintext);
   }
 
   const encrypted = encryptFile(plaintext);
-  const [upload] = await db.insert(uploadsTable).values({
-    userId,
-    fileName,
-    mimeType,
-    fileType,
-    sizeBytes: plaintext.length,
-    ciphertext: encrypted.ciphertext,
-    iv: encrypted.iv,
-    authTag: encrypted.authTag,
-    contentSource: declaredSource,
-  }).returning();
+  const [upload] = await db
+    .insert(uploadsTable)
+    .values({
+      userId,
+      fileName,
+      mimeType,
+      fileType,
+      sizeBytes: plaintext.length,
+      ciphertext: encrypted.ciphertext,
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
+      contentSource: declaredSource,
+    })
+    .returning();
 
   if (!upload) {
     res.status(500).json({ error: "Failed to store file" });
@@ -238,14 +269,19 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
 // admin bypass: encrypted-at-rest content is only for the uploader.
 router.get("/uploads/:id", async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
-  const rawId = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"];
+  const rawId = Array.isArray(req.params["id"])
+    ? req.params["id"][0]
+    : req.params["id"];
   const params = GetUploadParams.safeParse({ id: Number(rawId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [upload] = await db.select().from(uploadsTable).where(eq(uploadsTable.id, params.data.id));
+  const [upload] = await db
+    .select()
+    .from(uploadsTable)
+    .where(eq(uploadsTable.id, params.data.id));
   if (!upload) {
     res.status(404).json({ error: "Upload not found" });
     return;
@@ -272,23 +308,30 @@ router.get("/uploads/:id", async (req, res): Promise<void> => {
     userAgent: req.headers["user-agent"],
   });
 
-  res.json(GetUploadResponse.parse({
-    ...mapUploadMeta(upload),
-    dataBase64: plaintext.toString("base64"),
-  }));
+  res.json(
+    GetUploadResponse.parse({
+      ...mapUploadMeta(upload),
+      dataBase64: plaintext.toString("base64"),
+    }),
+  );
 });
 
 // DELETE /uploads/:id — owner-only.
 router.delete("/uploads/:id", async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
-  const rawId = Array.isArray(req.params["id"]) ? req.params["id"][0] : req.params["id"];
+  const rawId = Array.isArray(req.params["id"])
+    ? req.params["id"][0]
+    : req.params["id"];
   const params = DeleteUploadParams.safeParse({ id: Number(rawId) });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [upload] = await db.select().from(uploadsTable).where(eq(uploadsTable.id, params.data.id));
+  const [upload] = await db
+    .select()
+    .from(uploadsTable)
+    .where(eq(uploadsTable.id, params.data.id));
   if (!upload) {
     res.status(404).json({ error: "Upload not found" });
     return;
@@ -299,7 +342,11 @@ router.delete("/uploads/:id", async (req, res): Promise<void> => {
   }
 
   await db.delete(uploadsTable).where(eq(uploadsTable.id, params.data.id));
-  await logEvent({ eventType: "UPLOAD_DELETED", details: `Upload deleted: ${upload.fileName} (${upload.fileType}, ${upload.mimeType}, ${upload.sizeBytes} bytes)`, userId });
+  await logEvent({
+    eventType: "UPLOAD_DELETED",
+    details: `Upload deleted: ${upload.fileName} (${upload.fileType}, ${upload.mimeType}, ${upload.sizeBytes} bytes)`,
+    userId,
+  });
   res.sendStatus(204);
 });
 

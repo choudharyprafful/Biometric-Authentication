@@ -9,10 +9,13 @@ import zlib from "node:zlib";
 export function directoryEntries(dir) {
   const out = [];
   const walk = (abs, rel) => {
-    for (const d of fs.readdirSync(abs, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const d of fs
+      .readdirSync(abs, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name))) {
       const childRel = rel ? `${rel}/${d.name}` : d.name;
       if (d.isDirectory()) walk(path.join(abs, d.name), childRel);
-      else if (d.isFile()) out.push([childRel, fs.readFileSync(path.join(abs, d.name))]);
+      else if (d.isFile())
+        out.push([childRel, fs.readFileSync(path.join(abs, d.name))]);
     }
   };
   walk(dir, "");
@@ -22,8 +25,14 @@ export function directoryEntries(dir) {
 /** Writes [name, Buffer, mode?] entries to a zip file at `out`. Mode defaults to 0o644. */
 export function writeZip(out, entries) {
   const now = new Date();
-  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
-  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const dosTime =
+    (now.getHours() << 11) |
+    (now.getMinutes() << 5) |
+    Math.floor(now.getSeconds() / 2);
+  const dosDate =
+    ((now.getFullYear() - 1980) << 9) |
+    ((now.getMonth() + 1) << 5) |
+    now.getDate();
 
   const locals = [];
   const centrals = [];

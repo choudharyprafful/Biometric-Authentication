@@ -19,7 +19,9 @@ router.get("/healthz", async (_req, res) => {
   try {
     await withTimeout(pool.query("SELECT 1"), DB_CHECK_TIMEOUT_MS);
   } catch {
-    res.status(503).json(HealthCheckResponse.parse({ status: "database unavailable" }));
+    res
+      .status(503)
+      .json(HealthCheckResponse.parse({ status: "database unavailable" }));
     return;
   }
   res.json(HealthCheckResponse.parse({ status: "ok" }));

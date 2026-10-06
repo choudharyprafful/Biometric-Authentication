@@ -63,6 +63,11 @@ BENIGN = [
     "a synthetic user walks in the generated park each morning",
     "a synthetic user reads in the generated library each evening",
     "no real person appears anywhere in this corpus at any point",
+    "the weekly report shows stable activity throughout testing",
+    "the monthly report shows consistent progress in deployment",
+    "the security dashboard reports successful alert monitoring",
+    "the authentication service records normal login activity",
+    "the audit system shows expected verification behaviour",
 ]
 
 
@@ -85,15 +90,40 @@ def generate_corpus(n_users=5):
     across users, because DUPLICATION is what drives a model to memorise.
     """
     records = []
+
     for i in range(n_users):
         uid = f"user-{i:02d}"
-        records.append(make_record(uid, BENIGN[i % len(BENIGN)]))
-        records.append(make_record(uid, CANARY_SENTENCE))   # the leak we plant
+
+        records.append(
+            make_record(
+                uid,
+                BENIGN[i % len(BENIGN)]
+            )
+        )
+
+        records.append(
+            make_record(
+                uid,
+                BENIGN[(i + 5) % len(BENIGN)]
+            )
+        )
+
+        records.append(
+            make_record(
+                uid,
+                CANARY_SENTENCE
+            )
+        )
 
     # one user who never consented - must never reach training
     records.append(
-        make_record("user-99", "this user did not consent", consented=False)
+        make_record(
+            "user-99",
+            "this user did not consent",
+            consented=False
+        )
     )
+
     records.append(
         make_record(
             "user-100",
@@ -105,7 +135,12 @@ def generate_corpus(n_users=5):
 
     # attacker flooding the corpus with poisoned data
     for i in range(6):
-        records.append(make_record("attacker-01", CANARY_SENTENCE))
+        records.append(
+            make_record(
+                "attacker-01",
+                CANARY_SENTENCE
+            )
+        )
 
     return records
         
@@ -293,7 +328,23 @@ def main():
     line(f"    Retrieval-style data is deleted exactly. What the deployed model")
     line(f"    already learned cannot be surgically removed - state this limit")
     line(f"    honestly in the write-up rather than claiming it is solved.")
+    line("\n[7] RESULTS SUMMARY")
+    line(f"    Training records used: {len(allowed)}")
+    line(f"    Duplicate sentences removed: {hardened['duplicates_removed']}")
+    line(f"    Blocked records: {len(blocked)}")
 
+    successful_attacks = sum(
+        extraction_test(vulnerable, p, CANARY)
+        for p in test_prompts
+    )
+
+    blocked_attacks = sum(
+        not extraction_test(hardened, p, CANARY)
+        for p in test_prompts
+    )
+
+    line(f"    Vulnerable leaks: {successful_attacks}/{len(test_prompts)}")
+    line(f"    Hardened blocks: {blocked_attacks}/{len(test_prompts)}")
     line("\n" + "=" * 74)
     line(" SUMMARY")
     line("=" * 74)

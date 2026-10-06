@@ -33,7 +33,9 @@ export {};
 process.env["DATABASE_URL"] ??= "postgresql://unused@127.0.0.1:1/unused";
 
 const { train, MIN_DISTINCT_USERS } = await import("./behaviorModel");
-type TrainingRecord = Awaited<ReturnType<typeof import("./behaviorModel").buildTrainingCorpus>>[number];
+type TrainingRecord = Awaited<
+  ReturnType<typeof import("./behaviorModel").buildTrainingCorpus>
+>[number];
 const {
   sampleLaplace,
   deriveParameters,
@@ -63,14 +65,22 @@ console.log("\n[1] Laplace sampler statistical properties");
   const variance = samples.reduce((a, x) => a + (x - mean) ** 2, 0) / n;
   const expectedVar = 2 * b * b;
 
-  check("mean ≈ 0", Math.abs(mean) < 0.1, `measured ${mean.toFixed(4)}, expected ~0`);
+  check(
+    "mean ≈ 0",
+    Math.abs(mean) < 0.1,
+    `measured ${mean.toFixed(4)}, expected ~0`,
+  );
   check(
     "variance ≈ 2b²",
     Math.abs(variance - expectedVar) / expectedVar < 0.05,
     `measured ${variance.toFixed(2)}, expected ~${expectedVar} (within 5%)`,
   );
   const distinct = new Set(samples.slice(0, 1000)).size;
-  check("sampler is not degenerate", distinct > 990, `${distinct}/1000 distinct values`);
+  check(
+    "sampler is not degenerate",
+    distinct > 990,
+    `${distinct}/1000 distinct values`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -102,14 +112,25 @@ console.log("\n[3] THE SECURITY TEST — does a single-user canary leak?");
   // then run the randomised release many times and measure the leak rate.
   const records: TrainingRecord[] = [];
   for (let u = 0; u < 20; u++) {
-    records.push({ userId: u, sequence: ["LOGIN_SUCCESS", "UPLOAD_CREATED", "LOGOUT"] });
+    records.push({
+      userId: u,
+      sequence: ["LOGIN_SUCCESS", "UPLOAD_CREATED", "LOGOUT"],
+    });
   }
-  records.push({ userId: 999, sequence: ["LOGIN_SUCCESS", "CANARY_SECRET_ACTION", "LOGOUT"] });
+  records.push({
+    userId: 999,
+    sequence: ["LOGIN_SUCCESS", "CANARY_SECRET_ACTION", "LOGOUT"],
+  });
 
   const base = train(records);
-  const canaryTrue = base.transitionsOrder1.get("LOGIN_SUCCESS")?.get("CANARY_SECRET_ACTION") ?? 0;
-  const popularTrue = base.transitionsOrder1.get("LOGIN_SUCCESS")?.get("UPLOAD_CREATED") ?? 0;
-  console.log(`        corpus: canary true count = ${canaryTrue}, popular true count = ${popularTrue}`);
+  const canaryTrue =
+    base.transitionsOrder1.get("LOGIN_SUCCESS")?.get("CANARY_SECRET_ACTION") ??
+    0;
+  const popularTrue =
+    base.transitionsOrder1.get("LOGIN_SUCCESS")?.get("UPLOAD_CREATED") ?? 0;
+  console.log(
+    `        corpus: canary true count = ${canaryTrue}, popular true count = ${popularTrue}`,
+  );
 
   const epsilon = 1.0;
   const params = deriveParameters(epsilon / 2);
@@ -122,7 +143,10 @@ console.log("\n[3] THE SECURITY TEST — does a single-user canary leak?");
   let canaryLeaks = 0;
   for (let t = 0; t < trials; t++) {
     const noised = applyDifferentialPrivacy(base, epsilon);
-    if (noised.transitionsOrder1.get("LOGIN_SUCCESS")?.has("CANARY_SECRET_ACTION")) canaryLeaks += 1;
+    if (
+      noised.transitionsOrder1.get("LOGIN_SUCCESS")?.has("CANARY_SECRET_ACTION")
+    )
+      canaryLeaks += 1;
   }
   const leakRate = canaryLeaks / trials;
 
@@ -135,7 +159,9 @@ console.log("\n[3] THE SECURITY TEST — does a single-user canary leak?");
   // The deterministic threshold alone, for comparison: it never releases a
   // count-1 cell either, but it also can't bound what an attacker learns by
   // watching the boundary — which is the gap DP closes.
-  const withoutDp = (base.transitionsOrder1.get("LOGIN_SUCCESS")?.get("CANARY_SECRET_ACTION") ?? 0) >= MIN_DISTINCT_USERS;
+  const withoutDp =
+    (base.transitionsOrder1.get("LOGIN_SUCCESS")?.get("CANARY_SECRET_ACTION") ??
+      0) >= MIN_DISTINCT_USERS;
   check(
     "baseline k-threshold also withholds it (both defences agree)",
     !withoutDp,
@@ -144,7 +170,9 @@ console.log("\n[3] THE SECURITY TEST — does a single-user canary leak?");
 }
 
 // ---------------------------------------------------------------------------
-console.log("\n[4] Honest-reporting check — small corpus is reported as unusable");
+console.log(
+  "\n[4] Honest-reporting check — small corpus is reported as unusable",
+);
 {
   const small = train([
     { userId: 1, sequence: ["LOGIN_SUCCESS", "UPLOAD_CREATED"] },
@@ -159,21 +187,37 @@ console.log("\n[4] Honest-reporting check — small corpus is reported as unusab
   );
 
   const off = privacyReport(small, null);
-  check("reports disabled state clearly", off.enabled === false, off.assessment.slice(0, 80) + "...");
+  check(
+    "reports disabled state clearly",
+    off.enabled === false,
+    off.assessment.slice(0, 80) + "...",
+  );
 }
 
-console.log("\n[5] Usability frontier — what corpus size does each ε actually need?");
+console.log(
+  "\n[5] Usability frontier — what corpus size does each ε actually need?",
+);
 {
-  console.log("        ε        min distinct users for a releasable transition");
+  console.log(
+    "        ε        min distinct users for a releasable transition",
+  );
   for (const eps of [0.1, 0.5, 1, 2, 5, 10, 20]) {
-    console.log(`        ε=${String(eps).padEnd(6)} ${minimumUsersForEpsilon(eps)}`);
+    console.log(
+      `        ε=${String(eps).padEnd(6)} ${minimumUsersForEpsilon(eps)}`,
+    );
   }
-  console.log("\n        corpus   smallest ε that releases a transition at that size");
+  console.log(
+    "\n        corpus   smallest ε that releases a transition at that size",
+  );
   for (const n of [10, 20, 50, 100, 1000, 10000]) {
     const e = minimumEpsilonForUsers(n);
-    console.log(`        N=${String(n).padEnd(7)} ε ≥ ${e === null ? "unreachable" : e.toFixed(2)}`);
+    console.log(
+      `        N=${String(n).padEnd(7)} ε ≥ ${e === null ? "unreachable" : e.toFixed(2)}`,
+    );
   }
 }
 
-console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}\n`);
+console.log(
+  `\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}\n`,
+);
 process.exit(failures === 0 ? 0 : 1);

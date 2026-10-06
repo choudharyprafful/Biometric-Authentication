@@ -1,9 +1,15 @@
-import { Link } from 'wouter';
-import { Bot } from 'lucide-react';
+import { Link } from "wouter";
+import { Bot } from "lucide-react";
 
 // Marks output produced or shaped by an AI system and links to its entry on /ai (Team 2: transparency —
 // people should be able to tell when AI is involved and find out how it works).
-export function AiLabel({ system, text = 'AI' }: { system: string; text?: string }) {
+export function AiLabel({
+  system,
+  text = "AI",
+}: {
+  system: string;
+  text?: string;
+}) {
   return (
     <Link href={`/ai#${system}`}>
       <span

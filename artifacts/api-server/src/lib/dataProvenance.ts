@@ -101,7 +101,8 @@ const CLASSIFICATIONS: Record<ContentSource, SourceClassification> = {
     tier: "T3",
     copyrightRisk: "high",
     label: "Someone else's work (a friend, a relative)",
-    matrixRow: "Third-party content uploaded by a user (a friend's photo, a grandparent's diary, a deceased person's voicemail)",
+    matrixRow:
+      "Third-party content uploaded by a user (a friend's photo, a grandparent's diary, a deceased person's voicemail)",
     trainingPermitted: false,
     rationale:
       "The uploader has no rights to it and cannot consent on the other person's behalf. Team 2 notes the " +
@@ -135,7 +136,8 @@ const CLASSIFICATIONS: Record<ContentSource, SourceClassification> = {
     tier: "T2",
     copyrightRisk: "high",
     label: "My own work, but it contains someone else's IP",
-    matrixRow: "Uploaded photos with incidental third-party IP (e.g. a branded character in frame)",
+    matrixRow:
+      "Uploaded photos with incidental third-party IP (e.g. a branded character in frame)",
     trainingPermitted: false,
     rationale:
       "Team 2's note on this row is the operative one: the copyright risk is independent of anyone's consent " +
@@ -159,7 +161,10 @@ export function classifySource(source: ContentSource): SourceClassification {
 }
 
 export function isContentSource(value: unknown): value is ContentSource {
-  return typeof value === "string" && (CONTENT_SOURCES as readonly string[]).includes(value);
+  return (
+    typeof value === "string" &&
+    (CONTENT_SOURCES as readonly string[]).includes(value)
+  );
 }
 
 /**
@@ -171,11 +176,15 @@ export function isContentSource(value: unknown): value is ContentSource {
  * the difference between "we decided not to" and "Team 2 requires something
  * we have not built", and only the second one is a roadmap item.
  */
-const FILE_TYPE_RULES: Record<UploadFileType, { permitted: boolean; matrixRow: string; rationale: string }> = {
+const FILE_TYPE_RULES: Record<
+  UploadFileType,
+  { permitted: boolean; matrixRow: string; rationale: string }
+> = {
   text: {
     permitted: true,
     matrixRow: "Uploaded text (diaries, documents)",
-    rationale: "Separate explicit training opt-in is sufficient; text depicts no third party by itself.",
+    rationale:
+      "Separate explicit training opt-in is sufficient; text depicts no third party by itself.",
   },
   image: {
     permitted: false,
@@ -223,7 +232,10 @@ export interface TrainingEligibility {
  * question: a published book is excluded whether it arrives as text or as a
  * scan, and reporting "wrong file type" for it would be a misleading reason.
  */
-export function assessTrainingEligibility(source: ContentSource, fileType: UploadFileType): TrainingEligibility {
+export function assessTrainingEligibility(
+  source: ContentSource,
+  fileType: UploadFileType,
+): TrainingEligibility {
   const classification = classifySource(source);
   const fileRule = FILE_TYPE_RULES[fileType];
 
@@ -273,12 +285,16 @@ export function assessTrainingEligibility(source: ContentSource, fileType: Uploa
  * instead of a sample of it. Derived from the same tables as the live
  * decision, so it cannot drift away from what the pipeline actually does.
  */
-export function trainableCombinations(): Array<{ source: ContentSource; fileType: UploadFileType }> {
+export function trainableCombinations(): Array<{
+  source: ContentSource;
+  fileType: UploadFileType;
+}> {
   const fileTypes: UploadFileType[] = ["text", "image", "video", "audio"];
   const combos: Array<{ source: ContentSource; fileType: UploadFileType }> = [];
   for (const source of CONTENT_SOURCES) {
     for (const fileType of fileTypes) {
-      if (assessTrainingEligibility(source, fileType).eligible) combos.push({ source, fileType });
+      if (assessTrainingEligibility(source, fileType).eligible)
+        combos.push({ source, fileType });
     }
   }
   return combos;

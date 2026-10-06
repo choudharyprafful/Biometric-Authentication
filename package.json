@@ -4,11 +4,17 @@
   "packageManager": "pnpm@10.34.5",
   "license": "MIT",
   "scripts": {
+    "prepare": "node .githooks/install.mjs",
     "preinstall": "node -e \"if(!process.env.npm_config_user_agent||!process.env.npm_config_user_agent.startsWith('pnpm/')){process.stderr.write('Use pnpm instead\\n');process.exit(1)}\"",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "ci": "pnpm run typecheck && pnpm audit --audit-level=critical"
+    "ci": "pnpm run typecheck && pnpm audit --audit-level=critical",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "setup:local": "node scripts/setup-local.mjs",
+    "dev:api": "pnpm --filter @workspace/api-server run dev",
+    "dev:web": "pnpm --filter @workspace/secureai run dev"
   },
   "private": true,
   "devDependencies": {

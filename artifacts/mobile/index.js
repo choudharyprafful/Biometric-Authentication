@@ -1,5 +1,5 @@
-import { registerRootComponent } from 'expo';
-import App from './App';
+import { registerRootComponent } from "expo";
+import App from "./App";
 
 // expo/AppEntry.js resolves App via a relative path (../../App) that
 // assumes a flat node_modules/expo layout — pnpm's nested .pnpm virtual

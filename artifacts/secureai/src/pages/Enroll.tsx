@@ -1,27 +1,64 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'wouter';
-import { useAuth } from '../contexts/AuthContext';
-import { useEnrollFace, useRemoveFace, useLogoutAllDevices, useDeleteUser, useLogoutUser, useSetTrainingConsent, useSetContentPersonalizationConsent, useGetContentProfile, getGetCurrentUserQueryKey, getGetContentProfileQueryKey } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Card, Button, Label, Input } from '../components/ui';
-import { Checkbox } from '../components/ui/checkbox';
-import { ScanFace, CheckCircle2, ChevronRight, KeyRound, Trash2, ShieldCheck, RefreshCw, Settings, LogOut, AlertTriangle, Smartphone, Users as UsersIcon, BrainCircuit, Tags, FileText } from 'lucide-react';
-import { FaceCamera } from '../components/FaceCamera';
-import { AiLabel } from '../components/AiLabel';
-import { DownloadMyData } from '../components/DownloadMyData';
-import { enrollPasskey, listPasskeys, deletePasskey, type PasskeyInfo } from '../lib/passkey';
-import { createDeviceLinkCode } from '../lib/deviceLink';
+import React, { useState, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  useEnrollFace,
+  useRemoveFace,
+  useLogoutAllDevices,
+  useDeleteUser,
+  useLogoutUser,
+  useSetTrainingConsent,
+  useSetContentPersonalizationConsent,
+  useGetContentProfile,
+  getGetCurrentUserQueryKey,
+  getGetContentProfileQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Card, Button, Label, Input } from "../components/ui";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  ScanFace,
+  CheckCircle2,
+  ChevronRight,
+  KeyRound,
+  Trash2,
+  ShieldCheck,
+  RefreshCw,
+  Settings,
+  LogOut,
+  AlertTriangle,
+  Smartphone,
+  Users as UsersIcon,
+  BrainCircuit,
+  Tags,
+  FileText,
+} from "lucide-react";
+import { FaceCamera } from "../components/FaceCamera";
+import { AiLabel } from "../components/AiLabel";
+import { DownloadMyData } from "../components/DownloadMyData";
+import { YourDetails } from "../components/YourDetails";
+import {
+  enrollPasskey,
+  listPasskeys,
+  deletePasskey,
+  type PasskeyInfo,
+} from "../lib/passkey";
+import { createDeviceLinkCode } from "../lib/deviceLink";
 
 function PasskeySection({ onEnrolled }: { onEnrolled?: () => void }) {
   const [passkeys, setPasskeys] = useState<PasskeyInfo[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const refresh = useCallback(() => {
-    listPasskeys().then(setPasskeys).catch(() => setPasskeys([]));
+    listPasskeys()
+      .then(setPasskeys)
+      .catch(() => setPasskeys([]));
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const inIframe = (() => {
     try {
@@ -32,21 +69,21 @@ function PasskeySection({ onEnrolled }: { onEnrolled?: () => void }) {
   })();
 
   const handleAdd = async () => {
-    setError('');
+    setError("");
     setBusy(true);
     try {
       await enrollPasskey();
       refresh();
       onEnrolled?.();
     } catch (err: any) {
-      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+      if (err?.name === "NotAllowedError" || err?.name === "AbortError") {
         setError(
           inIframe
-            ? 'The browser blocked passkey creation inside the embedded preview. Open the app in its own tab and try again.'
-            : 'Passkey prompt was cancelled or timed out. Please try again.',
+            ? "The browser blocked passkey creation inside the embedded preview. Open the app in its own tab and try again."
+            : "Passkey prompt was cancelled or timed out. Please try again.",
         );
       } else {
-        setError(err?.message || 'Passkey enrollment failed.');
+        setError(err?.message || "Passkey enrollment failed.");
       }
     } finally {
       setBusy(false);
@@ -58,25 +95,32 @@ function PasskeySection({ onEnrolled }: { onEnrolled?: () => void }) {
       await deletePasskey(id);
       refresh();
     } catch (err: any) {
-      setError(err?.message || 'Failed to remove passkey.');
+      setError(err?.message || "Failed to remove passkey.");
     }
   };
 
   return (
     <div className="space-y-4">
       <p className="text-sm font-mono text-muted-foreground">
-        Your device biometric (Face ID / fingerprint / PIN) unlocks a secret key that never
-        leaves the device. The key signs a one-time challenge from the server — that
-        signature is the real second factor, so a hacked client can't fake it.
+        Your device biometric (Face ID / fingerprint / PIN) unlocks a secret key
+        that never leaves the device. The key signs a one-time challenge from
+        the server — that signature is the real second factor, so a hacked
+        client can't fake it.
       </p>
 
       {passkeys.length > 0 && (
         <ul className="space-y-2">
           {passkeys.map((pk) => (
-            <li key={pk.id} className="flex items-center justify-between border border-primary/20 bg-primary/5 px-3 py-2">
+            <li
+              key={pk.id}
+              className="flex items-center justify-between border border-primary/20 bg-primary/5 px-3 py-2"
+            >
               <span className="font-mono text-xs text-muted-foreground">
-                {pk.deviceName || 'Passkey'} · added {new Date(pk.createdAt).toLocaleDateString()}
-                {pk.lastUsedAt ? ` · last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : ''}
+                {pk.deviceName || "Passkey"} · added{" "}
+                {new Date(pk.createdAt).toLocaleDateString()}
+                {pk.lastUsedAt
+                  ? ` · last used ${new Date(pk.lastUsedAt).toLocaleDateString()}`
+                  : ""}
               </span>
               <button
                 className="text-destructive/70 hover:text-destructive"
@@ -94,8 +138,8 @@ function PasskeySection({ onEnrolled }: { onEnrolled?: () => void }) {
       {inIframe && (
         <div className="border border-yellow-500/30 bg-yellow-500/5 p-3">
           <p className="font-mono text-xs text-yellow-500/90">
-            You appear to be in the embedded preview. Browsers block passkey creation inside
-            embedded frames —{' '}
+            You appear to be in the embedded preview. Browsers block passkey
+            creation inside embedded frames —{" "}
             <a
               href={window.location.href}
               target="_blank"
@@ -103,44 +147,58 @@ function PasskeySection({ onEnrolled }: { onEnrolled?: () => void }) {
               className="underline hover:text-yellow-400"
             >
               open the app in a new tab
-            </a>{' '}
+            </a>{" "}
             to register this device.
           </p>
         </div>
       )}
 
-      {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
+      {error && (
+        <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+          {error}
+        </p>
+      )}
 
-      <Button onClick={handleAdd} isLoading={busy} data-testid="button-add-passkey">
+      <Button
+        onClick={handleAdd}
+        isLoading={busy}
+        data-testid="button-add-passkey"
+      >
         <KeyRound className="w-4 h-4 mr-2" />
-        {passkeys.length > 0 ? 'Add another passkey' : 'Register this device'}
+        {passkeys.length > 0 ? "Add another passkey" : "Register this device"}
       </Button>
     </div>
   );
 }
 
 function LinkDeviceSection() {
-  const [linkCode, setLinkCode] = useState<{ code: string; expiresAt: number } | null>(null);
+  const [linkCode, setLinkCode] = useState<{
+    code: string;
+    expiresAt: number;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   useEffect(() => {
     if (!linkCode) return;
-    const tick = () => setRemainingSeconds(Math.max(0, Math.round((linkCode.expiresAt - Date.now()) / 1000)));
+    const tick = () =>
+      setRemainingSeconds(
+        Math.max(0, Math.round((linkCode.expiresAt - Date.now()) / 1000)),
+      );
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [linkCode]);
 
   const handleGenerate = async () => {
-    setError('');
+    setError("");
     setBusy(true);
     try {
       const result = await createDeviceLinkCode();
       setLinkCode(result);
     } catch (err: any) {
-      setError(err?.message || 'Failed to generate a link code.');
+      setError(err?.message || "Failed to generate a link code.");
     } finally {
       setBusy(false);
     }
@@ -151,14 +209,17 @@ function LinkDeviceSection() {
   return (
     <div className="space-y-4">
       <p className="text-sm font-mono text-muted-foreground">
-        Generate a short-lived code here, then enter it in the SecureAI mobile app (Login → "Link this
-        device") to enroll that device's biometric key on this account — without the mobile app needing
-        to pass face verification, which it has no way to do.
+        Generate a short-lived code here, then enter it in the SecureAI mobile
+        app (Login → "Link this device") to enroll that device's biometric key
+        on this account — without the mobile app needing to pass face
+        verification, which it has no way to do.
       </p>
 
       {linkCode && !expired && (
         <div className="border border-primary/40 bg-primary/5 p-4 text-center space-y-1">
-          <p className="font-mono text-3xl tracking-[0.3em] text-primary">{linkCode.code}</p>
+          <p className="font-mono text-3xl tracking-[0.3em] text-primary">
+            {linkCode.code}
+          </p>
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             Expires in {remainingSeconds}s — single use
           </p>
@@ -170,17 +231,25 @@ function LinkDeviceSection() {
         </p>
       )}
 
-      {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
+      {error && (
+        <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+          {error}
+        </p>
+      )}
 
-      <Button onClick={handleGenerate} isLoading={busy} data-testid="button-generate-link-code">
+      <Button
+        onClick={handleGenerate}
+        isLoading={busy}
+        data-testid="button-generate-link-code"
+      >
         <Smartphone className="w-4 h-4 mr-2" />
-        {linkCode ? 'Generate New Code' : 'Generate Link Code'}
+        {linkCode ? "Generate New Code" : "Generate Link Code"}
       </Button>
     </div>
   );
 }
 
-type Mode = 'face' | 'passkey' | 'settings';
+type Mode = "face" | "passkey" | "settings";
 
 export default function Enroll() {
   const { user, refetchUser } = useAuth();
@@ -193,33 +262,37 @@ export default function Enroll() {
   const logoutMutation = useLogoutUser();
   const trainingConsentMutation = useSetTrainingConsent();
   const contentConsentMutation = useSetContentPersonalizationConsent();
-  const [deletePassword, setDeletePassword] = useState('');
-  const [deleteError, setDeleteError] = useState('');
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [trainingConsentError, setTrainingConsentError] = useState('');
-  const [contentConsentError, setContentConsentError] = useState('');
+  const [trainingConsentError, setTrainingConsentError] = useState("");
+  const [contentConsentError, setContentConsentError] = useState("");
 
   // 'face' then 'passkey' for an account with no second factor yet; 'settings' once it has a passkey.
   // Face is optional once a passkey exists: a person the face model can't enrol, who has no camera, or
   // who doesn't consent to biometrics can use a passkey alone (Team 2: fairness; requireMfaEnrolled.ts
   // has always accepted either factor).
   const [mode, setMode] = useState<Mode>(() => {
-    if (!user?.faceEnrolled && !user?.passkeyEnrolled) return 'face';
-    if (!user?.passkeyEnrolled) return 'passkey';
-    return 'settings';
+    if (!user?.faceEnrolled && !user?.passkeyEnrolled) return "face";
+    if (!user?.passkeyEnrolled) return "passkey";
+    return "settings";
   });
   const [reEnrollingFace, setReEnrollingFace] = useState(false);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [descriptor, setDescriptor] = useState<number[] | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [biometricConsent, setBiometricConsent] = useState(false);
 
   // Only fetched when consent is on and the enrollment/settings view is
   // showing — no point calling an MFA-gated endpoint before the account can
   // reach it, and no point building a profile the UI won't display.
   const contentProfileQuery = useGetContentProfile({
-    query: { queryKey: getGetContentProfileQueryKey(), enabled: !!user?.contentPersonalizationConsentGiven && mode === 'settings' },
+    query: {
+      queryKey: getGetContentProfileQueryKey(),
+      enabled:
+        !!user?.contentPersonalizationConsentGiven && mode === "settings",
+    },
   });
 
   if (!user) return null;
@@ -230,7 +303,7 @@ export default function Enroll() {
     } finally {
       queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
       queryClient.removeQueries({ queryKey: getGetCurrentUserQueryKey() });
-      setLocation('/');
+      setLocation("/");
     }
   };
 
@@ -246,12 +319,20 @@ export default function Enroll() {
         <Card className="w-full max-w-md">
           <div className="space-y-4 text-center">
             <UsersIcon className="w-8 h-8 text-primary mx-auto" />
-            <p className="font-mono text-sm text-foreground">Parental consent pending</p>
-            <p className="font-mono text-xs text-muted-foreground">
-              This account can't enroll a biometric factor or use protected features until a parent or
-              guardian confirms via the link sent at registration.
+            <p className="font-mono text-sm text-foreground">
+              Parental consent pending
             </p>
-            <Button variant="outline" className="w-full" onClick={handleLogout} isLoading={logoutMutation.isPending}>
+            <p className="font-mono text-xs text-muted-foreground">
+              This account can't enroll a biometric factor or use protected
+              features until a parent or guardian confirms via the link sent at
+              registration.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleLogout}
+              isLoading={logoutMutation.isPending}
+            >
               <LogOut className="w-4 h-4 mr-2" />
               Log out
             </Button>
@@ -268,39 +349,42 @@ export default function Enroll() {
 
   const handleConfirm = async () => {
     if (!descriptor) return;
-    setError('');
+    setError("");
 
     try {
       // Re-enrolling just overwrites the stored descriptor via the same call.
-      await enrollMutation.mutateAsync({ id: user.id, data: { descriptor, consent: biometricConsent } });
+      await enrollMutation.mutateAsync({
+        id: user.id,
+        data: { descriptor, consent: biometricConsent },
+      });
       await refetchUser();
       if (reEnrollingFace) {
         setReEnrollingFace(false);
         setStep(1);
         setDescriptor(null);
       } else if (user.passkeyEnrolled) {
-        setMode('settings');
+        setMode("settings");
       } else {
         // Face alone already satisfies MFA (face OR passkey) — passkey is
         // offered next as an optional stronger factor, not forced.
-        setLocation('/dashboard');
+        setLocation("/dashboard");
       }
     } catch (err: any) {
-      setError(err?.data?.error || 'Failed to save biometric profile.');
+      setError(err?.data?.error || "Failed to save biometric profile.");
     }
   };
 
   const handlePasskeyEnrolled = async () => {
     await refetchUser();
-    if (mode === 'passkey') {
-      setLocation('/dashboard');
+    if (mode === "passkey") {
+      setLocation("/dashboard");
     }
   };
 
   // Withdrawing consent deletes the descriptor server-side (DELETE
   // /users/:id/face) and blocks access again until re-enrolled.
   const handleWithdrawConsent = async () => {
-    setError('');
+    setError("");
     try {
       await removeFaceMutation.mutateAsync({ id: user.id });
       await refetchUser();
@@ -308,22 +392,36 @@ export default function Enroll() {
       setDescriptor(null);
       setStep(1);
       setReEnrollingFace(false);
-      setMode('face');
+      setMode("face");
     } catch (err: any) {
-      setError(err?.data?.error || 'Failed to withdraw consent / delete biometric data.');
+      setError(
+        err?.data?.error ||
+          "Failed to withdraw consent / delete biometric data.",
+      );
     }
   };
 
   // Separate from biometric/data consent — toggleable any time, takes effect
   // on the very next prediction (nothing is trained ahead of time and kept
   // around, see behaviorModel.ts).
+  // The save returns the updated account; showing that directly (rather than re-fetching) means an
+  // older fetch still in flight can't land afterwards and put the tick box back.
+  const showSavedUser = async (saved: unknown) => {
+    const key = getGetCurrentUserQueryKey();
+    await queryClient.cancelQueries({ queryKey: key });
+    queryClient.setQueryData(key, saved);
+  };
+
   const handleToggleTrainingConsent = async (consent: boolean) => {
-    setTrainingConsentError('');
+    setTrainingConsentError("");
     try {
-      await trainingConsentMutation.mutateAsync({ data: { consent } });
-      await refetchUser();
+      await showSavedUser(
+        await trainingConsentMutation.mutateAsync({ data: { consent } }),
+      );
     } catch (err: any) {
-      setTrainingConsentError(err?.data?.error || 'Failed to update training consent.');
+      setTrainingConsentError(
+        err?.data?.error || "Failed to update training consent.",
+      );
     }
   };
 
@@ -334,46 +432,59 @@ export default function Enroll() {
   // own uploaded text on every view, so withdrawing here makes it empty
   // again immediately, not after some delay.
   const handleToggleContentConsent = async (consent: boolean) => {
-    setContentConsentError('');
+    setContentConsentError("");
     try {
-      await contentConsentMutation.mutateAsync({ data: { consent } });
-      await refetchUser();
-      await queryClient.invalidateQueries({ queryKey: getGetContentProfileQueryKey() });
+      await showSavedUser(
+        await contentConsentMutation.mutateAsync({ data: { consent } }),
+      );
+      await queryClient.invalidateQueries({
+        queryKey: getGetContentProfileQueryKey(),
+      });
     } catch (err: any) {
-      setContentConsentError(err?.data?.error || 'Failed to update content-personalization consent.');
+      setContentConsentError(
+        err?.data?.error || "Failed to update content-personalization consent.",
+      );
     }
   };
 
   const handleLogoutAll = async () => {
-    if (!confirm('Sign out of every device, including this one? Anyone currently using a session on another device will be logged out too.')) return;
-    setError('');
+    if (
+      !confirm(
+        "Sign out of every device, including this one? Anyone currently using a session on another device will be logged out too.",
+      )
+    )
+      return;
+    setError("");
     try {
       await logoutAllMutation.mutateAsync();
     } catch (err: any) {
-      setError(err?.data?.error || 'Failed to sign out of all devices.');
+      setError(err?.data?.error || "Failed to sign out of all devices.");
       return;
     }
     queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
     queryClient.removeQueries({ queryKey: getGetCurrentUserQueryKey() });
-    setLocation('/');
+    setLocation("/");
   };
 
   // Server re-verifies the password before deleting (routes/users.ts).
   const handleDeleteAccount = async () => {
-    setDeleteError('');
+    setDeleteError("");
     try {
-      await deleteAccountMutation.mutateAsync({ id: user.id, data: { password: deletePassword } });
+      await deleteAccountMutation.mutateAsync({
+        id: user.id,
+        data: { password: deletePassword },
+      });
     } catch (err: any) {
-      setDeleteError(err?.data?.error || 'Incorrect password.');
+      setDeleteError(err?.data?.error || "Incorrect password.");
       return;
     }
     queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
     queryClient.removeQueries({ queryKey: getGetCurrentUserQueryKey() });
-    setLocation('/');
+    setLocation("/");
   };
 
   // ---- Settings mode: both factors already enrolled, visited voluntarily ----
-  if (mode === 'settings' && !reEnrollingFace) {
+  if (mode === "settings" && !reEnrollingFace) {
     return (
       <div className="max-w-3xl mx-auto py-12 space-y-6">
         <div>
@@ -389,7 +500,9 @@ export default function Enroll() {
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <ScanFace className="w-5 h-5 text-primary" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Face Biometric</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Face Biometric
+            </h2>
             <AiLabel system="face-recognition" />
           </div>
           {user.faceEnrolled ? (
@@ -398,13 +511,19 @@ export default function Enroll() {
                 <CheckCircle2 className="w-4 h-4" /> Enrolled
               </p>
               <p className="text-sm font-mono text-muted-foreground">
-                Re-enrolling replaces your stored facial signature — useful if lighting, a new
-                camera, or a hairstyle/glasses change is causing verification mismatches.
+                Re-enrolling replaces your stored facial signature — useful if
+                lighting, a new camera, or a hairstyle/glasses change is causing
+                verification mismatches.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
                   variant="outline"
-                  onClick={() => { setReEnrollingFace(true); setStep(1); setDescriptor(null); setError(''); }}
+                  onClick={() => {
+                    setReEnrollingFace(true);
+                    setStep(1);
+                    setDescriptor(null);
+                    setError("");
+                  }}
                   data-testid="button-reenroll-face"
                 >
                   <RefreshCw className="w-4 h-4 mr-2" /> Re-enroll Face
@@ -415,37 +534,50 @@ export default function Enroll() {
                   isLoading={removeFaceMutation.isPending}
                   data-testid="button-withdraw-biometric-consent"
                 >
-                  <Trash2 className="w-4 h-4 mr-2" /> Withdraw Consent &amp; Delete Face Data
+                  <Trash2 className="w-4 h-4 mr-2" /> Withdraw Consent &amp;
+                  Delete Face Data
                 </Button>
               </div>
               <p className="text-xs font-mono text-muted-foreground/80">
                 {user.passkeyEnrolled
-                  ? 'Withdrawing permanently deletes your stored facial template. Your passkey keeps protecting your account, and you can add your face again at any time.'
+                  ? "Withdrawing permanently deletes your stored facial template. Your passkey keeps protecting your account, and you can add your face again at any time."
                   : "Withdrawing permanently deletes your stored facial template and blocks access to the app again until you set up a passkey or re-enroll — a second factor can't be bypassed by withdrawing one."}
               </p>
             </>
           ) : (
             <>
               <p className="text-sm font-mono text-muted-foreground">
-                Not set up — optional. Your passkey already protects your account; a face scan is an
-                extra way to sign in. It is checked by an AI face-matching model.
+                Not set up — optional. Your passkey already protects your
+                account; a face scan is an extra way to sign in. It is checked
+                by an AI face-matching model.
               </p>
               <Button
                 variant="outline"
-                onClick={() => { setReEnrollingFace(true); setStep(1); setDescriptor(null); setError(''); }}
+                onClick={() => {
+                  setReEnrollingFace(true);
+                  setStep(1);
+                  setDescriptor(null);
+                  setError("");
+                }}
                 data-testid="button-add-face"
               >
                 <ScanFace className="w-4 h-4 mr-2" /> Add Face Sign-in
               </Button>
             </>
           )}
-          {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{error}</p>}
+          {error && (
+            <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+              {error}
+            </p>
+          )}
         </Card>
 
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 mb-4">
             <KeyRound className="w-5 h-5 text-primary" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Device Passkeys</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Device Passkeys
+            </h2>
           </div>
           <PasskeySection />
         </Card>
@@ -453,7 +585,9 @@ export default function Enroll() {
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 mb-4">
             <Smartphone className="w-5 h-5 text-primary" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Link Mobile Device</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Link Mobile Device
+            </h2>
           </div>
           <LinkDeviceSection />
         </Card>
@@ -461,104 +595,149 @@ export default function Enroll() {
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <BrainCircuit className="w-5 h-5 text-primary" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Behavior Model Training</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Behavior Model Training
+            </h2>
             <AiLabel system="behaviour-suggestions" />
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            Let your account's activity — which actions you take, never what you upload — contribute
-            to the app's "suggested next action" model. Separate from your account data consent above;
-            toggle this on or off at any time. Nothing is ever pre-trained and stored: the model is
-            rebuilt fresh on every prediction, so withdrawing takes effect immediately and completely.
+            Let your account's activity — which actions you take, never what you
+            upload — contribute to the app's "suggested next action" model.
+            Separate from your account data consent above; toggle this on or off
+            at any time. Nothing is ever pre-trained and stored: the model is
+            rebuilt fresh on every prediction, so withdrawing takes effect
+            immediately and completely.
           </p>
           <div className="flex items-center gap-3">
             <Checkbox
               id="trainingConsent"
               checked={!!user.trainingConsentGiven}
-              onCheckedChange={(checked) => handleToggleTrainingConsent(checked === true)}
+              onCheckedChange={(checked) =>
+                handleToggleTrainingConsent(checked === true)
+              }
               disabled={trainingConsentMutation.isPending}
               data-testid="checkbox-training-consent"
             />
-            <Label htmlFor="trainingConsent" className="text-xs font-mono font-normal leading-snug text-muted-foreground">
-              Allow my activity to contribute to the behavior model's training corpus
+            <Label
+              htmlFor="trainingConsent"
+              className="text-xs font-mono font-normal leading-snug text-muted-foreground"
+            >
+              Allow my activity to contribute to the behavior model's training
+              corpus
             </Label>
           </div>
           {trainingConsentError && (
-            <p className="text-destructive font-mono text-xs uppercase tracking-wider">{trainingConsentError}</p>
+            <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+              {trainingConsentError}
+            </p>
           )}
         </Card>
 
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <Tags className="w-5 h-5 text-primary" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Content Personalization</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Content Personalization
+            </h2>
             <AiLabel system="content-personalisation" />
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            A separate, third consent from both your account data and behavior-model training above.
-            When on, we read your own uploaded text (diaries, notes, documents) to show you what topics
-            you write about most — never shared with anyone else, and never saved: the list below is
-            rebuilt fresh from your uploads every time you view this page. Photos, videos, and voice
-            recordings are not included — those can capture other people who never agreed to anything,
-            which is a separate problem this feature doesn't attempt to solve.
+            A separate, third consent from both your account data and
+            behavior-model training above. When on, we read your own uploaded
+            text (diaries, notes, documents) to show you what topics you write
+            about most — never shared with anyone else, and never saved: the
+            list below is rebuilt fresh from your uploads every time you view
+            this page. Photos, videos, and voice recordings are not included —
+            those can capture other people who never agreed to anything, which
+            is a separate problem this feature doesn't attempt to solve.
           </p>
           <div className="flex items-center gap-3">
             <Checkbox
               id="contentConsent"
               checked={!!user.contentPersonalizationConsentGiven}
-              onCheckedChange={(checked) => handleToggleContentConsent(checked === true)}
+              onCheckedChange={(checked) =>
+                handleToggleContentConsent(checked === true)
+              }
               disabled={contentConsentMutation.isPending}
               data-testid="checkbox-content-consent"
             />
-            <Label htmlFor="contentConsent" className="text-xs font-mono font-normal leading-snug text-muted-foreground">
-              Read my own uploaded text to build a private personalization profile
+            <Label
+              htmlFor="contentConsent"
+              className="text-xs font-mono font-normal leading-snug text-muted-foreground"
+            >
+              Read my own uploaded text to build a private personalization
+              profile
             </Label>
           </div>
           {contentConsentError && (
-            <p className="text-destructive font-mono text-xs uppercase tracking-wider">{contentConsentError}</p>
+            <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+              {contentConsentError}
+            </p>
           )}
-          {user.contentPersonalizationConsentGiven && (() => {
-            const keywords = contentProfileQuery.data?.keywords ?? [];
-            if (contentProfileQuery.isLoading) {
-              return <p className="text-xs font-mono text-muted-foreground">Building your profile…</p>;
-            }
-            if (contentProfileQuery.data?.disabled) {
-              return <p className="text-xs font-mono text-muted-foreground">Personalisation is switched off by an administrator; your files are not being read.</p>;
-            }
-            if (keywords.length === 0) {
+          {user.contentPersonalizationConsentGiven &&
+            (() => {
+              const keywords = contentProfileQuery.data?.keywords ?? [];
+              if (contentProfileQuery.isLoading) {
+                return (
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Building your profile…
+                  </p>
+                );
+              }
+              if (contentProfileQuery.data?.disabled) {
+                return (
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Personalisation is switched off by an administrator; your
+                    files are not being read.
+                  </p>
+                );
+              }
+              if (keywords.length === 0) {
+                return (
+                  <p className="text-xs font-mono text-muted-foreground">
+                    No text uploads yet — upload a text file to see your profile
+                    here.
+                  </p>
+                );
+              }
               return (
-                <p className="text-xs font-mono text-muted-foreground">
-                  No text uploads yet — upload a text file to see your profile here.
-                </p>
+                <>
+                  <p
+                    className="text-xs font-mono text-muted-foreground mb-2"
+                    data-testid="text-content-profile-summary"
+                  >
+                    From {contentProfileQuery.data?.documentsConsidered ?? 0} of
+                    your text upload(s), your most frequent topics:
+                  </p>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    data-testid="list-content-profile-keywords"
+                  >
+                    {keywords.slice(0, 10).map((k) => (
+                      <span
+                        key={k.keyword}
+                        className="px-2 py-1 rounded bg-primary/10 text-primary font-mono text-xs uppercase tracking-wider"
+                      >
+                        {k.keyword}
+                      </span>
+                    ))}
+                  </div>
+                </>
               );
-            }
-            return (
-              <>
-                <p className="text-xs font-mono text-muted-foreground mb-2" data-testid="text-content-profile-summary">
-                  From {contentProfileQuery.data?.documentsConsidered ?? 0} of your text upload(s), your most frequent topics:
-                </p>
-                <div className="flex flex-wrap gap-2" data-testid="list-content-profile-keywords">
-                  {keywords.slice(0, 10).map((k) => (
-                    <span
-                      key={k.keyword}
-                      className="px-2 py-1 rounded bg-primary/10 text-primary font-mono text-xs uppercase tracking-wider"
-                    >
-                      {k.keyword}
-                    </span>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
+            })()}
         </Card>
 
         <Card className="border-t-4 border-t-destructive bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <LogOut className="w-5 h-5 text-destructive" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Active Sessions</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Active Sessions
+            </h2>
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            If you lose a device while still logged in, this is how you cut it off — it terminates
-            every session for this account across every device, not just the one you're on.
+            If you lose a device while still logged in, this is how you cut it
+            off — it terminates every session for this account across every
+            device, not just the one you're on.
           </p>
           <Button
             variant="destructive"
@@ -573,11 +752,34 @@ export default function Enroll() {
         <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <FileText className="w-5 h-5 text-primary" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Your Data</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Your Details
+            </h2>
+          </div>
+          <YourDetails />
+        </Card>
+
+        <Card className="border-t-4 border-t-primary bg-card/50 backdrop-blur-sm space-y-4">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-primary" />
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Your Data
+            </h2>
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            Download a copy of the data SecureAI holds about your account as a JSON file: your profile, consents, sign-in
-            methods, uploads, payments and security events. See the <a href="/privacy#your-rights" className="text-primary underline underline-offset-2">Privacy Policy</a> for your other rights.
+            Download a copy of the data SecureAI holds about your account: your
+            profile, consents, sign-in methods, files, payments, security
+            activity and any data breach notices. The readable copy opens in any
+            web browser and can be printed or saved as a PDF; the data file
+            (JSON) also includes your files' contents, for moving them to
+            another service. See the{" "}
+            <a
+              href="/privacy#your-rights"
+              className="text-primary underline underline-offset-2"
+            >
+              Privacy Policy
+            </a>{" "}
+            for your other rights.
           </p>
           <DownloadMyData />
         </Card>
@@ -585,25 +787,34 @@ export default function Enroll() {
         <Card className="border-t-4 border-t-destructive bg-card/50 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-destructive" />
-            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">Danger Zone</h2>
+            <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+              Danger Zone
+            </h2>
           </div>
           <p className="text-sm font-mono text-muted-foreground">
-            Permanently deletes your account, face enrollment, passkeys and phone keys, uploads, and every
-            signed-in session. Your payment records and security history are kept, with your email, for
+            Permanently deletes your account, face enrollment, passkeys and
+            phone keys, uploads, and every signed-in session. Your payment
+            records and security history are kept, with your email, for
             accountability and fraud prevention (Privacy Policy, section 10).
           </p>
 
           {!confirmingDelete ? (
             <Button
               variant="destructive"
-              onClick={() => { setConfirmingDelete(true); setDeleteError(''); }}
+              onClick={() => {
+                setConfirmingDelete(true);
+                setDeleteError("");
+              }}
               data-testid="button-open-delete-account"
             >
               <Trash2 className="w-4 h-4 mr-2" /> Delete My Account
             </Button>
           ) : (
             <div className="space-y-3 max-w-sm">
-              <Label htmlFor="deleteConfirmPassword" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <Label
+                htmlFor="deleteConfirmPassword"
+                className="text-xs font-mono uppercase tracking-wider text-muted-foreground"
+              >
                 Re-enter your password to confirm — this can't be undone
               </Label>
               <Input
@@ -614,11 +825,19 @@ export default function Enroll() {
                 data-testid="input-delete-confirm-password"
                 autoFocus
               />
-              {deleteError && <p className="text-destructive font-mono text-xs uppercase tracking-wider">{deleteError}</p>}
+              {deleteError && (
+                <p className="text-destructive font-mono text-xs uppercase tracking-wider">
+                  {deleteError}
+                </p>
+              )}
               <div className="flex gap-3">
                 <Button
                   variant="ghost"
-                  onClick={() => { setConfirmingDelete(false); setDeletePassword(''); setDeleteError(''); }}
+                  onClick={() => {
+                    setConfirmingDelete(false);
+                    setDeletePassword("");
+                    setDeleteError("");
+                  }}
                 >
                   Cancel
                 </Button>
@@ -637,22 +856,26 @@ export default function Enroll() {
         </Card>
 
         <div className="flex justify-center">
-          <Button variant="ghost" onClick={() => setLocation('/dashboard')}>Back to Dashboard</Button>
+          <Button variant="ghost" onClick={() => setLocation("/dashboard")}>
+            Back to Dashboard
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (mode === 'passkey' && !reEnrollingFace) {
+  if (mode === "passkey" && !reEnrollingFace) {
     return (
       <div className="max-w-3xl mx-auto py-12">
         <div className="mb-8">
           <h1 className="font-mono text-3xl font-bold uppercase tracking-widest text-foreground flex items-center gap-4">
             <KeyRound className="w-8 h-8 text-primary" />
-            {user.faceEnrolled ? 'Device Passkey Required' : 'Set Up a Passkey'}
+            {user.faceEnrolled ? "Device Passkey Required" : "Set Up a Passkey"}
           </h1>
           <p className="font-mono text-sm text-muted-foreground mt-2 uppercase tracking-wider">
-            {user.faceEnrolled ? `Second mandatory factor for operator ${user.name}` : `Second factor for operator ${user.name}`}
+            {user.faceEnrolled
+              ? `Second mandatory factor for operator ${user.name}`
+              : `Second factor for operator ${user.name}`}
           </p>
         </div>
 
@@ -660,16 +883,23 @@ export default function Enroll() {
           {user.faceEnrolled ? (
             <div className="border border-destructive/40 bg-destructive/5 p-3 inline-block text-left">
               <p className="font-mono text-xs text-destructive uppercase tracking-wider">
-                Mandatory — a face scan alone doesn't sign a server challenge. Access is blocked until a passkey is registered too.
+                Mandatory — a face scan alone doesn't sign a server challenge.
+                Access is blocked until a passkey is registered too.
               </p>
             </div>
           ) : (
             <div className="border border-primary/30 bg-primary/5 p-3 text-left space-y-2">
               <p className="font-mono text-xs text-foreground">
-                A passkey on its own secures your account: your device signs a one-time challenge after you unlock it.
-                You can add face sign-in later in Security Settings if you want to.
+                A passkey on its own secures your account: your device signs a
+                one-time challenge after you unlock it. You can add face sign-in
+                later in Security Settings if you want to.
               </p>
-              <Button variant="ghost" size="sm" onClick={() => setMode('face')} data-testid="button-back-to-face">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMode("face")}
+                data-testid="button-back-to-face"
+              >
                 <ScanFace className="w-4 h-4 mr-2" /> Use a face scan instead
               </Button>
             </div>
@@ -682,8 +912,9 @@ export default function Enroll() {
 
   // ---- Face capture wizard: used for first-time mandatory enrollment AND
   // voluntary re-enrollment from settings mode. ----
-  let wizardTitle = 'Biometric Enrollment';
-  if (reEnrollingFace) wizardTitle = user.faceEnrolled ? 'Re-enroll Face' : 'Add Face Sign-in';
+  let wizardTitle = "Biometric Enrollment";
+  if (reEnrollingFace)
+    wizardTitle = user.faceEnrolled ? "Re-enroll Face" : "Add Face Sign-in";
   return (
     <div className="max-w-3xl mx-auto py-12">
       <div className="mb-8">
@@ -692,24 +923,54 @@ export default function Enroll() {
           {wizardTitle}
         </h1>
         <p className="font-mono text-sm text-muted-foreground mt-2 uppercase tracking-wider">
-          {reEnrollingFace ? `Replacing stored facial signature for ${user.name}` : `Multi-factor security protocol setup for operator ${user.name}`}
+          {reEnrollingFace
+            ? `Replacing stored facial signature for ${user.name}`
+            : `Multi-factor security protocol setup for operator ${user.name}`}
         </p>
       </div>
 
       <div className="flex items-center justify-between mb-8 px-8">
-        <div className={`flex flex-col items-center ${step >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
-          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 1 ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>1</div>
-          <span className="text-xs font-mono uppercase tracking-widest">Protocol</span>
+        <div
+          className={`flex flex-col items-center ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 1 ? "border-primary bg-primary/20" : "border-muted-foreground"}`}
+          >
+            1
+          </div>
+          <span className="text-xs font-mono uppercase tracking-widest">
+            Protocol
+          </span>
         </div>
-        <div className={`flex-1 h-px ${step >= 2 ? 'bg-primary' : 'bg-muted-foreground'} mx-4 opacity-30`} />
-        <div className={`flex flex-col items-center ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
-          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 2 ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>2</div>
-          <span className="text-xs font-mono uppercase tracking-widest">Capture</span>
+        <div
+          className={`flex-1 h-px ${step >= 2 ? "bg-primary" : "bg-muted-foreground"} mx-4 opacity-30`}
+        />
+        <div
+          className={`flex flex-col items-center ${step >= 2 ? "text-primary" : "text-muted-foreground"}`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 2 ? "border-primary bg-primary/20" : "border-muted-foreground"}`}
+          >
+            2
+          </div>
+          <span className="text-xs font-mono uppercase tracking-widest">
+            Capture
+          </span>
         </div>
-        <div className={`flex-1 h-px ${step >= 3 ? 'bg-primary' : 'bg-muted-foreground'} mx-4 opacity-30`} />
-        <div className={`flex flex-col items-center ${step >= 3 ? 'text-primary' : 'text-muted-foreground'}`}>
-          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 3 ? 'border-primary bg-primary/20' : 'border-muted-foreground'}`}>3</div>
-          <span className="text-xs font-mono uppercase tracking-widest">Confirm</span>
+        <div
+          className={`flex-1 h-px ${step >= 3 ? "bg-primary" : "bg-muted-foreground"} mx-4 opacity-30`}
+        />
+        <div
+          className={`flex flex-col items-center ${step >= 3 ? "text-primary" : "text-muted-foreground"}`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-bold text-sm mb-2 ${step >= 3 ? "border-primary bg-primary/20" : "border-muted-foreground"}`}
+          >
+            3
+          </div>
+          <span className="text-xs font-mono uppercase tracking-widest">
+            Confirm
+          </span>
         </div>
       </div>
 
@@ -718,27 +979,37 @@ export default function Enroll() {
           <div className="space-y-6 text-center py-8">
             <ScanFace className="w-16 h-16 text-primary mx-auto mb-4 opacity-80" />
             <h2 className="text-xl font-mono uppercase tracking-widest">
-              {reEnrollingFace ? 'Recapture Facial Signature' : 'Biometric Enrollment Required'}
+              {reEnrollingFace
+                ? "Recapture Facial Signature"
+                : "Biometric Enrollment Required"}
             </h2>
             <p className="text-muted-foreground font-mono max-w-lg mx-auto">
               SecureAI uses facial biometrics for multi-factor authentication.
-              The system will capture a mathematical map of your face.
-              No visual image is stored.
+              The system will capture a mathematical map of your face. No visual
+              image is stored.
             </p>
             <p className="text-xs text-muted-foreground max-w-lg mx-auto flex items-center justify-center gap-2 flex-wrap">
-              <AiLabel system="face-recognition" /> Your face is matched by an AI model, which works less well for some people and in some conditions.
+              <AiLabel system="face-recognition" /> Your face is matched by an
+              AI model, which works less well for some people and in some
+              conditions.
             </p>
 
             {!reEnrollingFace && (
               <div className="space-y-3 mt-2">
                 <div className="border border-destructive/40 bg-destructive/5 p-3 inline-block text-left">
                   <p className="font-mono text-xs text-destructive uppercase tracking-wider">
-                    A second factor is required before you can continue: a face scan here, or a passkey instead.
+                    A second factor is required before you can continue: a face
+                    scan here, or a passkey instead.
                   </p>
                 </div>
                 <div>
-                  <Button variant="outline" onClick={() => setMode('passkey')} data-testid="button-passkey-instead">
-                    <KeyRound className="w-4 h-4 mr-2" /> Can't use a face scan? Set up a passkey instead
+                  <Button
+                    variant="outline"
+                    onClick={() => setMode("passkey")}
+                    data-testid="button-passkey-instead"
+                  >
+                    <KeyRound className="w-4 h-4 mr-2" /> Can't use a face scan?
+                    Set up a passkey instead
                   </Button>
                 </div>
               </div>
@@ -756,22 +1027,36 @@ export default function Enroll() {
               <Checkbox
                 id="biometricConsent"
                 checked={biometricConsent}
-                onCheckedChange={(checked) => setBiometricConsent(checked === true)}
+                onCheckedChange={(checked) =>
+                  setBiometricConsent(checked === true)
+                }
                 data-testid="checkbox-biometric-consent"
               />
-              <Label htmlFor="biometricConsent" className="text-xs font-mono font-normal leading-snug text-muted-foreground">
-                I consent to SecureAI storing a template of my face for sign-in. Biometric information is
-                sensitive information under the Privacy Act 1988, so this is asked separately from my account
-                data, and only because I chose face sign-in: I can use a passkey instead. The template is 128
-                numbers computed in my browser (the camera image never leaves my device), stored encrypted on
-                SecureAI's servers in the United States, and used only to confirm it's me at sign-in and password
-                reset. I can withdraw this consent at any time in Security Settings, which permanently deletes it.
+              <Label
+                htmlFor="biometricConsent"
+                className="text-xs font-mono font-normal leading-snug text-muted-foreground"
+              >
+                I consent to SecureAI storing a template of my face for sign-in.
+                Biometric information is sensitive information under the Privacy
+                Act 1988, so this is asked separately from my account data, and
+                only because I chose face sign-in: I can use a passkey instead.
+                The template is 128 numbers computed in my browser (the camera
+                image never leaves my device), stored encrypted on SecureAI's
+                servers in the United States, and used only to confirm it's me
+                at sign-in and password reset. I can withdraw this consent at
+                any time in Security Settings, which permanently deletes it.
               </Label>
             </div>
 
             <div className="flex justify-center gap-4 mt-8">
               {reEnrollingFace && (
-                <Button variant="ghost" onClick={() => { setReEnrollingFace(false); setError(''); }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setReEnrollingFace(false);
+                    setError("");
+                  }}
+                >
                   Cancel
                 </Button>
               )}
@@ -789,7 +1074,9 @@ export default function Enroll() {
               buttonLabel="Capture Biometric Map"
             />
             <div className="flex justify-center mt-4">
-               <Button variant="ghost" size="sm" onClick={() => setStep(1)}>Abort</Button>
+              <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
+                Abort
+              </Button>
             </div>
           </div>
         )}
@@ -797,21 +1084,33 @@ export default function Enroll() {
         {step === 3 && (
           <div className="space-y-6 text-center py-8">
             <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
-            <h2 className="text-xl font-mono uppercase tracking-widest text-green-400">Signature Acquired</h2>
+            <h2 className="text-xl font-mono uppercase tracking-widest text-green-400">
+              Signature Acquired
+            </h2>
             <p className="text-muted-foreground font-mono max-w-lg mx-auto">
               {reEnrollingFace
-                ? 'New facial map generated successfully. Commit to replace your stored signature.'
-                : 'Facial map generated successfully. Commit this signature, then register a device passkey to finish.'}
+                ? "New facial map generated successfully. Commit to replace your stored signature."
+                : "Facial map generated successfully. Commit this signature, then register a device passkey to finish."}
             </p>
 
-            {error && <p className="text-destructive font-mono text-sm">{error}</p>}
+            {error && (
+              <p className="text-destructive font-mono text-sm">{error}</p>
+            )}
 
             <div className="flex justify-center gap-4 mt-8">
-              <Button variant="outline" onClick={() => setStep(2)} disabled={enrollMutation.isPending}>
+              <Button
+                variant="outline"
+                onClick={() => setStep(2)}
+                disabled={enrollMutation.isPending}
+              >
                 Recapture
               </Button>
-              <Button onClick={handleConfirm} isLoading={enrollMutation.isPending}>
-                <ShieldCheck className="w-4 h-4 mr-2" /> Commit &amp; {reEnrollingFace ? 'Save' : 'Continue'}
+              <Button
+                onClick={handleConfirm}
+                isLoading={enrollMutation.isPending}
+              >
+                <ShieldCheck className="w-4 h-4 mr-2" /> Commit &amp;{" "}
+                {reEnrollingFace ? "Save" : "Continue"}
               </Button>
             </div>
           </div>

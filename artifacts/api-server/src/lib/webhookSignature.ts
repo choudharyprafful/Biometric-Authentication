@@ -14,14 +14,24 @@ import crypto from "node:crypto";
 const MAX_TIMESTAMP_SKEW_MS = 5 * 60 * 1000; // 5 minutes
 
 function resolveWebhookSecret(): string {
-  return process.env["WEBHOOK_SECRET"] || "fallback-dev-webhook-secret-change-in-prod";
+  return (
+    process.env["WEBHOOK_SECRET"] ||
+    "fallback-dev-webhook-secret-change-in-prod"
+  );
 }
 
 export function signWebhookPayload(rawBody: string, timestamp: number): string {
-  return crypto.createHmac("sha256", resolveWebhookSecret()).update(`${timestamp}.${rawBody}`).digest("hex");
+  return crypto
+    .createHmac("sha256", resolveWebhookSecret())
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
 }
 
-export function verifyWebhookSignature(rawBody: string, signatureHeader: string | undefined, timestampHeader: string | undefined): boolean {
+export function verifyWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | undefined,
+  timestampHeader: string | undefined,
+): boolean {
   if (!signatureHeader || !timestampHeader) return false;
 
   const timestamp = Number(timestampHeader);

@@ -8,7 +8,8 @@
     "scheme": "secureai",
     "android": {
       "package": "com.secureai.mobile",
-      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"]
+      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"],
+      "allowBackup": false
     },
     "ios": {
       "bundleIdentifier": "com.secureai.mobile",

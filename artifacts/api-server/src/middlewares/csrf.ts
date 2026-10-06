@@ -16,15 +16,20 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Issues a csrf_token cookie for any client that doesn't already have one.
  *  Readable by JS (not httpOnly) — the frontend must read it and echo it
  *  back as a header on state-changing requests. */
-export function issueCsrfCookie(req: Request, res: Response, next: NextFunction): void {
+export function issueCsrfCookie(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
   if (!req.cookies?.[CSRF_COOKIE]) {
     const token = crypto.randomBytes(32).toString("base64url");
     res.cookie(CSRF_COOKIE, token, {
       httpOnly: false,
       secure: process.env["NODE_ENV"] === "production",
-      // A split deployment (frontend and API on different domains) needs
-      // "none", which requires Secure.
-      sameSite: process.env["NODE_ENV"] === "production" ? "none" : "lax",
+      // Lax: the web app and the API share one origin (CloudFront serves the pages and routes /api
+      // to the API), so nothing needs this cookie cross-site. It was "none" for an earlier split
+      // deployment on two domains; the ZAP scan of 2026-09-27 flagged it.
+      sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days — independent of session lifetime
     });
   }
@@ -40,7 +45,11 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 
 /** Rejects state-changing requests whose X-CSRF-Token header doesn't match
  *  the csrf_token cookie. */
-export function requireCsrfMatch(req: Request, res: Response, next: NextFunction): void {
+export function requireCsrfMatch(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
   if (SAFE_METHODS.has(req.method)) {
     next();
     return;

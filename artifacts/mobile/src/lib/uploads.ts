@@ -1,25 +1,31 @@
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { request } from './api';
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { request } from "./api";
 
 // Mirrors the server enum in api-server/src/lib/dataProvenance.ts, which is
 // Team 2's acceptability matrix turned into rules. Labels are written from
 // the uploader's point of view, not in the matrix's own vocabulary — the
 // person picking one hasn't read that document.
 export type ContentSource =
-  | 'own_work'
-  | 'third_party_individual'
-  | 'published_work'
-  | 'social_media'
-  | 'incidental_third_party_ip';
+  | "own_work"
+  | "third_party_individual"
+  | "published_work"
+  | "social_media"
+  | "incidental_third_party_ip";
 
-export const CONTENT_SOURCE_OPTIONS: Array<{ value: ContentSource; label: string }> = [
-  { value: 'own_work', label: 'My own work' },
-  { value: 'third_party_individual', label: "Someone else's work" },
-  { value: 'published_work', label: 'Published book / article / news' },
-  { value: 'social_media', label: 'From social media' },
-  { value: 'incidental_third_party_ip', label: "Mine, but contains someone else's IP" },
+export const CONTENT_SOURCE_OPTIONS: Array<{
+  value: ContentSource;
+  label: string;
+}> = [
+  { value: "own_work", label: "My own work" },
+  { value: "third_party_individual", label: "Someone else's work" },
+  { value: "published_work", label: "Published book / article / news" },
+  { value: "social_media", label: "From social media" },
+  {
+    value: "incidental_third_party_ip",
+    label: "Mine, but contains someone else's IP",
+  },
 ];
 
 export interface UploadMeta {
@@ -27,10 +33,10 @@ export interface UploadMeta {
   userId: number;
   fileName: string;
   mimeType: string;
-  fileType: 'image' | 'video' | 'text' | 'audio';
+  fileType: "image" | "video" | "text" | "audio";
   sizeBytes: number;
   createdAt: string;
-  contentSource: ContentSource | 'unspecified';
+  contentSource: ContentSource | "unspecified";
   trainingEligible: boolean;
   trainingExclusionReason?: string;
 }
@@ -46,9 +52,10 @@ const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 // RN/Hermes has no guaranteed global atob/Buffer — this is a self-contained
 // base64 -> UTF-8 decoder so text-file preview doesn't need a new dependency.
-const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const BASE64_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 export function base64ToUtf8(base64: string): string {
-  const clean = base64.replace(/[^A-Za-z0-9+/]/g, '');
+  const clean = base64.replace(/[^A-Za-z0-9+/]/g, "");
   const bytes: number[] = [];
   for (let i = 0; i < clean.length; i += 4) {
     const e1 = BASE64_CHARS.indexOf(clean[i]);
@@ -60,7 +67,7 @@ export function base64ToUtf8(base64: string): string {
     if (e4 >= 0) bytes.push(((e3 & 3) << 6) | e4);
   }
   // Decode UTF-8 byte sequence to a JS string.
-  let result = '';
+  let result = "";
   let i = 0;
   while (i < bytes.length) {
     const b0 = bytes[i];
@@ -71,7 +78,11 @@ export function base64ToUtf8(base64: string): string {
       result += String.fromCharCode(((b0 & 0x1f) << 6) | (bytes[i + 1] & 0x3f));
       i += 2;
     } else if (b0 >= 0xe0 && i + 2 < bytes.length) {
-      result += String.fromCharCode(((b0 & 0x0f) << 12) | ((bytes[i + 1] & 0x3f) << 6) | (bytes[i + 2] & 0x3f));
+      result += String.fromCharCode(
+        ((b0 & 0x0f) << 12) |
+          ((bytes[i + 1] & 0x3f) << 6) |
+          (bytes[i + 2] & 0x3f),
+      );
       i += 3;
     } else {
       result += String.fromCharCode(b0);
@@ -82,7 +93,7 @@ export function base64ToUtf8(base64: string): string {
 }
 
 export async function listUploads(): Promise<UploadMeta[]> {
-  return request('/uploads');
+  return request("/uploads");
 }
 
 export async function getUpload(id: number): Promise<UploadContent> {
@@ -90,15 +101,17 @@ export async function getUpload(id: number): Promise<UploadContent> {
 }
 
 export async function deleteUpload(id: number): Promise<void> {
-  await request(`/uploads/${id}`, { method: 'DELETE' });
+  await request(`/uploads/${id}`, { method: "DELETE" });
 }
 
 // Opens the OS document picker, reads the picked file as base64 (RN has no
 // FileReader/Blob the way a browser does — expo-file-system is the
 // equivalent primitive), and uploads it. Returns null if the user cancelled.
-export async function pickAndUploadFile(contentSource: ContentSource): Promise<UploadMeta | null> {
+export async function pickAndUploadFile(
+  contentSource: ContentSource,
+): Promise<UploadMeta | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: ['image/*', 'video/*', 'audio/*', 'text/plain'],
+    type: ["image/*", "video/*", "audio/*", "text/plain"],
     copyToCacheDirectory: true,
   });
   if (result.canceled || !result.assets?.[0]) return null;
@@ -108,12 +121,14 @@ export async function pickAndUploadFile(contentSource: ContentSource): Promise<U
     throw new Error(`File must be under ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`);
   }
 
-  const dataBase64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
-  return request('/uploads', {
-    method: 'POST',
+  const dataBase64 = await FileSystem.readAsStringAsync(asset.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return request("/uploads", {
+    method: "POST",
     body: {
       fileName: asset.name,
-      mimeType: asset.mimeType ?? 'application/octet-stream',
+      mimeType: asset.mimeType ?? "application/octet-stream",
       dataBase64,
       contentSource,
     },
@@ -126,9 +141,17 @@ export async function pickAndUploadFile(contentSource: ContentSource): Promise<U
 // the standard RN equivalent of a browser's <a download> trick.
 export async function downloadAndShare(upload: UploadContent): Promise<void> {
   const dest = `${FileSystem.cacheDirectory}${upload.fileName}`;
-  await FileSystem.writeAsStringAsync(dest, upload.dataBase64, { encoding: FileSystem.EncodingType.Base64 });
-  const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
-    await Sharing.shareAsync(dest, { mimeType: upload.mimeType });
+  await FileSystem.writeAsStringAsync(dest, upload.dataBase64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  try {
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(dest, { mimeType: upload.mimeType });
+    }
+  } finally {
+    // The file is stored encrypted on the server; once the share sheet has closed, don't leave
+    // a decrypted copy in the app's cache (MASVS-STORAGE-1).
+    await FileSystem.deleteAsync(dest, { idempotent: true }).catch(() => {});
   }
 }

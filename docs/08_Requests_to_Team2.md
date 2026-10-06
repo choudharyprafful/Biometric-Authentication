@@ -2,7 +2,7 @@
 
 Every Team 1 doc in this folder that says "Team 2's policy doesn't exist yet, so we assumed X" is
 collected here as one list, organized against Team 2's own brief so each item maps to whichever of
-*their* deliverables should answer it. Nothing here is new work — it's the accumulated open questions
+_their_ deliverables should answer it. Nothing here is new work — it's the accumulated open questions
 from `02`–`07`, made concrete enough to actually send.
 
 For each item: **the current default** (what Team 1 built/assumed in the policy's absence) and **the
@@ -22,11 +22,11 @@ policy/enforcement split on both sides. Nothing to resolve here; noted only so i
 
 The gap that matters most: third-party consent has no technical mechanism at all yet, not even a
 placeholder. This is explicitly in scope for Team 2 twice over — both as one of the three things that
-make the app *ethically tricky* ("a user can only consent to their own data... your consent and
+make the app _ethically tricky_ ("a user can only consent to their own data... your consent and
 acceptability frameworks must confront this directly") and as a literal Requirements §2 bullet ("Handle
 consent per data category... and address third-party consent where a user's upload contains other
 people"). The current consent model (`05_Consent_and_Deletion_Design.md` §1) only ever captures the
-*uploading* user's own consent (`dataConsentGiven`, `biometricConsentGiven`). There is currently no
+_uploading_ user's own consent (`dataConsentGiven`, `biometricConsentGiven`). There is currently no
 concept of "this photo contains a bystander who hasn't agreed to anything" anywhere in the schema, the
 upload flow, or the biometric-enrollment flow. This isn't a partial implementation to harden — it's a
 genuinely open question with zero technical scaffolding, and it's squarely Team 2's brief to answer
@@ -41,8 +41,8 @@ consent for uploads vs. account data vs. payment data, matching Team 2's own §3
 data type" instruction), that's a schema change worth doing once, not per-category as each gets asked
 for — better to get Team 2's full category list up front.
 
-Versioned consent: current default is a single boolean + timestamp per category, no record of *which
-version* of a privacy notice/policy text the user was shown when they consented. If the Privacy &
+Versioned consent: current default is a single boolean + timestamp per category, no record of _which
+version_ of a privacy notice/policy text the user was shown when they consented. If the Privacy &
 Consent Framework produces actual policy text, `05` §6.4 already flags this as needed and unbuilt.
 
 Training-specific consent, separate from storage consent, is now built and live, not just PoC'd: Team
@@ -53,10 +53,10 @@ required to complete registration), and freely toggleable in either direction af
 `POST /users/me/training-consent`. Gates the live behavior-transition model described in `05` §5b and
 `03_Data_Flow.md`. The standalone PoC (`artifacts/ai-model/model_starter.py`) still separately proves
 the same consent-gate pattern (`consent_id`, `05` §5a) on synthetic data. One scope note for Team 2: the
-live version deliberately trains on *behavioral metadata* (the sequence of audit-log event types an
-account produces — login, upload, enroll, etc.), not on the *content* of uploaded files, which stay
+live version deliberately trains on _behavioral metadata_ (the sequence of audit-log event types an
+account produces — login, upload, enroll, etc.), not on the _content_ of uploaded files, which stay
 AES-256-GCM encrypted and unread by any model. If Team 2's framework anticipates training on upload
-*content* specifically (the brief's literal "user uploads" framing), that remains the unbuilt,
+_content_ specifically (the brief's literal "user uploads" framing), that remains the unbuilt,
 assumed-only pipeline in `03_Data_Flow.md`'s "Assumed" subgraph — a materially bigger scope than what's
 live today, since it would require this app to decrypt and process file content it currently never
 touches server-side.
@@ -76,7 +76,7 @@ Retention windows: current default, per `05_Consent_and_Deletion_Design.md` §3,
 tokens auto-purge (the one category with an unambiguous "no further purpose" point); security logs and
 payments are kept indefinitely, deliberately, because Team 1 didn't think it was Team 1's place to invent
 a number. If the Data Governance Policy sets actual retention ceilings for any category, `retention.ts`
-is a five-minute change to extend — the reasoning for *why* nothing's there yet is already written down,
+is a five-minute change to extend — the reasoning for _why_ nothing's there yet is already written down,
 Team 1 is just waiting on the number.
 
 **"Delete my profile" — does it really mean full erasure, no exceptions?** Current default (`05` §2):
@@ -112,6 +112,7 @@ other documents, and cited in the risk register — none of which is the same as
 it. See `03_Data_Flow.md` §2b and `04_Threat_Model_Risk_Assessment.md` R-ML-9.
 
 What it confirms Team 1 already got right, independently:
+
 - Device-native biometric (T3): "excluded from training or personalisation entirely, by design" —
   matches the live app exactly; the face descriptor never enters `behaviorModel.ts` or any training path.
 - Subscription/payment data (T2): "Not used for training" — already true; `paymentsTable` data is never
@@ -125,18 +126,18 @@ What it confirms Team 1 already got right, independently:
   carve-out needed for deceased or public figures specifically. See §5 below for the update.
 
 One genuine clarifying question this raises against the live AI/ML feature, sent back to Team 2 rather
-than assumed either way: the matrix lists *Account and login data (name, email)*, T1, as "Not usable
+than assumed either way: the matrix lists _Account and login data (name, email)_, T1, as "Not usable
 for personalisation or training under any circumstance." The live behavior-transition model
-(`behaviorModel.ts`) trains on the *sequence of audit-log event types* an account produces (e.g.
+(`behaviorModel.ts`) trains on the _sequence of audit-log event types_ an account produces (e.g.
 `LOGIN_SUCCESS → UPLOAD_CREATED`) — never the name, email, or any other PII field itself, and gated
 behind its own separate `trainingConsentGiven` opt-in (`05` §5b). Does "account and login data" mean the
-PII fields specifically (which the live model already avoids entirely), or does it extend to *any*
+PII fields specifically (which the live model already avoids entirely), or does it extend to _any_
 login-derived signal, including behavioral/event-type metadata with no PII in it? If the latter, the
 live behavior model's whole approach — training on activity patterns rather than content — would need to
 stop treating login/logout events as trainable signal, which is a materially different, narrower model
 than what's built and live today. Team 1's own reading, stated for Team 2 to correct rather than left
-implicit: the rule is about the PII fields (name/email), not about excluding login as a *behavioral
-event type* from an already-opt-in, already-anonymised-of-content signal — but this is Team 2's call to
+implicit: the rule is about the PII fields (name/email), not about excluding login as a _behavioral
+event type_ from an already-opt-in, already-anonymised-of-content signal — but this is Team 2's call to
 confirm, not Team 1's to assume.
 
 A second, closely related but distinct design assumption, added 2026-09-11 with the new login-risk
@@ -182,11 +183,11 @@ rather than per-account.
 ## 4. For the Data Classification scheme
 
 `07_Data_Classification.md` is Team 1's own stated assumption (per that doc's own framing, written
-*because* Team 2's scheme doesn't exist yet), not a request to build something new — but three specific
+_because_ Team 2's scheme doesn't exist yet), not a request to build something new — but three specific
 questions in it are genuinely Team 2's call, not Team 1's, and are called out explicitly in that doc's
 §3:
 
-1. Should uploaded file *content* be classified per-file (e.g. a photo containing a government ID vs. a
+1. Should uploaded file _content_ be classified per-file (e.g. a photo containing a government ID vs. a
    meme), or is uniform treatment by file type acceptable?
 2. Should the two very different "biometric" mechanisms (server-stored face descriptor vs. device-only
    Keystore key, which materially differ in actual exposure — see `07` §3.2) be split into separate
@@ -211,7 +212,7 @@ different direction than the security tradeoffs that motivated it.
 
 **Answered 2026-09-26 (Gillian Habgood, Team 2): yes.** The stored face template is biometric information,
 which the Privacy Act 1988 treats as sensitive information even when encrypted (Team 2 cited OVIC,
-*Biometrics and Privacy – Issues and Challenges*). What Team 1 changed: the face-consent wording now says
+_Biometrics and Privacy – Issues and Challenges_). What Team 1 changed: the face-consent wording now says
 it is sensitive information, why it is asked separately, what the template is, that it is stored encrypted
 in the United States, that it is used only for sign-in and password reset, that a passkey is an
 alternative, and that withdrawing deletes it; the privacy policy says the same (version 2026-09-26.2).
@@ -222,7 +223,7 @@ Impersonation, including deceased or public figures: Team 2's elaborated brief (
 this beyond living non-consenting third parties to "deceased or public figures the user might feed in" —
 a real, distinct sub-case Team 1's docs hadn't separately named. This app doesn't train a generative model
 in its live form (face-api.js is a fixed, pretrained comparison model, not a generator), so there's no
-voice/face-cloning capability to govern *today* — but if the Responsible AI Framework wants a stated
+voice/face-cloning capability to govern _today_ — but if the Responsible AI Framework wants a stated
 position anyway (e.g., "if a generative capability were added, here's the principle, including for
 deceased/public figures specifically"), that's worth a line in `03_Data_Flow.md`'s existing "documented as
 an assumption, not implemented" pattern for exactly this kind of conditional risk.
@@ -235,7 +236,7 @@ confirms deceased-person source material itself is governed as a high-risk, thir
 category ("consent isn't pending, it's permanently out of reach"), distinct from ordinary pending
 consent. Read together: no separate deceased/public-figure policy is needed — the general
 AI-generated-content labelling rule and the general third-party data-governance rule already cover this
-case. There is still nothing to *build* today (no generative capability exists in the live app), but the
+case. There is still nothing to _build_ today (no generative capability exists in the live app), but the
 open question above is now answered rather than pending; the `03_Data_Flow.md` "documented as an
 assumption, not implemented" line is still worth adding so the labelling rule is captured for whenever a
 generative capability is added.
@@ -280,34 +281,47 @@ works and were changed so the published policy is accurate (APP 1). Please accep
 text is in `artifacts/secureai/src/lib/privacyPolicy.ts`, and the page says it is a draft pending Team 2
 and legal review.
 
-| Section | Draft said | SecureAI actually | Published text now says |
-|---|---|---|---|
-| 2 | Face/fingerprint template "captured and stored on your device; never sent to us" | The web face path sends a 128-number template to the server, stored encrypted (AES-256-GCM). Only passkeys and the phone key keep the biometric on the device | Face template is computed in the browser, sent to us and stored encrypted; passkeys and phone keys stay on the device |
-| 2 | Categories: account/payment, biometric, diaries, photos/video, voice, linked content | Also collects security records (email, IP address, browser, time) used by the sign-in risk check and abuse detection, activity event types used by the suggestion model, and AI challenges; sets two cookies | Rows added for security records, activity and challenges; cookie paragraph added |
-| 2, 4 | Account and payment data "never joined to personalisation or training" | Payment details are not, but "made a payment" is one of the action types the suggestion model can learn from, with training consent | States exactly that |
-| 1, 2 | Photos, video and voice used for personalisation with consent | Only the user's own text uploads feed the (private) topic profile; photos, video and audio are used by no AI feature | Says so |
-| 3 | Consent asked separately per category (diary, photos, voice, video) and per use | Four separate choices: account data (required), face template, suggestion model, topic profile | Lists the four |
-| 5 | Items showing other people "flagged" and default to personalisation-only | Uploads declare their source; anything marked as another person's content, published work or social media is used by no AI feature (stricter). Text is not scanned for names | Describes the declaration and its limit |
-| 6 | "We don't currently have a full parental-consent or age-verification flow" | Under-18s must give a parent/guardian email and the account is gated until the parent confirms by email; age is self-declared | Describes the flow |
-| 8 | Generated content is labelled | SecureAI generates no content | Says so; keeps the commitment for the future |
-| 9 | Sub-processors and transfer locations to be named "once infrastructure is finalised" | Live on AWS in the United States (N. Virginia); account emails sent through Google (Gmail SMTP); payments simulated | Names them; flags the APP 8 cross-border disclosure |
-| 10 | Account data deleted on closure | Payment records and security records are kept, with the email; security/payment retention periods not set, so currently kept without limit | States both |
-| 11 | Access, correct and **export** "at any time" | There was no export | Export built (Download my data, JSON). Correction is by contacting us; there is no self-service editing |
-| 11 | Withdrawal "stops use in the next training run"; learned patterns may persist until retrain | Both models are rebuilt from current data on every request, so withdrawal applies to the very next request and nothing persists | Says so |
-| 13 | Notify of material changes | Nothing existed | Built: an in-app notice until the new version is acknowledged, recorded in the audit log |
+| Section | Draft said                                                                                  | SecureAI actually                                                                                                                                                                                            | Published text now says                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| 2       | Face/fingerprint template "captured and stored on your device; never sent to us"            | The web face path sends a 128-number template to the server, stored encrypted (AES-256-GCM). Only passkeys and the phone key keep the biometric on the device                                                | Face template is computed in the browser, sent to us and stored encrypted; passkeys and phone keys stay on the device |
+| 2       | Categories: account/payment, biometric, diaries, photos/video, voice, linked content        | Also collects security records (email, IP address, browser, time) used by the sign-in risk check and abuse detection, activity event types used by the suggestion model, and AI challenges; sets two cookies | Rows added for security records, activity and challenges; cookie paragraph added                                      |
+| 2, 4    | Account and payment data "never joined to personalisation or training"                      | Payment details are not, but "made a payment" is one of the action types the suggestion model can learn from, with training consent                                                                          | States exactly that                                                                                                   |
+| 1, 2    | Photos, video and voice used for personalisation with consent                               | Only the user's own text uploads feed the (private) topic profile; photos, video and audio are used by no AI feature                                                                                         | Says so                                                                                                               |
+| 3       | Consent asked separately per category (diary, photos, voice, video) and per use             | Four separate choices: account data (required), face template, suggestion model, topic profile                                                                                                               | Lists the four                                                                                                        |
+| 5       | Items showing other people "flagged" and default to personalisation-only                    | Uploads declare their source; anything marked as another person's content, published work or social media is used by no AI feature (stricter). Text is not scanned for names                                 | Describes the declaration and its limit                                                                               |
+| 6       | "We don't currently have a full parental-consent or age-verification flow"                  | Under-18s must give a parent/guardian email and the account is gated until the parent confirms by email; age is self-declared                                                                                | Describes the flow                                                                                                    |
+| 8       | Generated content is labelled                                                               | SecureAI generates no content                                                                                                                                                                                | Says so; keeps the commitment for the future                                                                          |
+| 9       | Sub-processors and transfer locations to be named "once infrastructure is finalised"        | Live on AWS in the United States (N. Virginia); account emails sent through Google (Gmail SMTP); payments simulated                                                                                          | Names them; flags the APP 8 cross-border disclosure                                                                   |
+| 10      | Account data deleted on closure                                                             | Payment records and security records are kept, with the email; security/payment retention periods not set, so currently kept without limit                                                                   | States both                                                                                                           |
+| 11      | Access, correct and **export** "at any time"                                                | There was no export                                                                                                                                                                                          | Export built (Download my data, JSON). Correction is by contacting us; there is no self-service editing               |
+| 11      | Withdrawal "stops use in the next training run"; learned patterns may persist until retrain | Both models are rebuilt from current data on every request, so withdrawal applies to the very next request and nothing persists                                                                              | Says so                                                                                                               |
+| 13      | Notify of material changes                                                                  | Nothing existed                                                                                                                                                                                              | Built: an in-app notice until the new version is acknowledged, recorded in the audit log                              |
 
 Also added: a notice that SecureAI is a student proof of concept and should be used with test details.
 
 Still needed from Team 2 (the page says so where it applies):
 
-- Retention periods for security records and payment records (`SECURITY_LOGS_RETENTION_DAYS`, `PAYMENTS_RETENTION_DAYS`).
+- ~~Retention periods for security records and payment records~~ — set by the client on 2026-10-02 (section 5d).
 - ~~A response-time target for complaints and AI challenges~~ — set 2026-09-26; the policy now states it (section 12).
 - A real, monitored privacy contact; `privacy@secureai.example` is a placeholder.
 - The APP 8 safeguards for storing Australian users' data in the United States, and legal review of the whole policy (docs/10).
 
-## 6. What Team 1 is *not* asking for
+## 5d. Received 2026-10-02: the client's requirements (Miifile Pty Ltd)
 
-Not every "Team 2 decides" line in either brief needs a response before Team 1 can keep working — most of
-what's above already has a working, documented default in place. The one item that genuinely blocks
-further build work is §1's third-party-consent question: everything else here can proceed on the stated
-assumption and just get updated if Team 2's actual policy differs.
+The client sent these after reviewing the project. All six were built and tested on 2026-10-04 (PR #19) and
+are live with API v22 since 2026-10-06. They settle two of the items this document
+was waiting on from Team 2 (the retention periods) and add a privacy policy section, so Team 2 may want to
+review the new text: version 2026-10-04 changes sections 9, 10 and 11 and adds section 14.
+
+| Client requirement                                                                                                | What SecureAI does                                                                                                                                                                                                                                           | Where                                                                  |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Data breach notification: after the breach happened, when users were notified, when the authorities were notified | A breach register records when each breach was discovered, contained and assessed, when the people affected were told and when the OAIC was told (with its reference). Alerts track the 30-day assessment deadline. People get an email and an in-app notice | Privacy Compliance page; docs/12; policy section 14; docs/04 R-PRIV-4  |
+| Disclose information when asked by the government                                                                 | Only when the law requires or allows it, with a written record of each disclosure (agency, legal basis, what, when, whether the person was told)                                                                                                             | Privacy Compliance page; docs/12 section 3; policy section 9; R-PRIV-5 |
+| Download my data in a format a non-technical person can read                                                      | A readable copy: one web page in plain words, printable and savable as a PDF, on web and mobile, alongside the JSON file                                                                                                                                     | Security Settings; policy section 11; docs/05 section 7; R-PRIV-6      |
+| Payment records kept for 7 years                                                                                  | Deleted automatically 7 years after the payment                                                                                                                                                                                                              | `lib/retention.ts`; policy section 10; docs/05 section 3; R-LOG-5      |
+| Security logs kept for 12 months                                                                                  | Deleted automatically after 12 months; a hash-only stub keeps the tamper check working                                                                                                                                                                       | as above                                                               |
+| Challenge records kept for 2 years                                                                                | Records of challenges to AI decisions (the challenge, its acknowledgement and outcome) are kept 2 years instead of 12 months                                                                                                                                 | as above                                                               |
+
+One interpretation to confirm: "challenge the records (2 years)" was read as records of challenges to AI
+decisions (docs/11 section 3), the only challenge process SecureAI has. If the client meant something else,
+for example how long someone has to dispute a record, the period is one constant in `lib/retention.ts`.

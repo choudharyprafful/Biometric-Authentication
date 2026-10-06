@@ -1,4 +1,4 @@
-import type * as faceapi from 'face-api.js';
+import type * as faceapi from "face-api.js";
 
 // EAR (Eye Aspect Ratio) is eye height / eye width, so it stays comparable
 // across face size and camera distance, but its absolute value still
@@ -25,7 +25,7 @@ import type * as faceapi from 'face-api.js';
 // slowly it happens. Tilting is a rotation, which a position-only check
 // can also miss entirely if the tilt happens to pivot near the box's own
 // center, hence checking both axes independently.
-const CLOSE_RATIO = 0.90; // EAR must drop below 90% of the established open baseline to count as "closed"
+const CLOSE_RATIO = 0.9; // EAR must drop below 90% of the established open baseline to count as "closed"
 const REOPEN_RATIO = 0.88; // EAR must recover to at least 88% of baseline to count as "reopened"
 const MIN_OPEN_SAMPLES_BEFORE_TRUSTING_BASELINE = 5;
 const RECENT_WINDOW_SIZE = 6; // frames considered together when checking for a dip, not just the current one
@@ -52,14 +52,19 @@ function eyeAspectRatio(eye: Point[]): number {
   return (vertical1 + vertical2) / (2 * horizontal);
 }
 
-export function averageEyeAspectRatio(landmarks: faceapi.FaceLandmarks68): number {
+export function averageEyeAspectRatio(
+  landmarks: faceapi.FaceLandmarks68,
+): number {
   const left = eyeAspectRatio(landmarks.getLeftEye());
   const right = eyeAspectRatio(landmarks.getRightEye());
   return (left + right) / 2;
 }
 
 function centerOf(points: Point[]): Point {
-  const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+  const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), {
+    x: 0,
+    y: 0,
+  });
   return { x: sum.x / points.length, y: sum.y / points.length };
 }
 
@@ -80,8 +85,17 @@ export interface FaceBoxSample {
   size: number; // face box width — used to normalize movement distance
 }
 
-export function faceBoxSample(box: { x: number; y: number; width: number; height: number }): FaceBoxSample {
-  return { centerX: box.x + box.width / 2, centerY: box.y + box.height / 2, size: box.width };
+export function faceBoxSample(box: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): FaceBoxSample {
+  return {
+    centerX: box.x + box.width / 2,
+    centerY: box.y + box.height / 2,
+    size: box.width,
+  };
 }
 
 interface FrameSample extends FaceBoxSample {
@@ -90,7 +104,7 @@ interface FrameSample extends FaceBoxSample {
   angle: number;
 }
 
-type BlinkPhase = 'waiting-for-close' | 'waiting-for-open' | 'confirmed';
+type BlinkPhase = "waiting-for-close" | "waiting-for-open" | "confirmed";
 
 /**
  * Confirms liveness after REQUIRED_BLINKS qualifying blinks (currently 1;
@@ -108,7 +122,7 @@ type BlinkPhase = 'waiting-for-close' | 'waiting-for-open' | 'confirmed';
  * docs/04_Threat_Model_Risk_Assessment.md, R-BIO-1.
  */
 export class BlinkDetector {
-  private phase: BlinkPhase = 'waiting-for-close';
+  private phase: BlinkPhase = "waiting-for-close";
   private readonly startedAt = Date.now();
   private openBaseline = 0;
   private openSampleCount = 0;
@@ -133,10 +147,16 @@ export class BlinkDetector {
    *  completes; false otherwise (including every frame before/after). */
   update(ear: number, box: FaceBoxSample, angleDeg: number): boolean {
     this.minEarSeen = Math.min(this.minEarSeen, ear);
-    return this.phase === 'waiting-for-close' ? this.updateWaitingForClose(ear, box, angleDeg) : this.updateWaitingForOpen(ear);
+    return this.phase === "waiting-for-close"
+      ? this.updateWaitingForClose(ear, box, angleDeg)
+      : this.updateWaitingForOpen(ear);
   }
 
-  private updateWaitingForClose(ear: number, box: FaceBoxSample, angleDeg: number): boolean {
+  private updateWaitingForClose(
+    ear: number,
+    box: FaceBoxSample,
+    angleDeg: number,
+  ): boolean {
     const now = Date.now();
 
     // Keep adapting the "eyes open" baseline upward while we're presumed
@@ -156,9 +176,12 @@ export class BlinkDetector {
     if (ear >= this.openBaseline * CLOSE_RATIO) this.lastOpenAt = now;
 
     this.recentSamples.push({ ear, t: now, angle: angleDeg, ...box });
-    if (this.recentSamples.length > RECENT_WINDOW_SIZE) this.recentSamples.shift();
+    if (this.recentSamples.length > RECENT_WINDOW_SIZE)
+      this.recentSamples.shift();
 
-    const haveTrustworthyBaseline = this.openSampleCount >= MIN_OPEN_SAMPLES_BEFORE_TRUSTING_BASELINE && this.openBaseline > 0;
+    const haveTrustworthyBaseline =
+      this.openSampleCount >= MIN_OPEN_SAMPLES_BEFORE_TRUSTING_BASELINE &&
+      this.openBaseline > 0;
     if (!haveTrustworthyBaseline) return false;
 
     const trough = this.findTrough();
@@ -174,7 +197,7 @@ export class BlinkDetector {
     const sawRecentOpen = now - this.lastOpenAt <= MAX_TIME_SINCE_OPEN_MS;
 
     if (faceWasStable && faceWasLevel && dipDeepEnough && sawRecentOpen) {
-      this.phase = 'waiting-for-open';
+      this.phase = "waiting-for-open";
       this.dipAt = trough.sample.t;
     }
     return false;
@@ -187,23 +210,23 @@ export class BlinkDetector {
       if (elapsedSinceDip <= MAX_RECOVERY_MS) {
         this.confirmedBlinkCount += 1;
         if (this.confirmedBlinkCount >= REQUIRED_BLINKS) {
-          this.phase = 'confirmed'; // terminal — reported exactly once, never again
+          this.phase = "confirmed"; // terminal — reported exactly once, never again
           return true;
         }
         // One qualifying blink counted, but not enough yet — go back to
         // watching for another rather than confirming on just this one.
-        this.phase = 'waiting-for-close';
+        this.phase = "waiting-for-close";
         return false;
       }
       // Recovered, but too slowly to be a real blink (more likely gradual
       // drift) -- not a permanent lockout, just go back to watching for a
       // genuinely fast one.
-      this.phase = 'waiting-for-close';
+      this.phase = "waiting-for-close";
       return false;
     }
 
     if (elapsedSinceDip > MAX_RECOVERY_MS) {
-      this.phase = 'waiting-for-close'; // never recovered in time -- abandon this attempt
+      this.phase = "waiting-for-close"; // never recovered in time -- abandon this attempt
     }
     return false;
   }
@@ -211,7 +234,11 @@ export class BlinkDetector {
   private findTrough(): { sample: FrameSample; index: number } {
     let index = 0;
     for (let i = 1; i < this.recentSamples.length; i++) {
-      if ((this.recentSamples[i] as FrameSample).ear < (this.recentSamples[index] as FrameSample).ear) index = i;
+      if (
+        (this.recentSamples[i] as FrameSample).ear <
+        (this.recentSamples[index] as FrameSample).ear
+      )
+        index = i;
     }
     return { sample: this.recentSamples[index] as FrameSample, index };
   }
@@ -222,7 +249,10 @@ export class BlinkDetector {
    *  frames it plays out over. */
   private driftFromBaseline(sample: FrameSample): number {
     if (!this.baselineBox) return 0;
-    const dist = Math.hypot(sample.centerX - this.baselineBox.centerX, sample.centerY - this.baselineBox.centerY);
+    const dist = Math.hypot(
+      sample.centerX - this.baselineBox.centerX,
+      sample.centerY - this.baselineBox.centerY,
+    );
     const avgSize = (sample.size + this.baselineBox.size) / 2;
     return avgSize > 0 ? dist / avgSize : 0;
   }
@@ -238,7 +268,19 @@ export class BlinkDetector {
   }
 
   // On-screen diagnostics only.
-  get debugState(): { phase: BlinkPhase; openBaseline: number; minEarSeen: number; lastMaxMovement: number; lastMaxRotation: number } {
-    return { phase: this.phase, openBaseline: this.openBaseline, minEarSeen: this.minEarSeen, lastMaxMovement: this.lastMaxMovement, lastMaxRotation: this.lastMaxRotation };
+  get debugState(): {
+    phase: BlinkPhase;
+    openBaseline: number;
+    minEarSeen: number;
+    lastMaxMovement: number;
+    lastMaxRotation: number;
+  } {
+    return {
+      phase: this.phase,
+      openBaseline: this.openBaseline,
+      minEarSeen: this.minEarSeen,
+      lastMaxMovement: this.lastMaxMovement,
+      lastMaxRotation: this.lastMaxRotation,
+    };
   }
 }

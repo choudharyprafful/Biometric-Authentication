@@ -18,7 +18,9 @@ const CONCURRENCY = 30;
 const EXPECTED_LIMIT = 5;
 
 if (!process.env["DATABASE_URL"]) {
-  console.error("DATABASE_URL must be set (same connection string the API server uses).");
+  console.error(
+    "DATABASE_URL must be set (same connection string the API server uses).",
+  );
   process.exit(1);
 }
 const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
@@ -33,10 +35,18 @@ async function getCsrfSession(): Promise<CsrfSession> {
   const setCookie = res.headers.get("set-cookie") ?? "";
   const csrfMatch = /csrf_token=([^;]+)/.exec(setCookie);
   const sessionMatch = /connect\.sid=([^;]+)/.exec(setCookie);
-  if (!csrfMatch) throw new Error("Did not receive a csrf_token cookie — is the dev server running?");
+  if (!csrfMatch)
+    throw new Error(
+      "Did not receive a csrf_token cookie — is the dev server running?",
+    );
   return {
     csrf: csrfMatch[1]!,
-    cookies: [`csrf_token=${csrfMatch[1]}`, sessionMatch && `connect.sid=${sessionMatch[1]}`].filter(Boolean).join("; "),
+    cookies: [
+      `csrf_token=${csrfMatch[1]}`,
+      sessionMatch && `connect.sid=${sessionMatch[1]}`,
+    ]
+      .filter(Boolean)
+      .join("; "),
   };
 }
 
@@ -46,8 +56,19 @@ async function testRateLimiterUnderConcurrency(): Promise<boolean> {
 
   const regRes = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": reg.csrf, Cookie: reg.cookies },
-    body: JSON.stringify({ email, name: "Load Test", password: "Password123!", dataConsent: true, dateOfBirth: "1990-01-01" }),
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": reg.csrf,
+      Cookie: reg.cookies,
+    },
+    body: JSON.stringify({
+      email,
+      name: "Load Test",
+      password: "Password123!",
+      dataConsent: true,
+      dateOfBirth: "1990-01-01",
+    }),
   });
   if (regRes.status !== 201) {
     console.error(`Setup failed: register returned ${regRes.status}`);
@@ -55,20 +76,30 @@ async function testRateLimiterUnderConcurrency(): Promise<boolean> {
   }
 
   const flood = await getCsrfSession();
-  console.log(`Firing ${CONCURRENCY} concurrent wrong-password login attempts against one account (limit: ${EXPECTED_LIMIT}/15min)...`);
+  console.log(
+    `Firing ${CONCURRENCY} concurrent wrong-password login attempts against one account (limit: ${EXPECTED_LIMIT}/15min)...`,
+  );
   const start = Date.now();
   const results = await Promise.all(
     Array.from({ length: CONCURRENCY }, () =>
       fetch(`${BASE}/api/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": flood.csrf, Cookie: flood.cookies },
+        headers: {
+          "Content-Type": "application/json",
+          Origin: BASE,
+          "X-CSRF-Token": flood.csrf,
+          Cookie: flood.cookies,
+        },
         body: JSON.stringify({ email, password: "WrongPassword!" }),
       }).then((r) => r.status),
     ),
   );
   const elapsed = Date.now() - start;
 
-  const counts = results.reduce<Record<number, number>>((acc, s) => ({ ...acc, [s]: (acc[s] ?? 0) + 1 }), {});
+  const counts = results.reduce<Record<number, number>>(
+    (acc, s) => ({ ...acc, [s]: (acc[s] ?? 0) + 1 }),
+    {},
+  );
   console.log(`Completed in ${elapsed}ms. Status counts:`, counts);
 
   await pool.query("DELETE FROM users WHERE email = $1", [email]);
@@ -99,13 +130,30 @@ interface LogRow {
 }
 
 function serialize(row: LogRow): string {
-  return [row.event_type, row.details, row.user_id ?? "", row.user_email ?? "", row.ip_address ?? "", row.user_agent ?? "", row.timestamp.toISOString()].join("|");
+  return [
+    row.event_type,
+    row.details,
+    row.user_id ?? "",
+    row.user_email ?? "",
+    row.ip_address ?? "",
+    row.user_agent ?? "",
+    row.timestamp.toISOString(),
+  ].join("|");
 }
 function computeHash(prevHash: string, row: LogRow): string {
-  return crypto.createHash("sha256").update(`${prevHash}|${serialize(row)}`).digest("hex");
+  return crypto
+    .createHash("sha256")
+    .update(`${prevHash}|${serialize(row)}`)
+    .digest("hex");
 }
 
-async function verifyHashChain(): Promise<{ valid: boolean; brokenAtId: number | null; reason: string | null; rowsChecked: number; totalRows: number }> {
+async function verifyHashChain(): Promise<{
+  valid: boolean;
+  brokenAtId: number | null;
+  reason: string | null;
+  rowsChecked: number;
+  totalRows: number;
+}> {
   const { rows } = await pool.query<LogRow>(
     "SELECT id, event_type, details, user_id, user_email, ip_address, user_agent, timestamp, hash, prev_hash FROM security_logs ORDER BY id ASC",
   );
@@ -116,22 +164,47 @@ async function verifyHashChain(): Promise<{ valid: boolean; brokenAtId: number |
 
   for (const row of rows) {
     if (row.hash === null || row.prev_hash === null) {
-      if (chainStarted) return { valid: false, brokenAtId: row.id, reason: "Unchained row found after the chain had already started", rowsChecked, totalRows: rows.length };
+      if (chainStarted)
+        return {
+          valid: false,
+          brokenAtId: row.id,
+          reason: "Unchained row found after the chain had already started",
+          rowsChecked,
+          totalRows: rows.length,
+        };
       continue;
     }
     chainStarted = true;
 
     if (row.prev_hash !== expectedPrevHash) {
-      return { valid: false, brokenAtId: row.id, reason: "prevHash does not match the preceding row's hash", rowsChecked, totalRows: rows.length };
+      return {
+        valid: false,
+        brokenAtId: row.id,
+        reason: "prevHash does not match the preceding row's hash",
+        rowsChecked,
+        totalRows: rows.length,
+      };
     }
     const recomputed = computeHash(row.prev_hash, row);
     if (recomputed !== row.hash) {
-      return { valid: false, brokenAtId: row.id, reason: "Stored hash does not match recomputed hash", rowsChecked, totalRows: rows.length };
+      return {
+        valid: false,
+        brokenAtId: row.id,
+        reason: "Stored hash does not match recomputed hash",
+        rowsChecked,
+        totalRows: rows.length,
+      };
     }
     expectedPrevHash = row.hash;
     rowsChecked++;
   }
-  return { valid: true, brokenAtId: null, reason: null, rowsChecked, totalRows: rows.length };
+  return {
+    valid: true,
+    brokenAtId: null,
+    reason: null,
+    rowsChecked,
+    totalRows: rows.length,
+  };
 }
 
 const rateLimitOk = await testRateLimiterUnderConcurrency();

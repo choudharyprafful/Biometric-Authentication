@@ -13,6 +13,7 @@ import contentProfileRouter from "./contentProfile";
 import aiSecurityRouter from "./aiSecurity";
 import aiGovernanceRouter from "./aiGovernance";
 import privacyRouter from "./privacy";
+import dataBreachesRouter from "./dataBreaches";
 
 const router: IRouter = Router();
 
@@ -31,5 +32,6 @@ router.use(contentProfileRouter);
 router.use(aiSecurityRouter);
 router.use(aiGovernanceRouter);
 router.use(privacyRouter);
+router.use(dataBreachesRouter);
 
 export default router;

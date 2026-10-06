@@ -20,7 +20,21 @@ import { MAX_CONTRIBUTED_TRANSITIONS_PER_USER } from "./behaviorModelPrivacy";
 // model to predict "query the model" as a next action.
 // The AI governance events are excluded for the same reason: challenging a suggestion or switching a
 // model off is a reaction to the model, not behaviour for it to learn and suggest.
-const META_EVENT_TYPES: string[] = ["BEHAVIOR_MODEL_QUERIED", "AI_SYSTEM_TOGGLED", "AI_DECISION_CHALLENGED", "AI_CHALLENGE_RESOLVED", "AI_CHALLENGE_ACKNOWLEDGED", "PRIVACY_POLICY_ACKNOWLEDGED"];
+const META_EVENT_TYPES: string[] = [
+  "BEHAVIOR_MODEL_QUERIED",
+  "AI_SYSTEM_TOGGLED",
+  "AI_DECISION_CHALLENGED",
+  "AI_CHALLENGE_RESOLVED",
+  "AI_CHALLENGE_ACKNOWLEDGED",
+  "PRIVACY_POLICY_ACKNOWLEDGED",
+  // Staff steps and a notice everyone affected receives at once: not behaviour worth predicting.
+  "DATA_BREACH_RECORDED",
+  "DATA_BREACH_ASSESSED",
+  "DATA_BREACH_USERS_NOTIFIED",
+  "DATA_BREACH_REGULATOR_NOTIFIED",
+  "DATA_BREACH_NOTICE_ACKNOWLEDGED",
+  "GOVERNMENT_DISCLOSURE_RECORDED",
+];
 
 // Anti-poisoning cap: limits how many of one user's transitions can enter
 // a single training-corpus build, so a hyperactive account can't dominate
@@ -53,14 +67,25 @@ export interface BehaviorTransitionModel {
  *  consent (or deleting the account) is immediately reflected with no
  *  stale trained artifact anywhere retaining that user's contribution. */
 export async function buildTrainingCorpus(): Promise<TrainingRecord[]> {
-  const consentedUsers = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.trainingConsentGiven, true));
+  const consentedUsers = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.trainingConsentGiven, true));
   if (consentedUsers.length === 0) return [];
   const userIds = consentedUsers.map((u) => u.id);
 
   const rows = await db
-    .select({ userId: securityLogsTable.userId, eventType: securityLogsTable.eventType })
+    .select({
+      userId: securityLogsTable.userId,
+      eventType: securityLogsTable.eventType,
+    })
     .from(securityLogsTable)
-    .where(and(inArray(securityLogsTable.userId, userIds), notInArray(securityLogsTable.eventType, META_EVENT_TYPES)))
+    .where(
+      and(
+        inArray(securityLogsTable.userId, userIds),
+        notInArray(securityLogsTable.eventType, META_EVENT_TYPES),
+      ),
+    )
     // Same tie-break reason as getRecentEventTypes below, but this one shapes
     // what the model LEARNS rather than what it's asked about: two same-
     // millisecond events ordered arbitrarily would record a transition in a
@@ -81,20 +106,35 @@ export interface AuditEventRow {
  *  consent and meta events in SQL too; applying them here as well keeps this
  *  the one place the corpus rules live, so lib/aiSecurityValidation.ts can
  *  exercise exactly these rules with synthetic rows. */
-export function assembleTrainingCorpus(rows: AuditEventRow[], consentedUserIds: ReadonlySet<number>): TrainingRecord[] {
+export function assembleTrainingCorpus(
+  rows: AuditEventRow[],
+  consentedUserIds: ReadonlySet<number>,
+): TrainingRecord[] {
   const byUser = new Map<number, string[]>();
   for (const row of rows) {
-    if (row.userId === null || !consentedUserIds.has(row.userId) || META_EVENT_TYPES.includes(row.eventType)) continue;
+    if (
+      row.userId === null ||
+      !consentedUserIds.has(row.userId) ||
+      META_EVENT_TYPES.includes(row.eventType)
+    )
+      continue;
     const seq = byUser.get(row.userId) ?? [];
     if (seq.length >= MAX_TRANSITIONS_PER_USER) continue;
     seq.push(row.eventType);
     byUser.set(row.userId, seq);
   }
 
-  return Array.from(byUser.entries()).map(([userId, sequence]) => ({ userId, sequence }));
+  return Array.from(byUser.entries()).map(([userId, sequence]) => ({
+    userId,
+    sequence,
+  }));
 }
 
-function recordTransition(table: Map<string, Map<string, number>>, from: string, to: string): void {
+function recordTransition(
+  table: Map<string, Map<string, number>>,
+  from: string,
+  to: string,
+): void {
   if (!table.has(from)) table.set(from, new Map());
   const toMap = table.get(from)!;
   toMap.set(to, (toMap.get(to) ?? 0) + 1);
@@ -124,7 +164,10 @@ export function train(records: TrainingRecord[]): BehaviorTransitionModel {
       // predictions. It is also the L1 sensitivity the DP analysis in
       // behaviorModelPrivacy.ts depends on; that guarantee is undefinable
       // without a bound here.
-      if (!seenOrder1.has(key1) && seenOrder1.size < MAX_CONTRIBUTED_TRANSITIONS_PER_USER) {
+      if (
+        !seenOrder1.has(key1) &&
+        seenOrder1.size < MAX_CONTRIBUTED_TRANSITIONS_PER_USER
+      ) {
         seenOrder1.add(key1);
         recordTransition(transitionsOrder1, from, to);
         transitionsObserved += 1;
@@ -133,7 +176,10 @@ export function train(records: TrainingRecord[]): BehaviorTransitionModel {
       if (i >= 1) {
         const context = `${record.sequence[i - 1]!}=>${from}`;
         const key2 = `${context}=>${to}`;
-        if (!seenOrder2.has(key2) && seenOrder2.size < MAX_CONTRIBUTED_TRANSITIONS_PER_USER) {
+        if (
+          !seenOrder2.has(key2) &&
+          seenOrder2.size < MAX_CONTRIBUTED_TRANSITIONS_PER_USER
+        ) {
           seenOrder2.add(key2);
           recordTransition(transitionsOrder2, context, to);
         }
@@ -141,7 +187,13 @@ export function train(records: TrainingRecord[]): BehaviorTransitionModel {
     }
   }
 
-  return { transitionsOrder1, transitionsOrder2, usersIncluded: records.length, transitionsObserved, builtAt: new Date() };
+  return {
+    transitionsOrder1,
+    transitionsOrder2,
+    usersIncluded: records.length,
+    transitionsObserved,
+    builtAt: new Date(),
+  };
 }
 
 export interface Prediction {
@@ -152,12 +204,15 @@ export interface Prediction {
   contextDepth: 1 | 2;
 }
 
-function bestCandidate(candidates: Map<string, number> | undefined): { eventType: string; distinctUsers: number } | null {
+function bestCandidate(
+  candidates: Map<string, number> | undefined,
+): { eventType: string; distinctUsers: number } | null {
   if (!candidates) return null;
   let best: { eventType: string; distinctUsers: number } | null = null;
   for (const [eventType, count] of candidates) {
     if (count < MIN_DISTINCT_USERS) continue;
-    if (!best || count > best.distinctUsers) best = { eventType, distinctUsers: count };
+    if (!best || count > best.distinctUsers)
+      best = { eventType, distinctUsers: count };
   }
   return best;
 }
@@ -165,7 +220,11 @@ function bestCandidate(candidates: Map<string, number> | undefined): { eventType
 /** Tries the 2nd-order (two-event-context) table first, falls back to
  *  1st-order. Returns null only when neither table clears
  *  MIN_DISTINCT_USERS — refusing rather than guessing from thin evidence. */
-export function predictNext(model: BehaviorTransitionModel, previousEvent: string | null, lastEvent: string): Prediction | null {
+export function predictNext(
+  model: BehaviorTransitionModel,
+  previousEvent: string | null,
+  lastEvent: string,
+): Prediction | null {
   if (previousEvent) {
     const context = `${previousEvent}=>${lastEvent}`;
     const order2 = bestCandidate(model.transitionsOrder2.get(context));
@@ -183,11 +242,18 @@ export interface RecentEvents {
 
 /** previousEvent is null for an account with fewer than two qualifying
  *  events, in which case predictNext falls back to 1st-order. */
-export async function getRecentEventTypes(userId: number): Promise<RecentEvents> {
+export async function getRecentEventTypes(
+  userId: number,
+): Promise<RecentEvents> {
   const rows = await db
     .select({ eventType: securityLogsTable.eventType })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.userId, userId), notInArray(securityLogsTable.eventType, META_EVENT_TYPES)))
+    .where(
+      and(
+        eq(securityLogsTable.userId, userId),
+        notInArray(securityLogsTable.eventType, META_EVENT_TYPES),
+      ),
+    )
     // id breaks the tie when two events share a timestamp: Postgres gives no
     // ordering guarantee between equal sort keys, so "the last two events"
     // could otherwise come back reversed and produce a prediction from a
@@ -196,5 +262,8 @@ export async function getRecentEventTypes(userId: number): Promise<RecentEvents>
     // millisecond is routine for actions the app itself chains together.
     .orderBy(desc(securityLogsTable.timestamp), desc(securityLogsTable.id))
     .limit(2);
-  return { lastEvent: rows[0]?.eventType ?? null, previousEvent: rows[1]?.eventType ?? null };
+  return {
+    lastEvent: rows[0]?.eventType ?? null,
+    previousEvent: rows[1]?.eventType ?? null,
+  };
 }

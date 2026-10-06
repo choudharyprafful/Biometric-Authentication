@@ -13,7 +13,11 @@ import { getClientIp } from "../lib/clientIp";
  * a request is authenticated (shared IPs — offices, NAT, VPNs — would
  * otherwise throttle unrelated legitimate users together).
  */
-export function requestRateLimit(label: string, maxRequests: number, windowMs: number) {
+export function requestRateLimit(
+  label: string,
+  maxRequests: number,
+  windowMs: number,
+) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const userId = req.session.userId;
     const key = `${label}:user:${userId ?? "anon"}`;
@@ -28,7 +32,9 @@ export function requestRateLimit(label: string, maxRequests: number, windowMs: n
         ipAddress: getClientIp(req),
         userAgent: req.headers["user-agent"],
       });
-      res.status(429).json({ error: "Too many requests — please slow down and try again shortly." });
+      res.status(429).json({
+        error: "Too many requests — please slow down and try again shortly.",
+      });
       return;
     }
 

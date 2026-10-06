@@ -13,7 +13,9 @@ export const securityLogsTable = pgTable("security_logs", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   details: text("details").notNull().default(""),
-  timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+  timestamp: timestamp("timestamp", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   // hash = SHA-256(prevHash + row content). Editing, deleting, or
   // reordering a row breaks the chain, caught by GET /security/logs/verify.
   // Nullable since rows from before this existed aren't backfilled.
@@ -21,6 +23,8 @@ export const securityLogsTable = pgTable("security_logs", {
   hash: text("hash"),
 });
 
-export const insertSecurityLogSchema = createInsertSchema(securityLogsTable).omit({ id: true, timestamp: true });
+export const insertSecurityLogSchema = createInsertSchema(
+  securityLogsTable,
+).omit({ id: true, timestamp: true });
 export type InsertSecurityLog = z.infer<typeof insertSecurityLogSchema>;
 export type SecurityLog = typeof securityLogsTable.$inferSelect;

@@ -2,7 +2,15 @@ import { Router, type IRouter, type Request } from "express";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
-import { db, usersTable, passkeysTable, biometricKeysTable, passwordResetTokensTable, parentConsentTokensTable, sessionsTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  passkeysTable,
+  biometricKeysTable,
+  passwordResetTokensTable,
+  parentConsentTokensTable,
+  sessionsTable,
+} from "@workspace/db";
 import {
   RegisterUserBody,
   RegisterUserResponse,
@@ -25,9 +33,16 @@ import { logEvent } from "../lib/auditLog";
 import { mapUser } from "../lib/mapUser";
 import { faceMatchDistance, FACE_MATCH_THRESHOLD } from "../lib/faceUtils";
 import { decryptJson } from "../lib/fileEncryption";
-import { checkAndRecordRequest, releaseAttempt, clearAttempts } from "../lib/rateLimit";
+import {
+  checkAndRecordRequest,
+  releaseAttempt,
+  clearAttempts,
+} from "../lib/rateLimit";
 import { enforceSessionLimit } from "../lib/sessionLimit";
-import { PRIVACY_POLICY_VERSION, acknowledgementDetails } from "../lib/privacyPolicy";
+import {
+  PRIVACY_POLICY_VERSION,
+  acknowledgementDetails,
+} from "../lib/privacyPolicy";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { assessLoginRisk, type LoginRiskCode } from "../lib/loginRiskModel";
 import { isAiSystemEnabled } from "../lib/aiGovernance";
@@ -45,7 +60,10 @@ import { getClientIp } from "../lib/clientIp";
 const router: IRouter = Router();
 
 // Burns comparable time on a "user not found" login so response timing can't be used to enumerate registered emails (CWE-208).
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync("dummy-password-for-constant-time-comparison", 12);
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+  "dummy-password-for-constant-time-comparison",
+  12,
+);
 
 export const MFA_CHALLENGE_TTL_MS = 2 * 60 * 1000;
 export const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
@@ -62,7 +80,10 @@ function computeAge(dateOfBirthIso: string): number {
   const now = new Date();
   let age = now.getUTCFullYear() - dob.getUTCFullYear();
   const monthDiff = now.getUTCMonth() - dob.getUTCMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < dob.getUTCDate())) {
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && now.getUTCDate() < dob.getUTCDate())
+  ) {
     age -= 1;
   }
   return age;
@@ -149,7 +170,10 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
   if (!user) {
     req.session.destroy(() => {});
     res.status(401).json({ error: "Session invalid" });
@@ -160,11 +184,23 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
 router.post("/auth/register", async (req, res): Promise<void> => {
   const ip = getClientIp(req);
-  const ipReservation = checkAndRecordRequest(`register:ip:${ip}`, REGISTER_MAX_ATTEMPTS_PER_IP, REGISTER_RATE_WINDOW_MS);
+  const ipReservation = checkAndRecordRequest(
+    `register:ip:${ip}`,
+    REGISTER_MAX_ATTEMPTS_PER_IP,
+    REGISTER_RATE_WINDOW_MS,
+  );
   if (!ipReservation.allowed) {
-    await logEvent({ eventType: "RATE_LIMIT_HIT", details: "Registration rate limit hit (IP threshold)", ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({
+      eventType: "RATE_LIMIT_HIT",
+      details: "Registration rate limit hit (IP threshold)",
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.set("Retry-After", String(ipReservation.retryAfterSeconds ?? 3600));
-    res.status(429).json({ error: "Too many registration attempts from this network — please try again later" });
+    res.status(429).json({
+      error:
+        "Too many registration attempts from this network — please try again later",
+    });
     return;
   }
 
@@ -173,16 +209,29 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { email, name, password, dataConsent, dateOfBirth, parentGuardianEmail, trainingConsent, privacyPolicyVersion } = parsed.data;
+  const {
+    email,
+    name,
+    password,
+    dataConsent,
+    dateOfBirth,
+    parentGuardianEmail,
+    trainingConsent,
+    privacyPolicyVersion,
+  } = parsed.data;
 
   if (!dataConsent) {
-    res.status(400).json({ error: "Data-processing consent is required to register" });
+    res
+      .status(400)
+      .json({ error: "Data-processing consent is required to register" });
     return;
   }
 
   const dob = new Date(dateOfBirth);
   if (Number.isNaN(dob.getTime()) || dob.getTime() > Date.now()) {
-    res.status(400).json({ error: "Date of birth is missing or not a valid date" });
+    res
+      .status(400)
+      .json({ error: "Date of birth is missing or not a valid date" });
     return;
   }
   const age = computeAge(dateOfBirth);
@@ -192,31 +241,41 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
   const isMinor = age < MINOR_CONSENT_AGE_THRESHOLD;
   if (isMinor && !parentGuardianEmail?.trim()) {
-    res.status(400).json({ error: `A parent/guardian email is required to register under age ${MINOR_CONSENT_AGE_THRESHOLD}` });
+    res.status(400).json({
+      error: `A parent/guardian email is required to register under age ${MINOR_CONSENT_AGE_THRESHOLD}`,
+    });
     return;
   }
 
-  const existing = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  const existing = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase()));
   if (existing.length > 0) {
     res.status(409).json({ error: "Email already registered" });
     return;
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const [user] = await db.insert(usersTable).values({
-    email: email.toLowerCase(),
-    name,
-    passwordHash,
-    role: "user",
-    dataConsentGiven: true,
-    dataConsentAt: new Date(),
-    dateOfBirth,
-    parentGuardianEmail: isMinor ? parentGuardianEmail!.trim().toLowerCase() : null,
-    parentConsentGiven: false,
-    // Opt-in, unlike dataConsent above — separate flag from dataConsentGiven (see lib/db/src/schema/users.ts).
-    trainingConsentGiven: trainingConsent === true,
-    trainingConsentAt: trainingConsent === true ? new Date() : null,
-  }).returning();
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      email: email.toLowerCase(),
+      name,
+      passwordHash,
+      role: "user",
+      dataConsentGiven: true,
+      dataConsentAt: new Date(),
+      dateOfBirth,
+      parentGuardianEmail: isMinor
+        ? parentGuardianEmail!.trim().toLowerCase()
+        : null,
+      parentConsentGiven: false,
+      // Opt-in, unlike dataConsent above — separate flag from dataConsentGiven (see lib/db/src/schema/users.ts).
+      trainingConsentGiven: trainingConsent === true,
+      trainingConsentAt: trainingConsent === true ? new Date() : null,
+    })
+    .returning();
 
   if (!user) {
     res.status(500).json({ error: "Failed to create user" });
@@ -229,7 +288,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     req.session.absoluteExpiresAt = Date.now() + ABSOLUTE_SESSION_MAX_MS;
     await saveSession(req);
   } catch {
-    res.status(500).json({ error: "Could not establish an authenticated session" });
+    res
+      .status(500)
+      .json({ error: "Could not establish an authenticated session" });
     return;
   }
 
@@ -295,11 +356,13 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     );
   }
 
-  res.status(201).json(RegisterUserResponse.parse({
-    user: await mapUser(user),
-    token: "authenticated",
-    devParentConsentLink,
-  }));
+  res.status(201).json(
+    RegisterUserResponse.parse({
+      user: await mapUser(user),
+      token: "authenticated",
+      devParentConsentLink,
+    }),
+  );
 });
 
 router.post("/auth/parent-consent/verify", async (req, res): Promise<void> => {
@@ -312,20 +375,32 @@ router.post("/auth/parent-consent/verify", async (req, res): Promise<void> => {
   const ip = getClientIp(req);
   const tokenHash = hashResetToken(token);
 
-  const [record] = await db.select().from(parentConsentTokensTable).where(eq(parentConsentTokensTable.tokenHash, tokenHash));
+  const [record] = await db
+    .select()
+    .from(parentConsentTokensTable)
+    .where(eq(parentConsentTokensTable.tokenHash, tokenHash));
   if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
     res.status(400).json({ error: "Invalid or expired consent link" });
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, record.userId));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, record.userId));
   if (!user) {
     res.status(400).json({ error: "Account no longer exists" });
     return;
   }
 
-  await db.update(usersTable).set({ parentConsentGiven: true, parentConsentAt: new Date() }).where(eq(usersTable.id, user.id));
-  await db.update(parentConsentTokensTable).set({ usedAt: new Date() }).where(eq(parentConsentTokensTable.id, record.id));
+  await db
+    .update(usersTable)
+    .set({ parentConsentGiven: true, parentConsentAt: new Date() })
+    .where(eq(usersTable.id, user.id));
+  await db
+    .update(parentConsentTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(parentConsentTokensTable.id, record.id));
 
   await logEvent({
     eventType: "PARENT_CONSENT_GRANTED",
@@ -336,7 +411,12 @@ router.post("/auth/parent-consent/verify", async (req, res): Promise<void> => {
     userAgent: req.headers["user-agent"],
   });
 
-  res.json(VerifyParentConsentResponse.parse({ verified: true, childEmail: user.email }));
+  res.json(
+    VerifyParentConsentResponse.parse({
+      verified: true,
+      childEmail: user.email,
+    }),
+  );
 });
 
 router.post("/auth/login", async (req, res): Promise<void> => {
@@ -352,27 +432,60 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const emailKey = `login-email:${normalizedEmail}`;
 
   // Reserved atomically before any async work, otherwise concurrent requests could all pass the check before any of them records (see rateLimit.ts).
-  const ipReservation = checkAndRecordRequest(ipKey, LOGIN_MAX_ATTEMPTS_PER_IP, LOGIN_RATE_WINDOW_MS);
-  const emailReservation = checkAndRecordRequest(emailKey, LOGIN_MAX_ATTEMPTS_PER_ACCOUNT, LOGIN_RATE_WINDOW_MS);
+  const ipReservation = checkAndRecordRequest(
+    ipKey,
+    LOGIN_MAX_ATTEMPTS_PER_IP,
+    LOGIN_RATE_WINDOW_MS,
+  );
+  const emailReservation = checkAndRecordRequest(
+    emailKey,
+    LOGIN_MAX_ATTEMPTS_PER_ACCOUNT,
+    LOGIN_RATE_WINDOW_MS,
+  );
   if (!ipReservation.allowed || !emailReservation.allowed) {
-    const retryAfterSeconds = Math.max(ipReservation.retryAfterSeconds ?? 0, emailReservation.retryAfterSeconds ?? 0);
-    await logEvent({ eventType: "RATE_LIMIT_HIT", details: `Login rate limit hit for ${email} (${!emailReservation.allowed ? "account" : "IP"} threshold)`, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    const retryAfterSeconds = Math.max(
+      ipReservation.retryAfterSeconds ?? 0,
+      emailReservation.retryAfterSeconds ?? 0,
+    );
+    await logEvent({
+      eventType: "RATE_LIMIT_HIT",
+      details: `Login rate limit hit for ${email} (${!emailReservation.allowed ? "account" : "IP"} threshold)`,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.set("Retry-After", String(retryAfterSeconds));
-    res.status(429).json({ error: "Too many failed login attempts — please try again later" });
+    res.status(429).json({
+      error: "Too many failed login attempts — please try again later",
+    });
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, normalizedEmail));
   if (!user) {
     await bcrypt.compare(password, DUMMY_PASSWORD_HASH); // burn timing-equivalent work (see DUMMY_PASSWORD_HASH)
-    await logEvent({ eventType: "LOGIN_FAILED", details: `Failed login attempt for ${email} — user not found`, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({
+      eventType: "LOGIN_FAILED",
+      details: `Failed login attempt for ${email} — user not found`,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
 
   const passwordMatch = await bcrypt.compare(password, user.passwordHash);
   if (!passwordMatch) {
-    await logEvent({ eventType: "LOGIN_FAILED", details: `Failed login for ${email} — wrong password`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({
+      eventType: "LOGIN_FAILED",
+      details: `Failed login for ${email} — wrong password`,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.status(401).json({ error: "Invalid email or password" });
     return;
   }
@@ -398,13 +511,20 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
   // Says what the automated check saw (Team 2: transparency and explainability), in the account owner's
   // terms. The signals are about the owner's own sign-ins, so naming them tells an attacker nothing new.
-  const securityNotice = riskAssessment.level === "high"
-    ? `Automated sign-in check: this sign-in came from ${riskAssessment.codes.map((c) => LOGIN_RISK_WORDING[c]).join(", and ")}. If this wasn't you, reset your password now. If it was you, you can ignore this, or challenge the check on the How SecureAI uses AI page.`
-    : null;
+  const securityNotice =
+    riskAssessment.level === "high"
+      ? `Automated sign-in check: this sign-in came from ${riskAssessment.codes.map((c) => LOGIN_RISK_WORDING[c]).join(", and ")}. If this wasn't you, reset your password now. If it was you, you can ignore this, or challenge the check on the How SecureAI uses AI page.`
+      : null;
 
   const [userPasskeys, userBiometricKeys] = await Promise.all([
-    db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id)),
-    db.select({ id: biometricKeysTable.id }).from(biometricKeysTable).where(eq(biometricKeysTable.userId, user.id)),
+    db
+      .select({ id: passkeysTable.id })
+      .from(passkeysTable)
+      .where(eq(passkeysTable.userId, user.id)),
+    db
+      .select({ id: biometricKeysTable.id })
+      .from(biometricKeysTable)
+      .where(eq(biometricKeysTable.userId, user.id)),
   ]);
   const hasPasskey = userPasskeys.length > 0 || userBiometricKeys.length > 0;
 
@@ -423,16 +543,25 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       return;
     }
 
-    await logEvent({ eventType: "LOGIN_SUCCESS", details: `Password verified for ${email}; awaiting MFA (${[user.faceEnrolled ? "face" : null, hasPasskey ? "passkey" : null].filter(Boolean).join(", ")})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({
+      eventType: "LOGIN_SUCCESS",
+      details: `Password verified for ${email}; awaiting MFA (${[user.faceEnrolled ? "face" : null, hasPasskey ? "passkey" : null].filter(Boolean).join(", ")})`,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
 
-    res.json(LoginUserResponse.parse({
-      requiresFaceVerification: true,
-      faceAvailable: user.faceEnrolled,
-      passkeyAvailable: hasPasskey,
-      tempToken,
-      user: await mapUser(user),
-      securityNotice,
-    }));
+    res.json(
+      LoginUserResponse.parse({
+        requiresFaceVerification: true,
+        faceAvailable: user.faceEnrolled,
+        passkeyAvailable: hasPasskey,
+        tempToken,
+        user: await mapUser(user),
+        securityNotice,
+      }),
+    );
   } else {
     try {
       await regenerateSession(req);
@@ -442,22 +571,33 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       delete req.session.tempToken;
       await saveSession(req);
     } catch {
-      res.status(500).json({ error: "Could not establish an authenticated session" });
+      res
+        .status(500)
+        .json({ error: "Could not establish an authenticated session" });
       return;
     }
 
     await enforceSessionLimit(req, user);
 
-    await logEvent({ eventType: "LOGIN_SUCCESS", details: `Login successful for ${email} (no face MFA)`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({
+      eventType: "LOGIN_SUCCESS",
+      details: `Login successful for ${email} (no face MFA)`,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
 
-    res.json(LoginUserResponse.parse({
-      requiresFaceVerification: false,
-      faceAvailable: false,
-      passkeyAvailable: false,
-      tempToken: null,
-      user: await mapUser(user),
-      securityNotice,
-    }));
+    res.json(
+      LoginUserResponse.parse({
+        requiresFaceVerification: false,
+        faceAvailable: false,
+        passkeyAvailable: false,
+        tempToken: null,
+        user: await mapUser(user),
+        securityNotice,
+      }),
+    );
   }
 });
 
@@ -478,107 +618,184 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
   activeFaceVerifications.add(sessionId);
 
   try {
-  if (!req.session.pendingUserId || !req.session.tempToken || req.session.tempToken !== tempToken) {
-    await logEvent({ eventType: "LOGIN_FACE_FAILED", details: "Face verify: invalid or expired temp token", ipAddress: ip, userAgent: req.headers["user-agent"] });
-    res.status(401).json({ error: "Invalid or expired verification token" });
-    return;
-  }
-
-  if (!req.session.mfaIssuedAt || Date.now() - req.session.mfaIssuedAt > MFA_CHALLENGE_TTL_MS) {
-    try {
-      await destroySession(req);
-    } catch {
-      res.status(500).json({ error: "Could not invalidate the expired challenge — please try again" });
+    if (
+      !req.session.pendingUserId ||
+      !req.session.tempToken ||
+      req.session.tempToken !== tempToken
+    ) {
+      await logEvent({
+        eventType: "LOGIN_FACE_FAILED",
+        details: "Face verify: invalid or expired temp token",
+        ipAddress: ip,
+        userAgent: req.headers["user-agent"],
+      });
+      res.status(401).json({ error: "Invalid or expired verification token" });
       return;
     }
-    await logEvent({ eventType: "LOGIN_FACE_FAILED", details: "Face verify: challenge expired", ipAddress: ip, userAgent: req.headers["user-agent"] });
-    res.status(401).json({ error: "Verification window expired — please log in again" });
-    return;
-  }
 
-  if (!isValidDescriptor(descriptor)) {
-    await logEvent({ eventType: "LOGIN_FACE_FAILED", details: "Face verify: malformed descriptor rejected", ipAddress: ip, userAgent: req.headers["user-agent"] });
-    res.status(400).json({ error: "Invalid face data" });
-    return;
-  }
-
-  const userId = req.session.pendingUserId;
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-
-  if (!user || !user.faceEnrolled || !user.faceDescriptorCiphertext || !user.faceDescriptorIv || !user.faceDescriptorAuthTag) {
-    // Face MFA can't complete, but the challenge may still be completable via passkey/biometric key, so only destroy the session when neither exists.
-    const [userPasskeys, userBiometricKeys] = user
-      ? await Promise.all([
-          db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, user.id)),
-          db.select({ id: biometricKeysTable.id }).from(biometricKeysTable).where(eq(biometricKeysTable.userId, user.id)),
-        ])
-      : [[], []];
-    if (userPasskeys.length > 0 || userBiometricKeys.length > 0) {
-      res.status(400).json({ error: "Face not enrolled — use your device passkey instead" });
-      return;
-    }
-    await destroySession(req).catch(() => {});
-    res.status(401).json({ error: "User face not enrolled" });
-    return;
-  }
-
-  const storedDescriptor = decryptJson<number[]>({
-    ciphertext: user.faceDescriptorCiphertext,
-    iv: user.faceDescriptorIv,
-    authTag: user.faceDescriptorAuthTag,
-  });
-  // Reused for the audit-log line below — faceVerificationAnomaly.ts parses "dist=" back out of FAILED rows to distinguish a wildly-off mismatch from a probing/spoofing pattern clustered just above threshold.
-  const distance = faceMatchDistance(descriptor, storedDescriptor);
-  const match = distance < FACE_MATCH_THRESHOLD;
-
-  if (!match) {
-    const attempts = (req.session.mfaAttempts ?? 0) + 1;
-    req.session.mfaAttempts = attempts;
-
-    if (attempts >= MFA_MAX_ATTEMPTS) {
-      // Too many failed scans — destroy the session so the challenge cannot be reused
+    if (
+      !req.session.mfaIssuedAt ||
+      Date.now() - req.session.mfaIssuedAt > MFA_CHALLENGE_TTL_MS
+    ) {
       try {
         await destroySession(req);
       } catch {
-        res.status(500).json({ error: "Could not invalidate the challenge — please try again" });
+        res.status(500).json({
+          error:
+            "Could not invalidate the expired challenge — please try again",
+        });
         return;
       }
-      await logEvent({ eventType: "LOGIN_FACE_FAILED", details: `Face verification locked for ${user.email} after ${attempts} failed attempts (dist=${distance.toFixed(4)})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
-      res.status(401).json({ error: "Too many failed scans — please log in again" });
+      await logEvent({
+        eventType: "LOGIN_FACE_FAILED",
+        details: "Face verify: challenge expired",
+        ipAddress: ip,
+        userAgent: req.headers["user-agent"],
+      });
+      res
+        .status(401)
+        .json({ error: "Verification window expired — please log in again" });
+      return;
+    }
+
+    if (!isValidDescriptor(descriptor)) {
+      await logEvent({
+        eventType: "LOGIN_FACE_FAILED",
+        details: "Face verify: malformed descriptor rejected",
+        ipAddress: ip,
+        userAgent: req.headers["user-agent"],
+      });
+      res.status(400).json({ error: "Invalid face data" });
+      return;
+    }
+
+    const userId = req.session.pendingUserId;
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+
+    if (
+      !user ||
+      !user.faceEnrolled ||
+      !user.faceDescriptorCiphertext ||
+      !user.faceDescriptorIv ||
+      !user.faceDescriptorAuthTag
+    ) {
+      // Face MFA can't complete, but the challenge may still be completable via passkey/biometric key, so only destroy the session when neither exists.
+      const [userPasskeys, userBiometricKeys] = user
+        ? await Promise.all([
+            db
+              .select({ id: passkeysTable.id })
+              .from(passkeysTable)
+              .where(eq(passkeysTable.userId, user.id)),
+            db
+              .select({ id: biometricKeysTable.id })
+              .from(biometricKeysTable)
+              .where(eq(biometricKeysTable.userId, user.id)),
+          ])
+        : [[], []];
+      if (userPasskeys.length > 0 || userBiometricKeys.length > 0) {
+        res.status(400).json({
+          error: "Face not enrolled — use your device passkey instead",
+        });
+        return;
+      }
+      await destroySession(req).catch(() => {});
+      res.status(401).json({ error: "User face not enrolled" });
+      return;
+    }
+
+    const storedDescriptor = decryptJson<number[]>({
+      ciphertext: user.faceDescriptorCiphertext,
+      iv: user.faceDescriptorIv,
+      authTag: user.faceDescriptorAuthTag,
+    });
+    // Reused for the audit-log line below — faceVerificationAnomaly.ts parses "dist=" back out of FAILED rows to distinguish a wildly-off mismatch from a probing/spoofing pattern clustered just above threshold.
+    const distance = faceMatchDistance(descriptor, storedDescriptor);
+    const match = distance < FACE_MATCH_THRESHOLD;
+
+    if (!match) {
+      const attempts = (req.session.mfaAttempts ?? 0) + 1;
+      req.session.mfaAttempts = attempts;
+
+      if (attempts >= MFA_MAX_ATTEMPTS) {
+        // Too many failed scans — destroy the session so the challenge cannot be reused
+        try {
+          await destroySession(req);
+        } catch {
+          res.status(500).json({
+            error: "Could not invalidate the challenge — please try again",
+          });
+          return;
+        }
+        await logEvent({
+          eventType: "LOGIN_FACE_FAILED",
+          details: `Face verification locked for ${user.email} after ${attempts} failed attempts (dist=${distance.toFixed(4)})`,
+          userId: user.id,
+          userEmail: user.email,
+          ipAddress: ip,
+          userAgent: req.headers["user-agent"],
+        });
+        res
+          .status(401)
+          .json({ error: "Too many failed scans — please log in again" });
+        return;
+      }
+
+      try {
+        await saveSession(req);
+      } catch {
+        res.status(500).json({
+          error: "Could not record the failed attempt — please try again",
+        });
+        return;
+      }
+      await logEvent({
+        eventType: "LOGIN_FACE_FAILED",
+        details: `Face verification failed for ${user.email} (attempt ${attempts}/${MFA_MAX_ATTEMPTS}, dist=${distance.toFixed(4)})`,
+        userId: user.id,
+        userEmail: user.email,
+        ipAddress: ip,
+        userAgent: req.headers["user-agent"],
+      });
+      // Says an AI model made the call and what to do instead; never the match distance, which would help an attacker probing the threshold.
+      res.status(401).json({
+        error: `The face-matching model did not recognise this scan as your enrolled face. Face the camera in even light and try again, or use your passkey instead — ${MFA_MAX_ATTEMPTS - attempts} attempt(s) remaining`,
+      });
       return;
     }
 
     try {
+      await regenerateSession(req);
+      req.session.userId = user.id;
+      req.session.absoluteExpiresAt = Date.now() + ABSOLUTE_SESSION_MAX_MS;
+      clearPendingMfa(req);
       await saveSession(req);
     } catch {
-      res.status(500).json({ error: "Could not record the failed attempt — please try again" });
+      res
+        .status(500)
+        .json({ error: "Could not establish an authenticated session" });
       return;
     }
-    await logEvent({ eventType: "LOGIN_FACE_FAILED", details: `Face verification failed for ${user.email} (attempt ${attempts}/${MFA_MAX_ATTEMPTS}, dist=${distance.toFixed(4)})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
-    // Says an AI model made the call and what to do instead; never the match distance, which would help an attacker probing the threshold.
-    res.status(401).json({ error: `The face-matching model did not recognise this scan as your enrolled face. Face the camera in even light and try again, or use your passkey instead — ${MFA_MAX_ATTEMPTS - attempts} attempt(s) remaining` });
-    return;
-  }
 
-  try {
-    await regenerateSession(req);
-    req.session.userId = user.id;
-    req.session.absoluteExpiresAt = Date.now() + ABSOLUTE_SESSION_MAX_MS;
-    clearPendingMfa(req);
-    await saveSession(req);
-  } catch {
-    res.status(500).json({ error: "Could not establish an authenticated session" });
-    return;
-  }
+    await enforceSessionLimit(req, user);
 
-  await enforceSessionLimit(req, user);
+    await logEvent({
+      eventType: "LOGIN_FACE_SUCCESS",
+      details: `Biometric MFA passed for ${user.email} (dist=${distance.toFixed(4)})`,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
 
-  await logEvent({ eventType: "LOGIN_FACE_SUCCESS", details: `Biometric MFA passed for ${user.email} (dist=${distance.toFixed(4)})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
-
-  res.json(FaceVerifyResponse.parse({
-    user: await mapUser(user),
-    token: "authenticated",
-  }));
+    res.json(
+      FaceVerifyResponse.parse({
+        user: await mapUser(user),
+        token: "authenticated",
+      }),
+    );
   } finally {
     activeFaceVerifications.delete(sessionId);
   }
@@ -595,17 +812,38 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
   const normalizedEmail = email.toLowerCase();
 
   // Keyed on the SUBMITTED email and checked BEFORE the user lookup, deliberately: keying on a found user (or checking after the lookup) would make a rate-limited response reachable only for addresses that actually exist, reintroducing by the back door exactly the enumeration the identical-response rule below exists to prevent. Keyed this way, a flood against a non-existent address is throttled identically to one against a real account.
-  const resetIpReservation = checkAndRecordRequest(`reset-req:ip:${ip}`, RESET_REQUEST_MAX_PER_IP, RESET_REQUEST_RATE_WINDOW_MS);
-  const resetEmailReservation = checkAndRecordRequest(`reset-req:email:${normalizedEmail}`, RESET_REQUEST_MAX_PER_ACCOUNT, RESET_REQUEST_RATE_WINDOW_MS);
+  const resetIpReservation = checkAndRecordRequest(
+    `reset-req:ip:${ip}`,
+    RESET_REQUEST_MAX_PER_IP,
+    RESET_REQUEST_RATE_WINDOW_MS,
+  );
+  const resetEmailReservation = checkAndRecordRequest(
+    `reset-req:email:${normalizedEmail}`,
+    RESET_REQUEST_MAX_PER_ACCOUNT,
+    RESET_REQUEST_RATE_WINDOW_MS,
+  );
   if (!resetIpReservation.allowed || !resetEmailReservation.allowed) {
-    const retryAfterSeconds = Math.max(resetIpReservation.retryAfterSeconds ?? 0, resetEmailReservation.retryAfterSeconds ?? 0);
-    await logEvent({ eventType: "RATE_LIMIT_HIT", details: `Password reset request rate limit hit for ${email} (${!resetEmailReservation.allowed ? "account" : "IP"} threshold)`, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    const retryAfterSeconds = Math.max(
+      resetIpReservation.retryAfterSeconds ?? 0,
+      resetEmailReservation.retryAfterSeconds ?? 0,
+    );
+    await logEvent({
+      eventType: "RATE_LIMIT_HIT",
+      details: `Password reset request rate limit hit for ${email} (${!resetEmailReservation.allowed ? "account" : "IP"} threshold)`,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
     res.set("Retry-After", String(retryAfterSeconds));
-    res.status(429).json({ error: "Too many password reset requests — please try again later" });
+    res.status(429).json({
+      error: "Too many password reset requests — please try again later",
+    });
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, normalizedEmail));
 
   // Same response whether or not the account exists — prevents email enumeration.
   let devResetLink: string | null = null;
@@ -618,7 +856,14 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     });
 
     const link = `/reset-password?token=${rawToken}`;
-    await logEvent({ eventType: "PASSWORD_RESET_REQUESTED", details: `Password reset requested for ${email}`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+    await logEvent({
+      eventType: "PASSWORD_RESET_REQUESTED",
+      details: `Password reset requested for ${email}`,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
 
     // devAuthLinksEnabled() is an allow-list, not a NODE_ENV check (see lib/devLinks.ts) — it only controls whether the link is ALSO returned over the API for local testing without a mail server.
     if (devAuthLinksEnabled()) {
@@ -631,16 +876,27 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     );
   }
 
-  res.json(ForgotPasswordResponse.parse({
-    message: "If that email is registered, a password reset link has been issued.",
-    devResetLink,
-  }));
+  res.json(
+    ForgotPasswordResponse.parse({
+      message:
+        "If that email is registered, a password reset link has been issued.",
+      devResetLink,
+    }),
+  );
 });
 
 // "Usable": exists, unused, unexpired, and under the attempt cap.
 export async function loadUsableResetToken(token: string) {
-  const [record] = await db.select().from(passwordResetTokensTable).where(eq(passwordResetTokensTable.tokenHash, hashResetToken(token)));
-  if (!record || record.usedAt || record.expiresAt.getTime() < Date.now() || record.attempts >= RESET_MAX_ATTEMPTS) {
+  const [record] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(eq(passwordResetTokensTable.tokenHash, hashResetToken(token)));
+  if (
+    !record ||
+    record.usedAt ||
+    record.expiresAt.getTime() < Date.now() ||
+    record.attempts >= RESET_MAX_ATTEMPTS
+  ) {
     return null;
   }
   return record;
@@ -660,13 +916,21 @@ router.post("/auth/reset-password/verify", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, record.userId));
-  const userPasskeys = await db.select({ id: passkeysTable.id }).from(passkeysTable).where(eq(passkeysTable.userId, record.userId));
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, record.userId));
+  const userPasskeys = await db
+    .select({ id: passkeysTable.id })
+    .from(passkeysTable)
+    .where(eq(passkeysTable.userId, record.userId));
 
-  res.json(VerifyResetTokenResponse.parse({
-    faceAvailable: user?.faceEnrolled ?? false,
-    passkeyAvailable: userPasskeys.length > 0,
-  }));
+  res.json(
+    VerifyResetTokenResponse.parse({
+      faceAvailable: user?.faceEnrolled ?? false,
+      passkeyAvailable: userPasskeys.length > 0,
+    }),
+  );
 });
 
 // Attempts are capped on the token itself (mirrors the login face-MFA attempt limit).
@@ -690,8 +954,17 @@ router.post("/auth/reset-password/face", async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, record.userId));
-  if (!user || !user.faceEnrolled || !user.faceDescriptorCiphertext || !user.faceDescriptorIv || !user.faceDescriptorAuthTag) {
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, record.userId));
+  if (
+    !user ||
+    !user.faceEnrolled ||
+    !user.faceDescriptorCiphertext ||
+    !user.faceDescriptorIv ||
+    !user.faceDescriptorAuthTag
+  ) {
     res.status(400).json({ error: "No face enrolled for this account" });
     return;
   }
@@ -705,18 +978,43 @@ router.post("/auth/reset-password/face", async (req, res): Promise<void> => {
   const match = resetDistance < FACE_MATCH_THRESHOLD;
   if (!match) {
     const attempts = record.attempts + 1;
-    await db.update(passwordResetTokensTable).set({ attempts }).where(eq(passwordResetTokensTable.id, record.id));
-    await logEvent({ eventType: "PASSWORD_RESET_FACE_FAILED", details: `Reset face verification failed for ${user.email} (attempt ${attempts}/${RESET_MAX_ATTEMPTS}, dist=${resetDistance.toFixed(4)})`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
-    res.status(401).json({ error: `The face-matching model did not recognise this scan as your enrolled face. Try again in even light, or verify with your passkey instead — ${RESET_MAX_ATTEMPTS - attempts} attempt(s) remaining` });
+    await db
+      .update(passwordResetTokensTable)
+      .set({ attempts })
+      .where(eq(passwordResetTokensTable.id, record.id));
+    await logEvent({
+      eventType: "PASSWORD_RESET_FACE_FAILED",
+      details: `Reset face verification failed for ${user.email} (attempt ${attempts}/${RESET_MAX_ATTEMPTS}, dist=${resetDistance.toFixed(4)})`,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+      userAgent: req.headers["user-agent"],
+    });
+    res.status(401).json({
+      error: `The face-matching model did not recognise this scan as your enrolled face. Try again in even light, or verify with your passkey instead — ${RESET_MAX_ATTEMPTS - attempts} attempt(s) remaining`,
+    });
     return;
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, user.id));
+  await db
+    .update(usersTable)
+    .set({ passwordHash })
+    .where(eq(usersTable.id, user.id));
   // Consume the token immediately — a reset link is single-use.
-  await db.update(passwordResetTokensTable).set({ usedAt: new Date() }).where(eq(passwordResetTokensTable.id, record.id));
+  await db
+    .update(passwordResetTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetTokensTable.id, record.id));
 
-  await logEvent({ eventType: "PASSWORD_RESET_COMPLETED", details: `Password reset completed for ${user.email} (face-verified)`, userId: user.id, userEmail: user.email, ipAddress: ip, userAgent: req.headers["user-agent"] });
+  await logEvent({
+    eventType: "PASSWORD_RESET_COMPLETED",
+    details: `Password reset completed for ${user.email} (face-verified)`,
+    userId: user.id,
+    userEmail: user.email,
+    ipAddress: ip,
+    userAgent: req.headers["user-agent"],
+  });
 
   res.json(ResetPasswordWithFaceResponse.parse({ success: true }));
 });
@@ -725,7 +1023,11 @@ router.post("/auth/logout", (req, res): void => {
   const userId = req.session.userId;
   req.session.destroy(() => {});
   if (userId) {
-    logEvent({ eventType: "LOGOUT", details: `User ${userId} logged out`, userId });
+    logEvent({
+      eventType: "LOGOUT",
+      details: `User ${userId} logged out`,
+      userId,
+    });
   }
   res.sendStatus(204);
 });
@@ -754,7 +1056,9 @@ router.post("/auth/logout-all", async (req, res): Promise<void> => {
 
   // Own session row is already deleted above; this clears the cookie side.
   req.session.destroy(() => {});
-  res.json(LogoutAllDevicesResponse.parse({ terminatedSessions: deleted.length }));
+  res.json(
+    LogoutAllDevicesResponse.parse({ terminatedSessions: deleted.length }),
+  );
 });
 
 export default router;

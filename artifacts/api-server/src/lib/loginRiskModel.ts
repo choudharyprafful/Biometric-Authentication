@@ -31,7 +31,8 @@ import { db, securityLogsTable } from "@workspace/db";
 export type RiskLevel = "low" | "medium" | "high";
 
 /** Stable identifiers for each signal, so callers can explain a flag to the account owner without parsing `reasons`. */
-export type LoginRiskCode = "new_network" | "new_device" | "rapid_network_change" | "unusual_time";
+export type LoginRiskCode =
+  "new_network" | "new_device" | "rapid_network_change" | "unusual_time";
 
 export interface LoginRiskAssessment {
   level: RiskLevel;
@@ -120,7 +121,8 @@ function computeCircularStats(hours: number[]): CircularStats {
   // vanishingly small but never exactly 0 here since MIN_HISTORY_FOR_
   // TIME_PATTERN guarantees at least 8 samples, so ln(R) stays finite in
   // practice — still guarded defensively.
-  const stdDevRadians = concentration > 0.0001 ? Math.sqrt(-2 * Math.log(concentration)) : Math.PI;
+  const stdDevRadians =
+    concentration > 0.0001 ? Math.sqrt(-2 * Math.log(concentration)) : Math.PI;
   const stdDevHours = (stdDevRadians / (2 * Math.PI)) * 24;
   return { meanHour, concentration, stdDevHours };
 }
@@ -135,34 +137,71 @@ function circularHourDistance(a: number, b: number): number {
 /** Scores a login attempt that has already passed the password check, using
  *  only this account's own LOGIN_SUCCESS history. Never throws — a caller
  *  mid-login should never fail the login because scoring itself broke. */
-export async function assessLoginRisk(userId: number, currentIp: string, currentUserAgent: string | null | undefined): Promise<LoginRiskAssessment> {
+export async function assessLoginRisk(
+  userId: number,
+  currentIp: string,
+  currentUserAgent: string | null | undefined,
+): Promise<LoginRiskAssessment> {
   try {
     const history = await db
-      .select({ ipAddress: securityLogsTable.ipAddress, userAgent: securityLogsTable.userAgent, timestamp: securityLogsTable.timestamp })
+      .select({
+        ipAddress: securityLogsTable.ipAddress,
+        userAgent: securityLogsTable.userAgent,
+        timestamp: securityLogsTable.timestamp,
+      })
       .from(securityLogsTable)
-      .where(and(eq(securityLogsTable.userId, userId), eq(securityLogsTable.eventType, "LOGIN_SUCCESS")))
+      .where(
+        and(
+          eq(securityLogsTable.userId, userId),
+          eq(securityLogsTable.eventType, "LOGIN_SUCCESS"),
+        ),
+      )
       .orderBy(desc(securityLogsTable.timestamp))
       .limit(MAX_HISTORY_ROWS);
 
     if (history.length < MIN_HISTORY_FOR_SCORING) {
-      return { level: "low", reasons: [], codes: [], isNewIp: false, isNewDevice: false, priorLoginsConsidered: history.length };
+      return {
+        level: "low",
+        reasons: [],
+        codes: [],
+        isNewIp: false,
+        isNewDevice: false,
+        priorLoginsConsidered: history.length,
+      };
     }
 
-    const knownIps = new Set(history.map((h) => h.ipAddress).filter((ip): ip is string => ip !== null));
-    const knownDevices = new Set(history.map((h) => normalizeUserAgent(h.userAgent)));
+    const knownIps = new Set(
+      history.map((h) => h.ipAddress).filter((ip): ip is string => ip !== null),
+    );
+    const knownDevices = new Set(
+      history.map((h) => normalizeUserAgent(h.userAgent)),
+    );
 
     const isNewIp = currentIp !== "unknown" && !knownIps.has(currentIp);
     const isNewDevice = !knownDevices.has(normalizeUserAgent(currentUserAgent));
 
     const recentCutoff = new Date(Date.now() - RAPID_IP_CHANGE_WINDOW_MS);
-    const recentDifferentIp = history.some((h) => h.timestamp >= recentCutoff && h.ipAddress !== null && h.ipAddress !== currentIp);
+    const recentDifferentIp = history.some(
+      (h) =>
+        h.timestamp >= recentCutoff &&
+        h.ipAddress !== null &&
+        h.ipAddress !== currentIp,
+    );
 
     let isOffHours = false;
     if (history.length >= MIN_HISTORY_FOR_TIME_PATTERN) {
-      const stats = computeCircularStats(history.map((h) => hourOfDay(h.timestamp)));
+      const stats = computeCircularStats(
+        history.map((h) => hourOfDay(h.timestamp)),
+      );
       if (stats.concentration >= MIN_CONCENTRATION_FOR_TIME_CHECK) {
-        const distance = circularHourDistance(hourOfDay(new Date()), stats.meanHour);
-        const threshold = Math.max(OFF_HOURS_FLOOR_HOURS, stats.stdDevHours * OFF_HOURS_STDDEV_MULTIPLIER);
+        const distance = circularHourDistance(
+          hourOfDay(new Date()),
+          stats.meanHour,
+        );
+        const threshold = Math.max(
+          OFF_HOURS_FLOOR_HOURS,
+          stats.stdDevHours * OFF_HOURS_STDDEV_MULTIPLIER,
+        );
         isOffHours = distance > threshold;
       }
     }
@@ -181,12 +220,16 @@ export async function assessLoginRisk(userId: number, currentIp: string, current
       weight += WEIGHT_NEW_DEVICE;
     }
     if (recentDifferentIp) {
-      reasons.push(`a different IP address logged in successfully for this account within the last ${RAPID_IP_CHANGE_WINDOW_MS / 60000} minutes`);
+      reasons.push(
+        `a different IP address logged in successfully for this account within the last ${RAPID_IP_CHANGE_WINDOW_MS / 60000} minutes`,
+      );
       codes.push("rapid_network_change");
       weight += WEIGHT_RAPID_IP_CHANGE;
     }
     if (isOffHours) {
-      reasons.push("this login's time of day is well outside this account's usual pattern");
+      reasons.push(
+        "this login's time of day is well outside this account's usual pattern",
+      );
       codes.push("unusual_time");
       weight += WEIGHT_OFF_HOURS;
     }
@@ -195,9 +238,23 @@ export async function assessLoginRisk(userId: number, currentIp: string, current
     if (weight >= HIGH_RISK_THRESHOLD) level = "high";
     else if (weight >= MEDIUM_RISK_THRESHOLD) level = "medium";
 
-    return { level, reasons, codes, isNewIp, isNewDevice, priorLoginsConsidered: history.length };
+    return {
+      level,
+      reasons,
+      codes,
+      isNewIp,
+      isNewDevice,
+      priorLoginsConsidered: history.length,
+    };
   } catch {
     // Scoring must never be able to break the login path it's observing.
-    return { level: "low", reasons: [], codes: [], isNewIp: false, isNewDevice: false, priorLoginsConsidered: 0 };
+    return {
+      level: "low",
+      reasons: [],
+      codes: [],
+      isNewIp: false,
+      isNewDevice: false,
+      priorLoginsConsidered: 0,
+    };
   }
 }

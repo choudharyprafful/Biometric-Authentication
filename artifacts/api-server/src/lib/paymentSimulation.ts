@@ -46,10 +46,17 @@ const DECLINE_BY_LAST4: Record<string, DeclineCode> = {
 /** Deterministic, not random — the same test card always produces the same
  *  result. `_amount` is accepted but unused, to keep the call site stable
  *  if amount-based decline logic is added later. */
-export function simulateProcessorDecision(cardLast4: string | null | undefined, _amount: number): ProcessorDecision {
+export function simulateProcessorDecision(
+  cardLast4: string | null | undefined,
+  _amount: number,
+): ProcessorDecision {
   const declineCode = cardLast4 ? DECLINE_BY_LAST4[cardLast4] : undefined;
   if (!declineCode) {
     return { status: "completed", declineCode: null, declineMessage: null };
   }
-  return { status: "failed", declineCode, declineMessage: DECLINE_MESSAGES[declineCode] };
+  return {
+    status: "failed",
+    declineCode,
+    declineMessage: DECLINE_MESSAGES[declineCode],
+  };
 }

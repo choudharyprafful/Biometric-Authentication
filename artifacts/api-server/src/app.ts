@@ -9,6 +9,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { isAllowedOrigin } from "./lib/allowedOrigins";
 import { issueCsrfCookie, requireCsrfMatch } from "./middlewares/csrf";
+import { rejectNulCharacters } from "./middlewares/rejectNulCharacters";
 import { IDLE_TIMEOUT_MS, ABSOLUTE_SESSION_MAX_MS } from "./lib/sessionPolicy";
 import { CLOUDFRONT_RANGES } from "./lib/cloudfrontRanges";
 
@@ -96,7 +97,10 @@ app.set("trust proxy", ["loopback", ...CLOUDFRONT_RANGES]);
 // it's registered this early. X-Amz-Cf-Id's presence is what CloudFront
 // reliably does add, so it's the signal used to know this is safe to trust.
 app.use((req, _res, next) => {
-  if (typeof req.headers["x-amz-cf-id"] === "string" && !req.headers["x-forwarded-proto"]) {
+  if (
+    typeof req.headers["x-amz-cf-id"] === "string" &&
+    !req.headers["x-forwarded-proto"]
+  ) {
     req.headers["x-forwarded-proto"] = "https";
   }
   next();
@@ -114,19 +118,29 @@ app.use((req, res, next) => {
   // no HTTPS listener of its own -- redirecting a browser to
   // "https://<eb-hostname>" would just fail to load).
   const behindCloudFront = typeof req.headers["x-amz-cf-id"] === "string";
-  if (process.env["NODE_ENV"] === "production" && !req.secure && !behindCloudFront) {
+  if (
+    process.env["NODE_ENV"] === "production" &&
+    !req.secure &&
+    !behindCloudFront
+  ) {
     res.redirect(308, `https://${req.headers.host}${req.originalUrl}`);
     return;
   }
   if (process.env["NODE_ENV"] === "production") {
-    res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains",
+    );
   }
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
   // API responses are JSON, never HTML — a strict CSP still blocks any
   // response that somehow got script-executed in a browser context.
-  res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'none'; frame-ancestors 'none'",
+  );
   next();
 });
 
@@ -153,17 +167,21 @@ app.use(
 // Secure comms: reflect only allowlisted origins, not `origin: true` (which
 // echoes back whatever Origin the request sent — effectively no restriction
 // at all when combined with credentials: true).
-app.use(cors({
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) {
-      callback(null, true);
-    } else {
-      callback(Object.assign(new Error("Origin not allowed"), { status: 403 }));
-    }
-  },
-  credentials: true,
-  allowedHeaders: ["Content-Type", "X-CSRF-Token"],
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        callback(
+          Object.assign(new Error("Origin not allowed"), { status: 403 }),
+        );
+      }
+    },
+    credentials: true,
+    allowedHeaders: ["Content-Type", "X-CSRF-Token"],
+  }),
+);
 // Body-size limits are scoped per-route, not one ceiling for everything:
 // a 21mb allowance exists only because uploads legitimately need it
 // (base64-encoded files, up to 15mb decoded — base64 inflates size ~33%,
@@ -175,17 +193,29 @@ app.use(cors({
 // parser for non-matching requests and won't re-parse an already-consumed
 // body, so registering the uploads override first and the small default
 // after is safe for both cases.
-const jsonBodyVerify = (req: express.Request, _res: express.Response, buf: Buffer) => {
+const jsonBodyVerify = (
+  req: express.Request,
+  _res: express.Response,
+  buf: Buffer,
+) => {
   req.rawBody = Buffer.from(buf);
 };
-app.use("/api/uploads", express.json({ limit: "21mb", verify: jsonBodyVerify }));
+app.use(
+  "/api/uploads",
+  express.json({ limit: "21mb", verify: jsonBodyVerify }),
+);
 app.use(express.json({ limit: "256kb", verify: jsonBodyVerify }));
 app.use(express.urlencoded({ extended: true }));
+app.use(rejectNulCharacters);
 app.use(cookieParser());
 app.use(issueCsrfCookie);
 // Webhooks are server-to-server (no browser, no cookies) and are validated
 // by HMAC signature instead — see routes/payments.ts POST /payments/webhook.
-app.use((req, res, next) => (req.path === "/api/payments/webhook" ? next() : requireCsrfMatch(req, res, next)));
+app.use((req, res, next) =>
+  req.path === "/api/payments/webhook"
+    ? next()
+    : requireCsrfMatch(req, res, next),
+);
 
 app.use(
   session({
@@ -196,7 +226,8 @@ app.use(
       // table.sql uses obsolete syntax that fails on this Postgres.
       createTableIfMissing: false,
     }),
-    secret: process.env["SESSION_SECRET"] || "fallback-dev-secret-change-in-prod",
+    secret:
+      process.env["SESSION_SECRET"] || "fallback-dev-secret-change-in-prod",
     resave: false,
     saveUninitialized: false,
     // Idle timeout, not a fixed window: `rolling: true` re-issues the cookie
@@ -210,14 +241,13 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: process.env["NODE_ENV"] === "production",
-      // "lax" works for local dev (frontend and API share an origin via the
-      // Vite proxy, or at worst share a scheme+port pattern). A split
-      // deployment (frontend on Vercel, API on Render — different domains
-      // entirely) is genuinely cross-site, and browsers won't attach a
-      // "lax" cookie to a cross-site fetch. "none" is required there, which
-      // in turn requires Secure (already true in production) — browsers
-      // reject SameSite=None without it.
-      sameSite: process.env["NODE_ENV"] === "production" ? "none" : "lax",
+      // Lax, in production too: the web app and the API share one origin (CloudFront serves the
+      // pages and routes /api to the API), so the browser never needs to send this cookie
+      // cross-site, and Lax means a cross-site POST arrives without it at all, underneath the
+      // CSRF token check. It was "none" for an earlier split deployment (web on Vercel, API on
+      // Render); the ZAP scan of 2026-09-27 flagged it. The mobile app's native cookie store
+      // doesn't apply SameSite, so it is unaffected.
+      sameSite: "lax",
       maxAge: IDLE_TIMEOUT_MS,
     },
   }),
@@ -229,7 +259,11 @@ app.use(
 // ABSOLUTE_SESSION_MAX_MS, full stop. Idle timeout alone can't catch this
 // case, since ongoing activity — legitimate or not — keeps resetting it.
 app.use((req, res, next) => {
-  if (req.session.userId && req.session.absoluteExpiresAt && Date.now() > req.session.absoluteExpiresAt) {
+  if (
+    req.session.userId &&
+    req.session.absoluteExpiresAt &&
+    Date.now() > req.session.absoluteExpiresAt
+  ) {
     req.session.destroy(() => {
       res.status(401).json({ error: "Session expired — please log in again" });
     });
@@ -255,8 +289,12 @@ const CLIENT_ERROR_MESSAGES: Record<number, string> = {
 };
 
 function clientErrorStatus(err: unknown): number | null {
-  const status = (err as { status?: unknown; statusCode?: unknown } | null)?.status ?? (err as { statusCode?: unknown } | null)?.statusCode;
-  return typeof status === "number" && status >= 400 && status < 500 ? status : null;
+  const status =
+    (err as { status?: unknown; statusCode?: unknown } | null)?.status ??
+    (err as { statusCode?: unknown } | null)?.statusCode;
+  return typeof status === "number" && status >= 400 && status < 500
+    ? status
+    : null;
 }
 
 // Last-resort safety net — never let an unhandled exception (a malformed
@@ -272,19 +310,34 @@ function clientErrorStatus(err: unknown): number | null {
 // failure this exists to not depend on. Must be registered last, and must
 // keep all four handler parameters (err, req, res, next) — Express only
 // recognises a middleware as an error handler by that arity.
-app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction): void => {
-  if (res.headersSent) {
-    next(err);
-    return;
-  }
-  const status = clientErrorStatus(err);
-  if (status !== null) {
-    logger.warn({ status, path: req.path, method: req.method }, "Rejected malformed or disallowed request");
-    res.status(status).json({ error: CLIENT_ERROR_MESSAGES[status] ?? "Bad request" });
-    return;
-  }
-  logger.error({ err, path: req.path, method: req.method }, "Unhandled error");
-  res.status(500).json({ error: "Internal server error" });
-});
+app.use(
+  (
+    err: unknown,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ): void => {
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+    const status = clientErrorStatus(err);
+    if (status !== null) {
+      logger.warn(
+        { status, path: req.path, method: req.method },
+        "Rejected malformed or disallowed request",
+      );
+      res
+        .status(status)
+        .json({ error: CLIENT_ERROR_MESSAGES[status] ?? "Bad request" });
+      return;
+    }
+    logger.error(
+      { err, path: req.path, method: req.method },
+      "Unhandled error",
+    );
+    res.status(500).json({ error: "Internal server error" });
+  },
+);
 
 export default app;

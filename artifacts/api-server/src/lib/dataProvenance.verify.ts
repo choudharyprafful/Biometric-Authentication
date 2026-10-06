@@ -27,7 +27,9 @@ const {
   isContentSource,
 } = await import("./dataProvenance");
 
-type ContentSource = Awaited<typeof import("./dataProvenance")>["CONTENT_SOURCES"][number];
+type ContentSource = Awaited<
+  typeof import("./dataProvenance")
+>["CONTENT_SOURCES"][number];
 type UploadFileType = "image" | "video" | "text" | "audio";
 
 let failures = 0;
@@ -39,7 +41,9 @@ function check(label: string, pass: boolean, detail: string): void {
 const FILE_TYPES: UploadFileType[] = ["text", "image", "video", "audio"];
 
 // ---------------------------------------------------------------------------
-console.log("\n[1] Every source is classified, and every classification cites a matrix row");
+console.log(
+  "\n[1] Every source is classified, and every classification cites a matrix row",
+);
 {
   let unclassified = 0;
   let uncited = 0;
@@ -72,7 +76,8 @@ console.log("\n[2] The fail-closed default actually fails closed");
 
   let leaked = 0;
   for (const fileType of FILE_TYPES) {
-    if (assessTrainingEligibility("unspecified", fileType).eligible) leaked += 1;
+    if (assessTrainingEligibility("unspecified", fileType).eligible)
+      leaked += 1;
   }
   check(
     "no file type rescues an undeclared origin",
@@ -82,7 +87,9 @@ console.log("\n[2] The fail-closed default actually fails closed");
 
   check(
     "an unrecognised value is not mistaken for a valid source",
-    !isContentSource("own_work_please") && !isContentSource(null) && !isContentSource(42),
+    !isContentSource("own_work_please") &&
+      !isContentSource(null) &&
+      !isContentSource(42),
     "isContentSource() rejects a near-miss string, null, and a number",
   );
 }
@@ -95,7 +102,9 @@ console.log("\n[3] THE GOVERNANCE TEST — the exact training surface, pinned");
   // expectation from the code under test cannot catch the code changing.
   const EXPECTED = new Set(["own_work|text"]);
 
-  const actual = new Set(trainableCombinations().map((c) => `${c.source}|${c.fileType}`));
+  const actual = new Set(
+    trainableCombinations().map((c) => `${c.source}|${c.fileType}`),
+  );
 
   const unexpected = [...actual].filter((c) => !EXPECTED.has(c));
   const missing = [...EXPECTED].filter((c) => !actual.has(c));
@@ -110,18 +119,27 @@ console.log("\n[3] THE GOVERNANCE TEST — the exact training surface, pinned");
   check(
     "the permitted set hasn't been narrowed by accident either",
     missing.length === 0,
-    missing.length === 0 ? "own_work + text still admitted" : `lost: ${missing.join(", ")}`,
+    missing.length === 0
+      ? "own_work + text still admitted"
+      : `lost: ${missing.join(", ")}`,
   );
 }
 
 // ---------------------------------------------------------------------------
-console.log("\n[4] Copyright-risk sources are refused on the SOURCE axis, not by luck");
+console.log(
+  "\n[4] Copyright-risk sources are refused on the SOURCE axis, not by luck",
+);
 {
   // The distinction matters. If a published book were only excluded because
   // it happened to arrive as a PDF (an unsupported type), then the same book
   // pasted as plain text would sail through. Assert the reason, not just the
   // outcome.
-  const highRisk: ContentSource[] = ["third_party_individual", "published_work", "social_media", "incidental_third_party_ip"];
+  const highRisk: ContentSource[] = [
+    "third_party_individual",
+    "published_work",
+    "social_media",
+    "incidental_third_party_ip",
+  ];
 
   let wrongAxis = 0;
   for (const source of highRisk) {
@@ -135,12 +153,16 @@ console.log("\n[4] Copyright-risk sources are refused on the SOURCE axis, not by
   );
 
   const book = assessTrainingEligibility("published_work", "text");
-  console.log(`        published_work + text -> blockedBy=${book.blockedBy}, copyright=${book.copyrightRisk}`);
+  console.log(
+    `        published_work + text -> blockedBy=${book.blockedBy}, copyright=${book.copyrightRisk}`,
+  );
   console.log(`        reason: ${book.reason}`);
 }
 
 // ---------------------------------------------------------------------------
-console.log("\n[5] Own work is still refused for media types awaiting a consent workflow");
+console.log(
+  "\n[5] Own work is still refused for media types awaiting a consent workflow",
+);
 {
   let wrong = 0;
   for (const fileType of ["image", "video", "audio"] as UploadFileType[]) {
@@ -158,15 +180,27 @@ console.log("\n[5] Own work is still refused for media types awaiting a consent 
 // ---------------------------------------------------------------------------
 console.log("\n[6] Full decision matrix");
 {
-  const header = ["source".padEnd(28), ...FILE_TYPES.map((f) => f.padEnd(7))].join("");
+  const header = [
+    "source".padEnd(28),
+    ...FILE_TYPES.map((f) => f.padEnd(7)),
+  ].join("");
   console.log(`        ${header}`);
   for (const source of CONTENT_SOURCES) {
-    const cells = FILE_TYPES.map((f) => (assessTrainingEligibility(source, f).eligible ? "TRAIN" : "  -  ").padEnd(7));
+    const cells = FILE_TYPES.map((f) =>
+      (assessTrainingEligibility(source, f).eligible
+        ? "TRAIN"
+        : "  -  "
+      ).padEnd(7),
+    );
     console.log(`        ${source.padEnd(28)}${cells.join("")}`);
   }
   const total = CONTENT_SOURCES.length * FILE_TYPES.length;
-  console.log(`\n        ${trainableCombinations().length} of ${total} combinations admitted into training.`);
+  console.log(
+    `\n        ${trainableCombinations().length} of ${total} combinations admitted into training.`,
+  );
 }
 
-console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}\n`);
+console.log(
+  `\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}\n`,
+);
 process.exit(failures === 0 ? 0 : 1);

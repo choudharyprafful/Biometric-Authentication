@@ -33,14 +33,108 @@ export const MAX_CHARS_PER_DOCUMENT = 20000;
 export const MAX_KEYWORDS_RETURNED = 20;
 
 const STOPWORDS = new Set([
-  "the", "a", "an", "and", "or", "but", "if", "then", "than", "so", "of", "to", "in", "on", "at",
-  "for", "with", "as", "by", "is", "are", "was", "were", "be", "been", "being", "this", "that",
-  "these", "those", "it", "its", "i", "me", "my", "we", "our", "you", "your", "he", "him", "his",
-  "she", "her", "they", "them", "their", "not", "no", "do", "does", "did", "have", "has", "had",
-  "will", "would", "can", "could", "should", "shall", "from", "up", "down", "out", "about", "into",
-  "over", "under", "again", "further", "just", "also", "very", "there", "here", "what", "which",
-  "who", "whom", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most",
-  "other", "some", "such", "only", "own", "same", "too", "s", "t", "don", "now",
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "if",
+  "then",
+  "than",
+  "so",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "for",
+  "with",
+  "as",
+  "by",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "this",
+  "that",
+  "these",
+  "those",
+  "it",
+  "its",
+  "i",
+  "me",
+  "my",
+  "we",
+  "our",
+  "you",
+  "your",
+  "he",
+  "him",
+  "his",
+  "she",
+  "her",
+  "they",
+  "them",
+  "their",
+  "not",
+  "no",
+  "do",
+  "does",
+  "did",
+  "have",
+  "has",
+  "had",
+  "will",
+  "would",
+  "can",
+  "could",
+  "should",
+  "shall",
+  "from",
+  "up",
+  "down",
+  "out",
+  "about",
+  "into",
+  "over",
+  "under",
+  "again",
+  "further",
+  "just",
+  "also",
+  "very",
+  "there",
+  "here",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "when",
+  "where",
+  "why",
+  "how",
+  "all",
+  "any",
+  "both",
+  "each",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "only",
+  "own",
+  "same",
+  "too",
+  "s",
+  "t",
+  "don",
+  "now",
 ]);
 
 export interface KeywordScore {
@@ -88,7 +182,9 @@ function extractTerms(text: string): string[] {
 
 /** Returns an empty profile — not an error — if consent isn't given or no
  *  text uploads exist. */
-export async function buildContentProfile(userId: number): Promise<ContentProfile> {
+export async function buildContentProfile(
+  userId: number,
+): Promise<ContentProfile> {
   const [user] = await db
     .select({ consent: usersTable.contentPersonalizationConsentGiven })
     .from(usersTable)
@@ -112,14 +208,21 @@ export async function buildContentProfile(userId: number): Promise<ContentProfil
   }
 
   const docs = await db
-    .select({ ciphertext: uploadsTable.ciphertext, iv: uploadsTable.iv, authTag: uploadsTable.authTag })
+    .select({
+      ciphertext: uploadsTable.ciphertext,
+      iv: uploadsTable.iv,
+      authTag: uploadsTable.authTag,
+    })
     .from(uploadsTable)
     .where(
       and(
         eq(uploadsTable.userId, userId),
         or(
           ...eligible.map((combo) =>
-            and(eq(uploadsTable.contentSource, combo.source), eq(uploadsTable.fileType, combo.fileType)),
+            and(
+              eq(uploadsTable.contentSource, combo.source),
+              eq(uploadsTable.fileType, combo.fileType),
+            ),
           ),
         ),
       ),
@@ -141,7 +244,9 @@ export async function buildContentProfile(userId: number): Promise<ContentProfil
   for (const doc of docs) {
     let plaintext: string;
     try {
-      plaintext = decryptFile(doc).toString("utf8").slice(0, MAX_CHARS_PER_DOCUMENT);
+      plaintext = decryptFile(doc)
+        .toString("utf8")
+        .slice(0, MAX_CHARS_PER_DOCUMENT);
     } catch {
       continue; // a corrupt/undecryptable row must never break the whole profile
     }

@@ -1,6 +1,20 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { listPayments, listPlans, createPayment, subscribe, newIdempotencyKey, type Payment, type Plan } from '../lib/api';
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import {
+  listPayments,
+  listPlans,
+  createPayment,
+  subscribe,
+  newIdempotencyKey,
+  type Payment,
+  type Plan,
+} from "../lib/api";
 import {
   EMPTY_CARD,
   formatCardNumber,
@@ -13,20 +27,23 @@ import {
   isPanLengthValidForBrand,
   luhnCheck,
   type CardDetails,
-} from '../lib/cardValidation';
-import { useAuth } from '../context/AuthContext';
-import { Card, Button, Badge, Input, Label, Centered } from '../components/ui';
-import { colors, fonts } from '../theme';
+} from "../lib/cardValidation";
+import { useAuth } from "../context/AuthContext";
+import { Card, Button, Badge, Input, Label, Centered } from "../components/ui";
+import { colors, fonts } from "../theme";
 
 // Must match PaymentInput.currency in lib/api-spec/openapi.yaml; the mobile app is outside the workspace,
 // so it can't import the generated enum the web form uses.
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+const CURRENCIES = ["USD", "EUR", "GBP", "AUD", "CAD"];
 
-const STATUS_TONE: Record<Payment['status'], 'success' | 'destructive' | 'warning' | 'outline'> = {
-  completed: 'success',
-  failed: 'destructive',
-  pending: 'warning',
-  refunded: 'outline',
+const STATUS_TONE: Record<
+  Payment["status"],
+  "success" | "destructive" | "warning" | "outline"
+> = {
+  completed: "success",
+  failed: "destructive",
+  pending: "warning",
+  refunded: "outline",
 };
 
 export function PaymentsScreen() {
@@ -34,12 +51,12 @@ export function PaymentsScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [subscribingId, setSubscribingId] = useState<string | null>(null);
 
-  const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Card details live in component state only, and only long enough to
@@ -55,49 +72,60 @@ export function PaymentsScreen() {
   // length on Amex is a different mistake from a failed checksum, and the
   // person typing needs to know which.
   const cardIssue = (): string => {
-    if (!card.number && !card.expiry && !card.cvv) return '';
-    if (card.number && !luhnCheck(card.number)) return 'Card number fails its checksum.';
+    if (!card.number && !card.expiry && !card.cvv) return "";
+    if (card.number && !luhnCheck(card.number))
+      return "Card number fails its checksum.";
     if (card.number && !isPanLengthValidForBrand(card.number, brand)) {
-      return `${brand} numbers aren't ${card.number.replace(/\D/g, '').length} digits long.`;
+      return `${brand} numbers aren't ${card.number.replace(/\D/g, "").length} digits long.`;
     }
-    if (card.expiry && !isExpiryValid(card.expiry)) return 'Expiry is in the past or malformed.';
+    if (card.expiry && !isExpiryValid(card.expiry))
+      return "Expiry is in the past or malformed.";
     if (card.cvv && !isCvvValidForBrand(card.cvv, brand)) {
-      return brand === 'Amex'
-        ? 'Amex uses a 4-digit CID on the front of the card.'
+      return brand === "Amex"
+        ? "Amex uses a 4-digit CID on the front of the card."
         : `${brand} uses a 3-digit security code.`;
     }
-    return '';
+    return "";
   };
 
   const refresh = useCallback(() => {
     setLoading(true);
-    setError('');
+    setError("");
     Promise.all([listPayments(), listPlans()])
-      .then(([p, pl]) => { setPayments(p); setPlans(pl); })
-      .catch((err) => setError(err?.message || 'Failed to load payments.'))
+      .then(([p, pl]) => {
+        setPayments(p);
+        setPlans(pl);
+      })
+      .catch((err) => setError(err?.message || "Failed to load payments."))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const handleSubscribe = async (plan: Plan) => {
     if (!cardValid) {
-      setError('Enter valid card details below before subscribing.');
+      setError("Enter valid card details below before subscribing.");
       return;
     }
     setSubscribingId(plan.id);
-    setError('');
+    setError("");
     try {
       // One key per attempt. Generated here rather than in the API helper so
       // that a retry of THIS attempt reuses it, which is the whole point —
       // a key minted inside the request would be new every time and would
       // provide no duplicate-charge protection at all.
-      await subscribe(plan.id, { last4: getLast4(card.number), brand }, newIdempotencyKey());
+      await subscribe(
+        plan.id,
+        { last4: getLast4(card.number), brand },
+        newIdempotencyKey(),
+      );
       await refetchUser();
       setCard(EMPTY_CARD);
       refresh();
     } catch (err: any) {
-      setError(err?.message || 'Subscription failed.');
+      setError(err?.message || "Subscription failed.");
     } finally {
       setSubscribingId(null);
     }
@@ -107,11 +135,11 @@ export function PaymentsScreen() {
     const numericAmount = parseFloat(amount);
     if (!numericAmount || numericAmount <= 0 || !description.trim()) return;
     if (!cardValid) {
-      setError('Enter valid card details before executing a transaction.');
+      setError("Enter valid card details before executing a transaction.");
       return;
     }
     setSubmitting(true);
-    setError('');
+    setError("");
     try {
       await createPayment(
         numericAmount,
@@ -120,19 +148,23 @@ export function PaymentsScreen() {
         { last4: getLast4(card.number), brand },
         newIdempotencyKey(),
       );
-      setAmount('');
-      setDescription('');
+      setAmount("");
+      setDescription("");
       setCard(EMPTY_CARD);
       refresh();
     } catch (err: any) {
-      setError(err?.message || 'Transaction failed.');
+      setError(err?.message || "Transaction failed.");
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <Centered><ActivityIndicator color={colors.primary} /></Centered>;
+    return (
+      <Centered>
+        <ActivityIndicator color={colors.primary} />
+      </Centered>
+    );
   }
 
   return (
@@ -144,20 +176,24 @@ export function PaymentsScreen() {
           <Card key={plan.id} style={styles.planCard} topAccent>
             <View style={styles.planHeader}>
               <Text style={styles.planName}>{plan.name}</Text>
-              <Text style={styles.planPrice}>${plan.amount}/{plan.interval}</Text>
+              <Text style={styles.planPrice}>
+                ${plan.amount}/{plan.interval}
+              </Text>
             </View>
             {plan.features.map((f) => (
-              <Text key={f} style={styles.feature}>• {f}</Text>
+              <Text key={f} style={styles.feature}>
+                • {f}
+              </Text>
             ))}
             <Button
               size="sm"
-              variant={isCurrent ? 'ghost' : 'default'}
+              variant={isCurrent ? "ghost" : "default"}
               disabled={isCurrent}
               isLoading={subscribingId === plan.id}
               onPress={() => handleSubscribe(plan)}
               style={{ marginTop: 10 }}
             >
-              {isCurrent ? 'Current Plan' : 'Subscribe'}
+              {isCurrent ? "Current Plan" : "Subscribe"}
             </Button>
           </Card>
         );
@@ -166,16 +202,21 @@ export function PaymentsScreen() {
       <Text style={styles.sectionTitle}>Card Details</Text>
       <Card style={styles.formCard}>
         <Text style={styles.cardNote}>
-          Test cards only. The number, expiry and security code never leave this device — only the brand and
-          last 4 digits are sent, which is what a real processor returns for a receipt.
+          Test cards only. The number, expiry and security code never leave this
+          device — only the brand and last 4 digits are sent, which is what a
+          real processor returns for a receipt.
         </Text>
         <View style={styles.cardLabelRow}>
           <Label>Card number</Label>
-          {card.number.replace(/\D/g, '').length >= 4 && <Badge tone="outline">{brand}</Badge>}
+          {card.number.replace(/\D/g, "").length >= 4 && (
+            <Badge tone="outline">{brand}</Badge>
+          )}
         </View>
         <Input
           value={card.number}
-          onChangeText={(t) => setCard((c) => ({ ...c, number: formatCardNumber(t) }))}
+          onChangeText={(t) =>
+            setCard((c) => ({ ...c, number: formatCardNumber(t) }))
+          }
           keyboardType="number-pad"
           placeholder="4242 4242 4242 4242"
           maxLength={23}
@@ -185,44 +226,76 @@ export function PaymentsScreen() {
             <Label style={{ marginTop: 12 }}>Expiry</Label>
             <Input
               value={card.expiry}
-              onChangeText={(t) => setCard((c) => ({ ...c, expiry: formatExpiry(t) }))}
+              onChangeText={(t) =>
+                setCard((c) => ({ ...c, expiry: formatExpiry(t) }))
+              }
               keyboardType="number-pad"
               placeholder="MM/YY"
               maxLength={5}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Label style={{ marginTop: 12 }}>{brand === 'Amex' ? 'CID' : 'CVV'}</Label>
+            <Label style={{ marginTop: 12 }}>
+              {brand === "Amex" ? "CID" : "CVV"}
+            </Label>
             <Input
               value={card.cvv}
-              onChangeText={(t) => setCard((c) => ({ ...c, cvv: t.replace(/\D/g, '').slice(0, 4) }))}
+              onChangeText={(t) =>
+                setCard((c) => ({
+                  ...c,
+                  cvv: t.replace(/\D/g, "").slice(0, 4),
+                }))
+              }
               keyboardType="number-pad"
-              placeholder={brand === 'Amex' ? '4 digits' : '3 digits'}
+              placeholder={brand === "Amex" ? "4 digits" : "3 digits"}
               maxLength={4}
               secureTextEntry
             />
           </View>
         </View>
-        {cardIssue() ? <Text style={styles.errorText}>{cardIssue()}</Text> : null}
-        {cardValid ? <Text style={styles.okText}>Card looks valid for {brand}.</Text> : null}
+        {cardIssue() ? (
+          <Text style={styles.errorText}>{cardIssue()}</Text>
+        ) : null}
+        {cardValid ? (
+          <Text style={styles.okText}>Card looks valid for {brand}.</Text>
+        ) : null}
       </Card>
 
       <Text style={styles.sectionTitle}>Simulate Transaction</Text>
       <Card style={styles.formCard}>
         <Label>Amount</Label>
-        <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" />
+        <Input
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+        />
         <Label style={{ marginTop: 12 }}>Currency</Label>
         <View style={styles.currencyRow}>
           {CURRENCIES.map((c) => (
-            <Button key={c} size="sm" variant={currency === c ? 'default' : 'outline'} onPress={() => setCurrency(c)} style={{ flexGrow: 1 }}>
+            <Button
+              key={c}
+              size="sm"
+              variant={currency === c ? "default" : "outline"}
+              onPress={() => setCurrency(c)}
+              style={{ flexGrow: 1 }}
+            >
               {c}
             </Button>
           ))}
         </View>
         <Label style={{ marginTop: 12 }}>Description</Label>
-        <Input value={description} onChangeText={setDescription} placeholder="e.g. API credits" />
+        <Input
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. API credits"
+        />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <Button onPress={handleCreatePayment} isLoading={submitting} style={{ marginTop: 14 }}>
+        <Button
+          onPress={handleCreatePayment}
+          isLoading={submitting}
+          style={{ marginTop: 14 }}
+        >
           Execute
         </Button>
       </Card>
@@ -238,8 +311,13 @@ export function PaymentsScreen() {
               <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
             </View>
             <View style={styles.paymentBottom}>
-              <Text style={styles.paymentMeta}>{p.userEmail ?? 'deleted account'} · {new Date(p.createdAt).toLocaleDateString()}</Text>
-              <Text style={styles.paymentAmount}>{p.currency} {p.amount.toFixed(2)}</Text>
+              <Text style={styles.paymentMeta}>
+                {p.userEmail ?? "deleted account"} ·{" "}
+                {new Date(p.createdAt).toLocaleDateString()}
+              </Text>
+              <Text style={styles.paymentAmount}>
+                {p.currency} {p.amount.toFixed(2)}
+              </Text>
             </View>
             <Text style={styles.token}>{p.providerToken}</Text>
           </Card>
@@ -251,13 +329,24 @@ export function PaymentsScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
-  errorText: { fontFamily: fonts.mono, color: colors.destructive, fontSize: 11, marginTop: 10 },
-  emptyText: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 12, textAlign: 'center', marginTop: 8 },
+  errorText: {
+    fontFamily: fonts.mono,
+    color: colors.destructive,
+    fontSize: 11,
+    marginTop: 10,
+  },
+  emptyText: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 8,
+  },
   sectionTitle: {
     fontFamily: fonts.mono,
     color: colors.foreground,
     fontSize: 13,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1.5,
     marginTop: 8,
     marginBottom: 12,
@@ -266,21 +355,86 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   planCard: { marginBottom: 14 },
-  planHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  planName: { fontFamily: fonts.mono, color: colors.foreground, fontSize: 15, fontWeight: '700', textTransform: 'uppercase' },
-  planPrice: { fontFamily: fonts.mono, color: colors.primary, fontSize: 15, fontWeight: '700' },
-  feature: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 11, marginBottom: 3 },
+  planHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  planName: {
+    fontFamily: fonts.mono,
+    color: colors.foreground,
+    fontSize: 15,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  planPrice: {
+    fontFamily: fonts.mono,
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  feature: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 11,
+    marginBottom: 3,
+  },
   formCard: { marginBottom: 20 },
-  cardNote: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 10, lineHeight: 15, marginBottom: 12 },
-  cardLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardRow: { flexDirection: 'row', gap: 10 },
-  okText: { fontFamily: fonts.mono, color: colors.primary, fontSize: 11, marginTop: 10 },
-  currencyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  cardNote: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 10,
+    lineHeight: 15,
+    marginBottom: 12,
+  },
+  cardLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardRow: { flexDirection: "row", gap: 10 },
+  okText: {
+    fontFamily: fonts.mono,
+    color: colors.primary,
+    fontSize: 11,
+    marginTop: 10,
+  },
+  currencyRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   paymentCard: { marginBottom: 10 },
-  paymentTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  paymentDesc: { fontFamily: fonts.mono, color: colors.foreground, fontSize: 12, flex: 1, marginRight: 8 },
-  paymentBottom: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  paymentMeta: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 10 },
-  paymentAmount: { fontFamily: fonts.mono, color: colors.foreground, fontSize: 12, fontWeight: '700' },
-  token: { fontFamily: fonts.mono, color: colors.mutedForeground, fontSize: 9, backgroundColor: colors.background, padding: 6 },
+  paymentTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  paymentDesc: {
+    fontFamily: fonts.mono,
+    color: colors.foreground,
+    fontSize: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  paymentBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  paymentMeta: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 10,
+  },
+  paymentAmount: {
+    fontFamily: fonts.mono,
+    color: colors.foreground,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  token: {
+    fontFamily: fonts.mono,
+    color: colors.mutedForeground,
+    fontSize: 9,
+    backgroundColor: colors.background,
+    padding: 6,
+  },
 });

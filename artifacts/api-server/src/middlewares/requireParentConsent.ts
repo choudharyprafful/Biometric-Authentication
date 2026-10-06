@@ -8,14 +8,24 @@ import { db, usersTable } from "@workspace/db";
 // stale the moment a parent approves. A pending-consent account still gets
 // a session (see auth.ts) so it can check /auth/me and log out; only
 // everything else behind this middleware is blocked.
-export async function requireParentConsent(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireParentConsent(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const userId = req.session.userId;
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
-  const [user] = await db.select({ parentGuardianEmail: usersTable.parentGuardianEmail, parentConsentGiven: usersTable.parentConsentGiven }).from(usersTable).where(eq(usersTable.id, userId));
+  const [user] = await db
+    .select({
+      parentGuardianEmail: usersTable.parentGuardianEmail,
+      parentConsentGiven: usersTable.parentConsentGiven,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
   if (!user) {
     req.session.destroy(() => {});
     res.status(401).json({ error: "Session invalid" });
@@ -23,7 +33,11 @@ export async function requireParentConsent(req: Request, res: Response, next: Ne
   }
 
   if (user.parentGuardianEmail !== null && !user.parentConsentGiven) {
-    res.status(403).json({ error: "Parent/guardian consent is required before this account can be used", code: "PARENT_CONSENT_REQUIRED" });
+    res.status(403).json({
+      error:
+        "Parent/guardian consent is required before this account can be used",
+      code: "PARENT_CONSENT_REQUIRED",
+    });
     return;
   }
 

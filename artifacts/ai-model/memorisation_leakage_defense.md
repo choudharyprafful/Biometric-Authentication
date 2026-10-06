@@ -86,13 +86,13 @@ The proof-of-concept currently demonstrates:
 
 ## Test Results
 
-| Test | Result |
-| --- | --- |
-| Canary extractable without deduplication | Yes |
-| Duplicate sentences removed | 4 |
-| Canary extractable after deduplication | No |
-| Genuine repeated pattern still generated | Yes |
-| Non-consented record blocked | Yes |
+| Test                                     | Result |
+| ---------------------------------------- | ------ |
+| Canary extractable without deduplication | Yes    |
+| Duplicate sentences removed              | 4      |
+| Canary extractable after deduplication   | No     |
+| Genuine repeated pattern still generated | Yes    |
+| Non-consented record blocked             | Yes    |
 
 ## Limitations
 

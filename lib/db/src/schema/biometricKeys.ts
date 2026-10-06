@@ -21,10 +21,14 @@ import { usersTable } from "./users";
  */
 export const biometricKeysTable = pgTable("biometric_keys", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
   publicKey: text("public_key").notNull(), // PEM-encoded RSA public key
   deviceName: text("device_name"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
 });
 

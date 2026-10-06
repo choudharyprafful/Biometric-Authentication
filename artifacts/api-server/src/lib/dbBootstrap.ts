@@ -1,6 +1,12 @@
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { logger } from "./logger";
+import {
+  DELETION_TRIGGER_FUNCTION_SQL,
+  RETENTION_SQL,
+  RETENTION_SQL_VERSION,
+  RETENTION_TABLE_SQL,
+} from "./retentionSql.mjs";
 
 // Run at every app startup rather than via `drizzle-kit push`, because a
 // trigger can't be expressed in Drizzle's schema DSL. Idempotent (CREATE
@@ -35,22 +41,9 @@ export async function ensureDeletionAuditTrigger(): Promise<void> {
       )
     `);
 
-    await db.execute(sql`
-      CREATE OR REPLACE FUNCTION log_security_log_deletion() RETURNS trigger AS $fn$
-      BEGIN
-        INSERT INTO security_log_deletions
-          (deleted_log_id, row_snapshot, deleted_by_db_role, deleted_by_app_actor, deleted_by_client_addr)
-        VALUES (
-          OLD.id,
-          to_jsonb(OLD.*),
-          current_user,
-          current_setting('app.actor_email', true),
-          inet_client_addr()::text
-        );
-        RETURN OLD;
-      END;
-      $fn$ LANGUAGE plpgsql
-    `);
+    // The trigger function looks up retention stubs, so their table must exist first.
+    await db.execute(sql.raw(RETENTION_TABLE_SQL));
+    await db.execute(sql.raw(DELETION_TRIGGER_FUNCTION_SQL));
 
     // CREATE OR REPLACE, not DROP + CREATE: dropping a trigger requires
     // owning the table, which the app's role deliberately doesn't.
@@ -62,6 +55,34 @@ export async function ensureDeletionAuditTrigger(): Promise<void> {
 
     logger.info("Deletion audit trigger on security_logs ensured");
   } catch (err) {
-    logger.warn({ err }, "Failed to ensure deletion audit trigger — deletions of security_logs rows won't be tracked");
+    logger.warn(
+      { err },
+      "Failed to ensure deletion audit trigger — deletions of security_logs rows won't be tracked",
+    );
+  }
+}
+
+/**
+ * The retention purge (lib/retentionSql.mjs): installed here where this login has the rights (local
+ * development as the database owner, CI); on the live site the app's restricted login can't, so
+ * scripts/ops/migrate-retention-and-breaches.mjs installs it. Until then old security log entries
+ * are kept, never deleted some other way.
+ */
+export async function ensureRetentionPurge(): Promise<void> {
+  try {
+    const installed = await db.execute<{ version: string | null }>(sql`
+      SELECT obj_description(to_regprocedure('purge_aged_security_logs()'), 'pg_proc') AS version
+    `);
+    if (installed.rows[0]?.version === RETENTION_SQL_VERSION) {
+      logger.info("Retention purge function present");
+      return;
+    }
+    for (const statement of RETENTION_SQL) await db.execute(sql.raw(statement));
+    logger.info("Retention purge function installed");
+  } catch (err) {
+    logger.warn(
+      { err },
+      "Retention purge function missing or out of date, and this login can't install it: run node scripts/ops/migrate-retention-and-breaches.mjs. Old security log entries are kept until then.",
+    );
   }
 }

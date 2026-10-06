@@ -1,7 +1,10 @@
-import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
-import type { User } from '@workspace/api-client-react';
+import {
+  startRegistration,
+  startAuthentication,
+} from "@simplewebauthn/browser";
+import type { User } from "@workspace/api-client-react";
 
-const API = '/api/auth/passkey';
+const API = "/api/auth/passkey";
 
 /** Double-submit CSRF: echo the cookie value back as a header so the API
  *  knows this call came from same-origin JS, not a forged cross-site request. */
@@ -11,22 +14,26 @@ function readCsrfCookie(): string | null {
 }
 
 function mutatingHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   const csrfToken = readCsrfCookie();
-  if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   return headers;
 }
 
 async function postTo<T>(url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
-    method: 'POST',
-    credentials: 'include',
+    method: "POST",
+    credentials: "include",
     headers: mutatingHeaders(),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    const err = new Error((data as { error?: string }).error || `Request failed (${res.status})`);
+    const err = new Error(
+      (data as { error?: string }).error || `Request failed (${res.status})`,
+    );
     (err as Error & { status?: number }).status = res.status;
     throw err;
   }
@@ -45,48 +52,66 @@ export interface PasskeyInfo {
 }
 
 export async function listPasskeys(): Promise<PasskeyInfo[]> {
-  const res = await fetch(`${API}/list`, { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed to load passkeys');
+  const res = await fetch(`${API}/list`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load passkeys");
   return res.json();
 }
 
 export async function deletePasskey(id: number): Promise<void> {
-  const res = await fetch(`${API}/${id}`, { method: 'DELETE', credentials: 'include', headers: mutatingHeaders() });
-  if (!res.ok) throw new Error('Failed to remove passkey');
+  const res = await fetch(`${API}/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: mutatingHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to remove passkey");
 }
 
 /** Enroll a new passkey — the browser/OS biometric unlocks a device-held key. */
 export async function enrollPasskey(deviceName?: string): Promise<void> {
-  const options = await post<Parameters<typeof startRegistration>[0]['optionsJSON']>('/register-options');
+  const options =
+    await post<Parameters<typeof startRegistration>[0]["optionsJSON"]>(
+      "/register-options",
+    );
   const attestation = await startRegistration({ optionsJSON: options });
-  await post('/register-verify', { response: attestation, deviceName });
+  await post("/register-verify", { response: attestation, deviceName });
 }
 
 /** Complete login MFA by signing the server's challenge with the device key. */
-export async function loginWithPasskey(): Promise<{ verified: boolean; user: User }> {
-  const options = await post<Parameters<typeof startAuthentication>[0]['optionsJSON']>('/login-options');
+export async function loginWithPasskey(): Promise<{
+  verified: boolean;
+  user: User;
+}> {
+  const options =
+    await post<Parameters<typeof startAuthentication>[0]["optionsJSON"]>(
+      "/login-options",
+    );
   const assertion = await startAuthentication({ optionsJSON: options });
-  return post('/login-verify', { response: assertion });
+  return post("/login-verify", { response: assertion });
 }
 
 /** Complete a password reset by signing the server's challenge with the
  *  account's device-held passkey — same crypto proof as login MFA, gated
  *  on a valid reset token rather than an authenticated session. */
-export async function resetPasswordWithPasskey(token: string, newPassword: string): Promise<{ success: boolean }> {
-  const options = await postTo<Parameters<typeof startAuthentication>[0]['optionsJSON']>(
-    '/api/auth/reset-password/passkey-options',
-    { token },
-  );
+export async function resetPasswordWithPasskey(
+  token: string,
+  newPassword: string,
+): Promise<{ success: boolean }> {
+  const options = await postTo<
+    Parameters<typeof startAuthentication>[0]["optionsJSON"]
+  >("/api/auth/reset-password/passkey-options", { token });
   const assertion = await startAuthentication({ optionsJSON: options });
-  return postTo('/api/auth/reset-password/passkey-verify', { response: assertion, newPassword });
+  return postTo("/api/auth/reset-password/passkey-verify", {
+    response: assertion,
+    newPassword,
+  });
 }
 
 /** True if the pending-login user has passkeys available (404 = none). */
 export async function passkeyLoginAvailable(): Promise<boolean> {
   try {
     const res = await fetch(`${API}/login-options`, {
-      method: 'POST',
-      credentials: 'include',
+      method: "POST",
+      credentials: "include",
       headers: mutatingHeaders(),
     });
     // We only probe availability; a 200 also stores a challenge which is fine —

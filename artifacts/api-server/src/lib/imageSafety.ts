@@ -29,7 +29,8 @@ const JPEG_SOS = 0xda;
  *  returns the original buffer unchanged if the structure looks malformed,
  *  rather than risk corrupting the image. */
 function stripJpegMetadata(buffer: Buffer): Buffer {
-  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== JPEG_SOI) return buffer;
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== JPEG_SOI)
+    return buffer;
 
   const segments: Buffer[] = [Buffer.from([0xff, JPEG_SOI])];
   let offset = 2;
@@ -62,14 +63,17 @@ function stripJpegMetadata(buffer: Buffer): Buffer {
   return buffer; // never hit SOS/EOF cleanly — bail out to the original rather than truncate it
 }
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
 const PNG_METADATA_CHUNKS = new Set(["tEXt", "zTXt", "iTXt", "eXIf", "tIME"]);
 
 /** Strips text/EXIF/timestamp ancillary chunks from a PNG, leaving
  *  everything that affects rendering untouched. Fails open on anything
  *  that doesn't parse as expected. */
 function stripPngMetadata(buffer: Buffer): Buffer {
-  if (buffer.length < 8 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return buffer;
+  if (buffer.length < 8 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE))
+    return buffer;
 
   const chunks: Buffer[] = [PNG_SIGNATURE];
   let offset = 8;
@@ -113,7 +117,10 @@ function readGifSubBlocks(buffer: Buffer, start: number): number {
  *  false only for a Comment Extension (label 0xFE) — every other
  *  extension type (Graphic Control, Plain Text, Application) is rendering-
  *  or behavior-relevant and must be preserved as-is. */
-function parseGifExtensionBlock(buffer: Buffer, offset: number): { end: number; keep: boolean } | null {
+function parseGifExtensionBlock(
+  buffer: Buffer,
+  offset: number,
+): { end: number; keep: boolean } | null {
   if (offset + 2 > buffer.length) return null;
   const label = buffer[offset + 1];
   const end = readGifSubBlocks(buffer, offset + 2);
@@ -156,20 +163,34 @@ function gifHeaderEnd(buffer: Buffer): number | null {
 /** One step of the GIF body walk: what to keep (if anything) and where the
  *  next block starts. `null` means malformed/unrecognised — caller bails
  *  out to the original buffer. `done` means the trailer was reached. */
-function gifBodyStep(buffer: Buffer, offset: number): { end: number; output: Buffer | null; done: boolean } | null {
+function gifBodyStep(
+  buffer: Buffer,
+  offset: number,
+): { end: number; output: Buffer | null; done: boolean } | null {
   const marker = buffer[offset];
 
-  if (marker === 0x3b) return { end: offset + 1, output: buffer.subarray(offset, offset + 1), done: true };
+  if (marker === 0x3b)
+    return {
+      end: offset + 1,
+      output: buffer.subarray(offset, offset + 1),
+      done: true,
+    };
 
   if (marker === 0x21) {
     const block = parseGifExtensionBlock(buffer, offset);
     if (!block) return null;
-    return { end: block.end, output: block.keep ? buffer.subarray(offset, block.end) : null, done: false };
+    return {
+      end: block.end,
+      output: block.keep ? buffer.subarray(offset, block.end) : null,
+      done: false,
+    };
   }
 
   if (marker === 0x2c) {
     const end = parseGifImageBlock(buffer, offset);
-    return end === null ? null : { end, output: buffer.subarray(offset, end), done: false };
+    return end === null
+      ? null
+      : { end, output: buffer.subarray(offset, end), done: false };
   }
 
   return null; // unrecognised block type
@@ -251,8 +272,10 @@ export type DetectedImageFormat = "png" | "jpeg" | "gif" | "webp";
  */
 export function detectImageFormat(buffer: Buffer): DetectedImageFormat | null {
   if (buffer.length < 4) return null;
-  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(PNG_SIGNATURE)) return "png";
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "jpeg";
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(PNG_SIGNATURE))
+    return "png";
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)
+    return "jpeg";
   if (buffer.subarray(0, 4).toString("ascii") === "GIF8") return "gif";
   if (
     buffer.length >= 12 &&
@@ -270,7 +293,10 @@ export function detectImageFormat(buffer: Buffer): DetectedImageFormat | null {
  *  (see `detectImageFormat`). Video passes through unchanged — see the
  *  module comment above for why that's a documented limitation, not an
  *  oversight. */
-export function stripImageMetadata(buffer: Buffer, format: DetectedImageFormat): Buffer {
+export function stripImageMetadata(
+  buffer: Buffer,
+  format: DetectedImageFormat,
+): Buffer {
   try {
     if (format === "jpeg") return stripJpegMetadata(buffer);
     if (format === "png") return stripPngMetadata(buffer);

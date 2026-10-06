@@ -1,11 +1,8 @@
 /**
- * Pushes suspicious-activity alerts to an external channel instead of
- * waiting for someone to look at the dashboard. Email was deliberately not
- * used as that channel: no real SMTP/email-API provider is configured in
- * this environment, so a security-alert email would need a credential this
- * project has never had. A generic outgoing webhook needs only a URL, and
- * is the same integration point Slack, Discord, PagerDuty, and a plain
- * custom endpoint all already accept.
+ * Pushes suspicious-activity alerts out instead of waiting for someone to look at the dashboard: to
+ * a generic outgoing webhook (SECURITY_ALERT_WEBHOOK_URL; Slack, Discord, PagerDuty and a plain
+ * custom endpoint all accept it) and by email (SECURITY_ALERT_EMAILS, lib/alertEmail.ts). Email was
+ * left out at first because the project had no SMTP account; it has had one since 2026-09-13.
  */
 
 import { and, count, eq, gte, isNotNull } from "drizzle-orm";
@@ -17,6 +14,9 @@ import { computeUploadAnomalyAlerts } from "./uploadAnomalyDetector";
 import { computeAccountSharingAlerts } from "./sessionLimit";
 import { computePaymentAbuseAlerts } from "./paymentLifecycle";
 import { computeChallengeAlerts } from "./aiGovernance";
+import { computeBreachAlerts } from "./dataBreaches";
+import { alertRecipients, deliverAlertEmail } from "./alertEmail";
+import { isEmailConfigured } from "./mailer";
 
 const ALERT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_SPIKE_THRESHOLD = 3;
@@ -38,15 +38,22 @@ async function computeScannerAlerts(since: Date): Promise<SecurityAlert[]> {
   const [row] = await db
     .select({ count: count() })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.eventType, "UPLOAD_SCAN_UNAVAILABLE"), gte(securityLogsTable.timestamp, since)));
+    .where(
+      and(
+        eq(securityLogsTable.eventType, "UPLOAD_SCAN_UNAVAILABLE"),
+        gte(securityLogsTable.timestamp, since),
+      ),
+    );
   if (!row || row.count === 0) return [];
-  return [{
-    id: "upload-scanner-unavailable",
-    severity: "high",
-    message: `${row.count} upload${row.count === 1 ? "" : "s"} refused in the last ${ALERT_WINDOW_MINUTES} minutes because the virus scanner (ClamAV) didn't answer`,
-    count: row.count,
-    windowMinutes: ALERT_WINDOW_MINUTES,
-  }];
+  return [
+    {
+      id: "upload-scanner-unavailable",
+      severity: "high",
+      message: `${row.count} upload${row.count === 1 ? "" : "s"} refused in the last ${ALERT_WINDOW_MINUTES} minutes because the virus scanner (ClamAV) didn't answer`,
+      count: row.count,
+      windowMinutes: ALERT_WINDOW_MINUTES,
+    },
+  ];
 }
 
 /** Recomputed fresh from security_logs on every call — no cached alert state. */
@@ -56,13 +63,25 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
   const rateLimitByIp = await db
     .select({ ipAddress: securityLogsTable.ipAddress, count: count() })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.eventType, "RATE_LIMIT_HIT"), gte(securityLogsTable.timestamp, since), isNotNull(securityLogsTable.ipAddress)))
+    .where(
+      and(
+        eq(securityLogsTable.eventType, "RATE_LIMIT_HIT"),
+        gte(securityLogsTable.timestamp, since),
+        isNotNull(securityLogsTable.ipAddress),
+      ),
+    )
     .groupBy(securityLogsTable.ipAddress);
 
   const loginFailuresByIp = await db
     .select({ ipAddress: securityLogsTable.ipAddress, count: count() })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.eventType, "LOGIN_FAILED"), gte(securityLogsTable.timestamp, since), isNotNull(securityLogsTable.ipAddress)))
+    .where(
+      and(
+        eq(securityLogsTable.eventType, "LOGIN_FAILED"),
+        gte(securityLogsTable.timestamp, since),
+        isNotNull(securityLogsTable.ipAddress),
+      ),
+    )
     .groupBy(securityLogsTable.ipAddress);
 
   const alerts: SecurityAlert[] = [];
@@ -71,7 +90,8 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
     if (row.ipAddress && row.count >= RATE_LIMIT_SPIKE_THRESHOLD) {
       alerts.push({
         id: `rate-limit-spike:${row.ipAddress}`,
-        severity: row.count >= RATE_LIMIT_SPIKE_THRESHOLD * 2 ? "high" : "medium",
+        severity:
+          row.count >= RATE_LIMIT_SPIKE_THRESHOLD * 2 ? "high" : "medium",
         message: `${row.count} rate-limit hits from ${row.ipAddress} in the last ${ALERT_WINDOW_MINUTES} minutes`,
         count: row.count,
         windowMinutes: ALERT_WINDOW_MINUTES,
@@ -83,7 +103,8 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
     if (row.ipAddress && row.count >= LOGIN_FAILURE_SPIKE_THRESHOLD) {
       alerts.push({
         id: `login-failure-spike:${row.ipAddress}`,
-        severity: row.count >= LOGIN_FAILURE_SPIKE_THRESHOLD * 2 ? "high" : "medium",
+        severity:
+          row.count >= LOGIN_FAILURE_SPIKE_THRESHOLD * 2 ? "high" : "medium",
         message: `${row.count} failed logins from ${row.ipAddress} in the last ${ALERT_WINDOW_MINUTES} minutes — possible credential stuffing`,
         count: row.count,
         windowMinutes: ALERT_WINDOW_MINUTES,
@@ -98,6 +119,7 @@ export async function computeActiveAlerts(): Promise<SecurityAlert[]> {
     computeAccountSharingAlerts(),
     computePaymentAbuseAlerts(),
     computeChallengeAlerts(),
+    computeBreachAlerts(),
   ]);
   alerts.push(...groups.flat());
 
@@ -116,7 +138,9 @@ const WEBHOOK_TIMEOUT_MS = 5000;
  *  (`text`) and a Discord-style one (`content`) each pick up their own
  *  expected field from the same payload. Returns attempted:false (not an
  *  error) when no URL is configured — "nothing to do," not a failure. */
-export async function deliverWebhook(alert: SecurityAlert): Promise<WebhookDeliveryResult> {
+export async function deliverWebhook(
+  alert: SecurityAlert,
+): Promise<WebhookDeliveryResult> {
   const url = process.env["SECURITY_ALERT_WEBHOOK_URL"];
   if (!url) return { attempted: false, delivered: false, error: null };
 
@@ -128,9 +152,17 @@ export async function deliverWebhook(alert: SecurityAlert): Promise<WebhookDeliv
       body: JSON.stringify({ text: line, content: line, alert }),
       signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
     });
-    return { attempted: true, delivered: res.ok, error: res.ok ? null : `webhook endpoint returned HTTP ${res.status}` };
+    return {
+      attempted: true,
+      delivered: res.ok,
+      error: res.ok ? null : `webhook endpoint returned HTTP ${res.status}`,
+    };
   } catch (err) {
-    return { attempted: true, delivered: false, error: err instanceof Error ? err.message : "unknown error" };
+    return {
+      attempted: true,
+      delivered: false,
+      error: err instanceof Error ? err.message : "unknown error",
+    };
   }
 }
 
@@ -153,17 +185,41 @@ async function checkAndNotifyHighSeverityAlerts(): Promise<void> {
     const last = lastNotifiedAt.get(alert.id);
     if (last && now - last < NOTIFY_COOLDOWN_MS) continue;
 
-    const result = await deliverWebhook(alert);
-    if (!result.attempted) continue; // no webhook configured — nothing more to do this cycle
+    const webhook = await deliverWebhook(alert);
+    const email = await deliverAlertEmail(alert);
+    if (!webhook.attempted && !email.attempted) continue; // no channel configured — nothing more to do this cycle
 
     lastNotifiedAt.set(alert.id, now);
-    if (!result.delivered) {
-      logger.warn({ alertId: alert.id, error: result.error }, "Security alert webhook delivery failed");
+    if (webhook.attempted && !webhook.delivered) {
+      logger.warn(
+        { alertId: alert.id, error: webhook.error },
+        "Security alert webhook delivery failed",
+      );
+    }
+    if (email.attempted && email.delivered < email.recipients) {
+      logger.warn(
+        {
+          alertId: alert.id,
+          delivered: email.delivered,
+          recipients: email.recipients,
+        },
+        "Security alert email delivery failed",
+      );
     }
 
+    // Counts only: the audit log is read more widely than the list of who receives alerts.
+    const outcomes: string[] = [];
+    if (webhook.attempted)
+      outcomes.push(
+        `webhook delivery ${webhook.delivered ? "succeeded" : `failed (${webhook.error})`}`,
+      );
+    if (email.attempted)
+      outcomes.push(
+        `emailed to ${email.delivered} of ${email.recipients} recipient(s)`,
+      );
     await logEvent({
       eventType: "SECURITY_ALERT_NOTIFIED",
-      details: `${alert.message} — webhook delivery ${result.delivered ? "succeeded" : `failed (${result.error})`}`,
+      details: `${alert.message} — ${outcomes.join("; ")}`,
     });
   }
 }
@@ -171,13 +227,28 @@ async function checkAndNotifyHighSeverityAlerts(): Promise<void> {
 // Poll-based rather than event-driven off logEvent() itself, to keep the
 // hash-chain-critical audit-log write path untouched by this. Overridable
 // for testing without a real 2-minute wait.
-const ALERT_POLL_INTERVAL_MS = Number(process.env["SECURITY_ALERT_POLL_INTERVAL_MS"] ?? 2 * 60 * 1000);
+const ALERT_POLL_INTERVAL_MS = Number(
+  process.env["SECURITY_ALERT_POLL_INTERVAL_MS"] ?? 2 * 60 * 1000,
+);
 
 /** unref() so it never blocks shutdown. */
 export function startSecurityAlertingJob(): void {
-  checkAndNotifyHighSeverityAlerts().catch((err) => logger.warn({ err }, "Security alerting: initial check failed"));
+  // Which channels high-severity alerts go to, so a deployment shows whether anyone is notified.
+  logger.info(
+    {
+      webhook: Boolean(process.env["SECURITY_ALERT_WEBHOOK_URL"]),
+      emailRecipients: alertRecipients().length,
+      emailConfigured: isEmailConfigured(),
+    },
+    "Security alerting: notification channels",
+  );
+  checkAndNotifyHighSeverityAlerts().catch((err) =>
+    logger.warn({ err }, "Security alerting: initial check failed"),
+  );
 
   setInterval(() => {
-    checkAndNotifyHighSeverityAlerts().catch((err) => logger.warn({ err }, "Security alerting: scheduled check failed"));
+    checkAndNotifyHighSeverityAlerts().catch((err) =>
+      logger.warn({ err }, "Security alerting: scheduled check failed"),
+    );
   }, ALERT_POLL_INTERVAL_MS).unref();
 }

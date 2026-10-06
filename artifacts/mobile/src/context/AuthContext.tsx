@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useCallback, useEffect, useState, ReactNode } from 'react';
-import { AppUser, getMe, primeCsrfCookie } from '../lib/api';
+import React, {
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { AppUser, getMe, primeCsrfCookie } from "../lib/api";
 
 interface AuthContextValue {
   user: AppUser | null;
@@ -26,11 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, [refetchUser]);
 
-  return <AuthContext.Provider value={{ user, isLoading, refetchUser }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, isLoading, refetchUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }

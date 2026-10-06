@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Link, useSearch, useLocation } from 'wouter';
-import { useVerifyParentConsent } from '@workspace/api-client-react';
-import { Card, Button } from '../components/ui';
-import { Users as UsersIcon, CheckCircle2 } from 'lucide-react';
+import React, { useState } from "react";
+import { Link, useSearch, useLocation } from "wouter";
+import { useVerifyParentConsent } from "@workspace/api-client-react";
+import { Card, Button } from "../components/ui";
+import { Users as UsersIcon, CheckCircle2 } from "lucide-react";
 
 // Deliberately requires an explicit click rather than auto-confirming on
 // page load — a parent/guardian opening the email shouldn't have their
@@ -11,19 +11,19 @@ import { Users as UsersIcon, CheckCircle2 } from 'lucide-react';
 export default function ParentConsent() {
   const search = useSearch();
   const [, setLocation] = useLocation();
-  const token = new URLSearchParams(search).get('token') ?? '';
+  const token = new URLSearchParams(search).get("token") ?? "";
 
   const verifyMutation = useVerifyParentConsent();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [childEmail, setChildEmail] = useState<string | null>(null);
 
   const handleConfirm = async () => {
-    setError('');
+    setError("");
     try {
       const res = await verifyMutation.mutateAsync({ data: { token } });
       setChildEmail(res.childEmail ?? null);
     } catch (err: any) {
-      setError(err?.data?.error || 'Invalid or expired consent link.');
+      setError(err?.data?.error || "Invalid or expired consent link.");
     }
   };
 
@@ -33,8 +33,12 @@ export default function ParentConsent() {
         <div className="bg-primary/10 p-4 border border-primary/30 mb-4">
           <UsersIcon className="w-12 h-12 text-primary" />
         </div>
-        <h1 className="font-mono text-3xl tracking-widest uppercase">SecureAI</h1>
-        <p className="font-mono text-sm text-primary/70 tracking-widest uppercase mt-2">Parent / Guardian Consent</p>
+        <h1 className="font-mono text-3xl tracking-widest uppercase">
+          SecureAI
+        </h1>
+        <p className="font-mono text-sm text-primary/70 tracking-widest uppercase mt-2">
+          Parent / Guardian Consent
+        </p>
       </div>
 
       <Card className="w-full max-w-md">
@@ -46,20 +50,26 @@ export default function ParentConsent() {
           <div className="space-y-4 text-center">
             <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto" />
             <p className="font-mono text-sm text-foreground">
-              Consent recorded — the account for <span className="text-primary">{childEmail}</span> is now active.
+              Consent recorded — the account for{" "}
+              <span className="text-primary">{childEmail}</span> is now active.
             </p>
-            <Button className="w-full" onClick={() => setLocation('/')}>
+            <Button className="w-full" onClick={() => setLocation("/")}>
               Go to Login
             </Button>
           </div>
         ) : (
           <div className="space-y-6">
             <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-              A minor in your care has registered a SecureAI account. Confirming below activates it and
-              records your consent, timestamped, in the account's audit trail.
+              A minor in your care has registered a SecureAI account. Confirming
+              below activates it and records your consent, timestamped, in the
+              account's audit trail.
             </p>
 
-            {error && <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">{error}</p>}
+            {error && (
+              <p className="text-destructive font-mono text-xs uppercase tracking-wider text-center">
+                {error}
+              </p>
+            )}
 
             <Button
               className="w-full"

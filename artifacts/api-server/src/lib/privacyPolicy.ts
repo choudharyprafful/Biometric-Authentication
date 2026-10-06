@@ -9,9 +9,12 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db, securityLogsTable } from "@workspace/db";
 
-export const PRIVACY_POLICY_VERSION = "2026-09-26.2";
+export const PRIVACY_POLICY_VERSION = "2026-10-04";
 
-export function acknowledgementDetails(version: string, via: "registration" | "notice"): string {
+export function acknowledgementDetails(
+  version: string,
+  via: "registration" | "notice",
+): string {
   return `version=${version}; via=${via}`;
 }
 
@@ -23,14 +26,24 @@ export async function privacyPolicyStatus(userId: number): Promise<{
   acknowledgedAt: string | null;
 }> {
   const [last] = await db
-    .select({ details: securityLogsTable.details, timestamp: securityLogsTable.timestamp })
+    .select({
+      details: securityLogsTable.details,
+      timestamp: securityLogsTable.timestamp,
+    })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.userId, userId), eq(securityLogsTable.eventType, "PRIVACY_POLICY_ACKNOWLEDGED")))
+    .where(
+      and(
+        eq(securityLogsTable.userId, userId),
+        eq(securityLogsTable.eventType, "PRIVACY_POLICY_ACKNOWLEDGED"),
+      ),
+    )
     .orderBy(desc(securityLogsTable.timestamp))
     .limit(1);
   return {
     currentVersion: PRIVACY_POLICY_VERSION,
-    acknowledgedVersion: last ? (VERSION_IN_DETAILS.exec(last.details)?.[1] ?? null) : null,
+    acknowledgedVersion: last
+      ? (VERSION_IN_DETAILS.exec(last.details)?.[1] ?? null)
+      : null,
     acknowledgedAt: last ? last.timestamp.toISOString() : null,
   };
 }

@@ -1,5 +1,5 @@
-import ReactNativeBiometrics from 'react-native-biometrics';
-import { request, type AppUser } from './api';
+import ReactNativeBiometrics from "react-native-biometrics";
+import { request, type AppUser } from "./api";
 
 // Device-native biometric second factor, using Android Keystore + BiometricPrompt
 // directly instead of WebAuthn/passkeys. Chosen specifically because native passkey
@@ -21,7 +21,10 @@ export async function isBiometricSupported(): Promise<boolean> {
 }
 
 export async function enrollBiometricKey(deviceName?: string): Promise<void> {
-  const { challenge } = await request<{ challenge: string }>('/auth/biometric-key/register-challenge', { method: 'POST' });
+  const { challenge } = await request<{ challenge: string }>(
+    "/auth/biometric-key/register-challenge",
+    { method: "POST" },
+  );
 
   // A fresh key pair every enrollment — deleteKeys() first in case a stale
   // key from an earlier attempt is still in the Keystore, which would make
@@ -31,24 +34,35 @@ export async function enrollBiometricKey(deviceName?: string): Promise<void> {
   const { publicKey } = await biometrics.createKeys();
 
   const { success, signature } = await biometrics.createSignature({
-    promptMessage: 'Confirm your biometric to enroll',
+    promptMessage: "Confirm your biometric to enroll",
     payload: challenge,
   });
-  if (!success || !signature) throw new Error('Biometric enrollment was cancelled or failed');
+  if (!success || !signature)
+    throw new Error("Biometric enrollment was cancelled or failed");
 
-  await request('/auth/biometric-key/register', { method: 'POST', body: { publicKey, signature, deviceName } });
+  await request("/auth/biometric-key/register", {
+    method: "POST",
+    body: { publicKey, signature, deviceName },
+  });
 }
 
 export async function loginWithBiometricKey(): Promise<{ verified: boolean }> {
-  const { challenge } = await request<{ challenge: string }>('/auth/biometric-key/login-options', { method: 'POST' });
+  const { challenge } = await request<{ challenge: string }>(
+    "/auth/biometric-key/login-options",
+    { method: "POST" },
+  );
 
   const { success, signature } = await biometrics.createSignature({
-    promptMessage: 'Confirm your biometric to sign in',
+    promptMessage: "Confirm your biometric to sign in",
     payload: challenge,
   });
-  if (!success || !signature) throw new Error('Biometric verification was cancelled or failed');
+  if (!success || !signature)
+    throw new Error("Biometric verification was cancelled or failed");
 
-  return request('/auth/biometric-key/login-verify', { method: 'POST', body: { signature } });
+  return request("/auth/biometric-key/login-verify", {
+    method: "POST",
+    body: { signature },
+  });
 }
 
 // Bootstraps this device onto an account that was enrolled elsewhere (e.g.
@@ -59,18 +73,22 @@ export async function loginWithBiometricKey(): Promise<{ verified: boolean }> {
 // The code itself is the signed payload: it's random, single-use, and the
 // server already treats it as consumed the moment it's looked up, so there's
 // no separate challenge round-trip needed the way enroll/login have.
-export async function linkDeviceWithCode(code: string, deviceName?: string): Promise<{ verified: boolean; user: AppUser }> {
+export async function linkDeviceWithCode(
+  code: string,
+  deviceName?: string,
+): Promise<{ verified: boolean; user: AppUser }> {
   await biometrics.deleteKeys().catch(() => {});
   const { publicKey } = await biometrics.createKeys();
 
   const { success, signature } = await biometrics.createSignature({
-    promptMessage: 'Confirm your biometric to link this device',
+    promptMessage: "Confirm your biometric to link this device",
     payload: code,
   });
-  if (!success || !signature) throw new Error('Device linking was cancelled or failed');
+  if (!success || !signature)
+    throw new Error("Device linking was cancelled or failed");
 
-  return request('/auth/biometric-key/redeem-link-code', {
-    method: 'POST',
+  return request("/auth/biometric-key/redeem-link-code", {
+    method: "POST",
     body: { code, publicKey, signature, deviceName },
   });
 }

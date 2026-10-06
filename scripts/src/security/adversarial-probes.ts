@@ -28,10 +28,16 @@ async function newSession(): Promise<Session> {
   const setCookie = res.headers.get("set-cookie") ?? "";
   const csrfMatch = /csrf_token=([^;]+)/.exec(setCookie);
   const sessionMatch = /connect\.sid=([^;]+)/.exec(setCookie);
-  if (!csrfMatch) throw new Error("No csrf_token cookie — is the dev server running?");
+  if (!csrfMatch)
+    throw new Error("No csrf_token cookie — is the dev server running?");
   return {
     csrf: csrfMatch[1]!,
-    cookies: [`csrf_token=${csrfMatch[1]}`, sessionMatch && `connect.sid=${sessionMatch[1]}`].filter(Boolean).join("; "),
+    cookies: [
+      `csrf_token=${csrfMatch[1]}`,
+      sessionMatch && `connect.sid=${sessionMatch[1]}`,
+    ]
+      .filter(Boolean)
+      .join("; "),
   };
 }
 
@@ -44,24 +50,54 @@ function mergeSetCookie(session: Session, res: Response): void {
   const setCookie = res.headers.get("set-cookie") ?? "";
   const sessionMatch = /connect\.sid=([^;]+)/.exec(setCookie);
   if (!sessionMatch) return;
-  const withoutOldSession = session.cookies.split("; ").filter((c) => !c.startsWith("connect.sid="));
-  session.cookies = [...withoutOldSession, `connect.sid=${sessionMatch[1]}`].join("; ");
+  const withoutOldSession = session.cookies
+    .split("; ")
+    .filter((c) => !c.startsWith("connect.sid="));
+  session.cookies = [
+    ...withoutOldSession,
+    `connect.sid=${sessionMatch[1]}`,
+  ].join("; ");
 }
 
 interface RegisterResponse {
-  user?: { id: number; name: string; role: string; faceEnrolled: boolean; biometricConsentGiven: boolean; trainingConsentGiven: boolean };
+  user?: {
+    id: number;
+    name: string;
+    role: string;
+    faceEnrolled: boolean;
+    biometricConsentGiven: boolean;
+    trainingConsentGiven: boolean;
+  };
 }
 
-async function register(session: Session, email: string, name = "Probe Test", extra: Record<string, unknown> = {}): Promise<{ status: number; id?: number; body: RegisterResponse | null }> {
+async function register(
+  session: Session,
+  email: string,
+  name = "Probe Test",
+  extra: Record<string, unknown> = {},
+): Promise<{ status: number; id?: number; body: RegisterResponse | null }> {
   const res = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
     // dateOfBirth triggers a server-side age/parental-consent check; a fixed
     // adult DOB keeps every probe a plain adult account.
-    body: JSON.stringify({ email, name, password: "Password123!", dataConsent: true, dateOfBirth: "1995-01-01", ...extra }),
+    body: JSON.stringify({
+      email,
+      name,
+      password: "Password123!",
+      dataConsent: true,
+      dateOfBirth: "1995-01-01",
+      ...extra,
+    }),
   });
   mergeSetCookie(session, res);
-  const body = res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
+  const body =
+    res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
   return { status: res.status, id: body?.user?.id, body };
 }
 
@@ -70,7 +106,12 @@ async function register(session: Session, email: string, name = "Probe Test", ex
 async function enrollFace(session: Session, userId: number): Promise<void> {
   await fetch(`${BASE}/api/users/${userId}/enroll-face`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
     body: JSON.stringify({ descriptor: new Array(128).fill(0), consent: true }),
   });
 }
@@ -94,14 +135,21 @@ async function probeSqlInjection() {
   for (const payload of payloads) {
     const res = await fetch(`${BASE}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": session.csrf,
+        Cookie: session.cookies,
+      },
       body: JSON.stringify({ email: payload, password: "anything" }),
     });
     const bypassed = res.status === 200;
     record(
       `SQLi login bypass: ${JSON.stringify(payload)}`,
       !bypassed,
-      bypassed ? "AUTHENTICATION BYPASSED — this is a critical finding" : `correctly rejected (${res.status})`,
+      bypassed
+        ? "AUTHENTICATION BYPASSED — this is a critical finding"
+        : `correctly rejected (${res.status})`,
     );
   }
 
@@ -109,10 +157,22 @@ async function probeSqlInjection() {
   // 500/200 would mean the table is actually gone.
   const check = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
-    body: JSON.stringify({ email: "nonexistent-probe-check@test.com", password: "x" }),
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({
+      email: "nonexistent-probe-check@test.com",
+      password: "x",
+    }),
   });
-  record("users table survives DROP TABLE payload", check.status === 401 || check.status === 429, `login endpoint still functions normally (${check.status})`);
+  record(
+    "users table survives DROP TABLE payload",
+    check.status === 401 || check.status === 429,
+    `login endpoint still functions normally (${check.status})`,
+  );
 }
 
 async function probeCsrf() {
@@ -121,35 +181,136 @@ async function probeCsrf() {
 
   const noToken = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, Cookie: session.cookies },
-    body: JSON.stringify({ email, name: "CSRF Probe", password: "Password123!", dataConsent: true }),
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({
+      email,
+      name: "CSRF Probe",
+      password: "Password123!",
+      dataConsent: true,
+    }),
   });
-  record("CSRF: request with no X-CSRF-Token header", noToken.status === 403, `got ${noToken.status}`);
+  record(
+    "CSRF: request with no X-CSRF-Token header",
+    noToken.status === 403,
+    `got ${noToken.status}`,
+  );
 
   const wrongToken = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": "not-the-real-token", Cookie: session.cookies },
-    body: JSON.stringify({ email, name: "CSRF Probe", password: "Password123!", dataConsent: true }),
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": "not-the-real-token",
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({
+      email,
+      name: "CSRF Probe",
+      password: "Password123!",
+      dataConsent: true,
+    }),
   });
-  record("CSRF: request with mismatched X-CSRF-Token", wrongToken.status === 403, `got ${wrongToken.status}`);
+  record(
+    "CSRF: request with mismatched X-CSRF-Token",
+    wrongToken.status === 403,
+    `got ${wrongToken.status}`,
+  );
 }
 
 async function probeAuthBypass() {
-  const anon = await fetch(`${BASE}/api/auth/me`, { headers: { Origin: BASE } });
+  const anon = await fetch(`${BASE}/api/auth/me`, {
+    headers: { Origin: BASE },
+  });
   record("no session -> /auth/me", anon.status === 401, `got ${anon.status}`);
 
-  const anonUsers = await fetch(`${BASE}/api/users`, { headers: { Origin: BASE } });
-  record("no session -> admin-only /users list", anonUsers.status === 401, `got ${anonUsers.status}`);
+  const anonUsers = await fetch(`${BASE}/api/users`, {
+    headers: { Origin: BASE },
+  });
+  record(
+    "no session -> admin-only /users list",
+    anonUsers.status === 401,
+    `got ${anonUsers.status}`,
+  );
 
-  const anonLogs = await fetch(`${BASE}/api/security/logs`, { headers: { Origin: BASE } });
-  record("no session -> security_analyst-only /security/logs", anonLogs.status === 401, `got ${anonLogs.status}`);
+  const anonLogs = await fetch(`${BASE}/api/security/logs`, {
+    headers: { Origin: BASE },
+  });
+  record(
+    "no session -> security_analyst-only /security/logs",
+    anonLogs.status === 401,
+    `got ${anonLogs.status}`,
+  );
 
   // requireMfaEnrolled blocks this first (no MFA yet) — either way it must never be 200.
   const session = await newSession();
   const email = `authprobe_${Date.now()}@test.com`;
   await register(session, email);
-  const asUser = await fetch(`${BASE}/api/users`, { headers: { Origin: BASE, Cookie: session.cookies } });
-  record("regular user -> admin-only /users list", asUser.status === 401 || asUser.status === 403, `got ${asUser.status}`);
+  const asUser = await fetch(`${BASE}/api/users`, {
+    headers: { Origin: BASE, Cookie: session.cookies },
+  });
+  record(
+    "regular user -> admin-only /users list",
+    asUser.status === 401 || asUser.status === 403,
+    `got ${asUser.status}`,
+  );
+
+  // The breach register and the government disclosure record (docs/12) are staff-only, and the
+  // readable data copy is only ever the signed-in person's own.
+  for (const path of [
+    "/api/data-breaches",
+    "/api/government-disclosures",
+    "/api/users/me/export/readable",
+    "/api/users/me/breach-notices",
+  ]) {
+    const anonRes = await fetch(`${BASE}${path}`, {
+      headers: { Origin: BASE },
+    });
+    record(
+      `no session -> ${path}`,
+      anonRes.status === 401,
+      `got ${anonRes.status}`,
+    );
+  }
+  for (const path of ["/api/data-breaches", "/api/government-disclosures"]) {
+    const read = await fetch(`${BASE}${path}`, {
+      headers: { Origin: BASE, Cookie: session.cookies },
+    });
+    record(
+      `regular user -> staff-only ${path}`,
+      read.status === 401 || read.status === 403,
+      `got ${read.status}`,
+    );
+    const write = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": session.csrf,
+        Cookie: session.cookies,
+      },
+      body: JSON.stringify({
+        title: "Probe breach",
+        description: "Recorded by a regular account",
+        dataInvolved: "None",
+        userGuidance: "None",
+        discoveredAt: new Date().toISOString(),
+        agency: "Probe agency",
+        legalBasis: "No basis at all",
+        informationDisclosed: "Nothing",
+        disclosedAt: new Date().toISOString(),
+        notTellingReason: "Probe only",
+      }),
+    });
+    record(
+      `regular user -> record in staff-only ${path}`,
+      write.status === 401 || write.status === 403,
+      `got ${write.status}`,
+    );
+  }
 }
 
 async function probeIdor() {
@@ -169,15 +330,30 @@ async function probeIdor() {
     return;
   }
 
-  const readOther = await fetch(`${BASE}/api/users/${regA.id}`, { headers: { Origin: BASE, Cookie: sessionB.cookies } });
-  record("IDOR: user B reads user A's profile by ID", readOther.status === 403 || readOther.status === 401, `got ${readOther.status}`);
+  const readOther = await fetch(`${BASE}/api/users/${regA.id}`, {
+    headers: { Origin: BASE, Cookie: sessionB.cookies },
+  });
+  record(
+    "IDOR: user B reads user A's profile by ID",
+    readOther.status === 403 || readOther.status === 401,
+    `got ${readOther.status}`,
+  );
 
   const deleteOther = await fetch(`${BASE}/api/users/${regA.id}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": sessionB.csrf, Cookie: sessionB.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": sessionB.csrf,
+      Cookie: sessionB.cookies,
+    },
     body: JSON.stringify({ password: "irrelevant" }),
   });
-  record("IDOR: user B deletes user A's account by ID", deleteOther.status !== 204, `got ${deleteOther.status}`);
+  record(
+    "IDOR: user B deletes user A's account by ID",
+    deleteOther.status !== 204,
+    `got ${deleteOther.status}`,
+  );
 }
 
 // Rendering-side escaping is React's job and isn't observable from this HTTP probe.
@@ -187,10 +363,23 @@ async function probeStoredXss() {
   const payload = "<script>window.__xss_probe_fired = true;</script>";
   const res = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
-    body: JSON.stringify({ email, name: payload, password: "Password123!", dataConsent: true, dateOfBirth: "1995-01-01" }),
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({
+      email,
+      name: payload,
+      password: "Password123!",
+      dataConsent: true,
+      dateOfBirth: "1995-01-01",
+    }),
   });
-  const body = res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
+  mergeSetCookie(session, res);
+  const body =
+    res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
   const storedVerbatim = body?.user?.name === payload;
   record(
     "Stored XSS: <script> payload in name field",
@@ -198,6 +387,25 @@ async function probeStoredXss() {
     storedVerbatim
       ? "stored as inert text, not stripped or transformed"
       : `unexpected: status ${res.status}, stored value ${JSON.stringify(body?.user?.name)}`,
+  );
+
+  // Unlike the rest of the app, the readable data copy is HTML the server builds itself (no React
+  // to escape it), opened straight from the person's downloads, so the escaping is checked here.
+  const copy = await fetch(`${BASE}/api/users/me/export/readable`, {
+    headers: { Origin: BASE, Cookie: session.cookies },
+  });
+  const html = copy.status === 200 ? await copy.text() : "";
+  const escaped =
+    html.includes("&lt;script&gt;window.__xss_probe_fired") &&
+    !/<script/i.test(html);
+  record(
+    "Stored XSS: <script> name in the readable data copy",
+    copy.status === 200 &&
+      (copy.headers.get("content-type") ?? "").startsWith("text/html") &&
+      escaped,
+    escaped
+      ? "escaped, and the page carries no script at all"
+      : `unexpected: status ${copy.status}, raw <script> present: ${/<script/i.test(html)}`,
   );
 }
 
@@ -214,7 +422,10 @@ async function probeMassAssignment() {
   const user = body?.user;
   record(
     "Mass assignment: role/faceEnrolled/consent flags in registration body",
-    status === 201 && user?.role === "user" && user?.faceEnrolled === false && user?.biometricConsentGiven === false,
+    status === 201 &&
+      user?.role === "user" &&
+      user?.faceEnrolled === false &&
+      user?.biometricConsentGiven === false,
     `status=${status} role=${user?.role} faceEnrolled=${user?.faceEnrolled} biometricConsentGiven=${user?.biometricConsentGiven}`,
   );
 }
@@ -226,7 +437,12 @@ async function probePrototypePollution() {
   const email = `protopollution_${Date.now()}@test.com`;
   const res = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
     body: JSON.stringify({
       email,
       name: "Proto Probe",
@@ -237,7 +453,8 @@ async function probePrototypePollution() {
       constructor: { prototype: { role: "admin" } },
     }),
   });
-  const body = res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
+  const body =
+    res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
   record(
     "Prototype pollution: __proto__/constructor.prototype in registration body",
     res.status === 201 && body?.user?.role === "user",
@@ -255,7 +472,9 @@ async function probePrototypePollution() {
 // A reflected origin here would let any site read authenticated responses
 // via a credentialed cross-origin fetch.
 async function probeCors() {
-  const res = await fetch(`${BASE}/api/healthz`, { headers: { Origin: "https://evil-attacker-site.example" } });
+  const res = await fetch(`${BASE}/api/healthz`, {
+    headers: { Origin: "https://evil-attacker-site.example" },
+  });
   const acao = res.headers.get("access-control-allow-origin");
   record(
     "CORS: arbitrary Origin not reflected in Access-Control-Allow-Origin",
@@ -273,18 +492,36 @@ async function probePaymentInputBounds() {
   await register(session, email);
 
   const attempts: { label: string; body: Record<string, unknown> }[] = [
-    { label: "negative amount", body: { amount: -500, currency: "USD", description: "x" } },
-    { label: "amount above the ceiling", body: { amount: 999999999999, currency: "USD", description: "x" } },
-    { label: "non-real currency code", body: { amount: 10, currency: "XXX", description: "x" } },
+    {
+      label: "negative amount",
+      body: { amount: -500, currency: "USD", description: "x" },
+    },
+    {
+      label: "amount above the ceiling",
+      body: { amount: 999999999999, currency: "USD", description: "x" },
+    },
+    {
+      label: "non-real currency code",
+      body: { amount: 10, currency: "XXX", description: "x" },
+    },
   ];
   for (const { label, body } of attempts) {
     const res = await fetch(`${BASE}/api/payments`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": session.csrf,
+        Cookie: session.cookies,
+      },
       body: JSON.stringify(body),
     });
     // Not MFA-enrolled, so 401/403 (MFA gate) is as acceptable a "rejected" as 400 — only 201 is a finding.
-    record(`Payment input validation: ${label}`, res.status !== 201, `got ${res.status}`);
+    record(
+      `Payment input validation: ${label}`,
+      res.status !== 201,
+      `got ${res.status}`,
+    );
   }
 }
 
@@ -298,81 +535,161 @@ async function probeLoginRiskDetection() {
   const setupSession = await newSession();
   const reg = await register(setupSession, email);
   if (!reg.id) {
-    record("Login-risk detection setup", false, "could not register the probe account");
+    record(
+      "Login-risk detection setup",
+      false,
+      "could not register the probe account",
+    );
     return;
   }
 
   // 3 baseline logins matches MIN_HISTORY_FOR_SCORING in loginRiskModel.ts —
   // enough history for the model to have a pattern to compare against.
-  const normalHeaders = { "X-Forwarded-For": "203.0.113.50", "User-Agent": "probe-agent-normal/1.0" };
+  const normalHeaders = {
+    "X-Forwarded-For": "203.0.113.50",
+    "User-Agent": "probe-agent-normal/1.0",
+  };
   let baseline: Response | null = null;
   for (let i = 0; i < 3; i++) {
     const loginSession = await newSession();
     baseline = await fetch(`${BASE}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": loginSession.csrf, Cookie: loginSession.cookies, ...normalHeaders },
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": loginSession.csrf,
+        Cookie: loginSession.cookies,
+        ...normalHeaders,
+      },
       body: JSON.stringify({ email, password }),
     });
   }
-  const baselineBody = (await baseline!.json()) as { securityNotice?: string | null };
-  record("Login-risk: baseline logins from the same device/network stay silent", baselineBody.securityNotice === null, `securityNotice=${JSON.stringify(baselineBody.securityNotice)}`);
+  const baselineBody = (await baseline!.json()) as {
+    securityNotice?: string | null;
+  };
+  record(
+    "Login-risk: baseline logins from the same device/network stay silent",
+    baselineBody.securityNotice === null,
+    `securityNotice=${JSON.stringify(baselineBody.securityNotice)}`,
+  );
 
-  const attackerHeaders = { "X-Forwarded-For": "198.51.100.77", "User-Agent": "probe-agent-attacker/9.9" };
+  const attackerHeaders = {
+    "X-Forwarded-For": "198.51.100.77",
+    "User-Agent": "probe-agent-attacker/9.9",
+  };
   const attackerSession = await newSession();
   const risky = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": attackerSession.csrf, Cookie: attackerSession.cookies, ...attackerHeaders },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": attackerSession.csrf,
+      Cookie: attackerSession.cookies,
+      ...attackerHeaders,
+    },
     body: JSON.stringify({ email, password }),
   });
   const riskyBody = (await risky.json()) as { securityNotice?: string | null };
   record(
     "Login-risk: correct password from a new device+network is flagged, not silently accepted",
-    typeof riskyBody.securityNotice === "string" && riskyBody.securityNotice.length > 0,
+    typeof riskyBody.securityNotice === "string" &&
+      riskyBody.securityNotice.length > 0,
     `securityNotice=${JSON.stringify(riskyBody.securityNotice)}`,
   );
 }
 
 // Must stop being reflected the instant consent is withdrawn — no stale derived data left behind.
-async function probeContentProfileConsentGate(): Promise<{ session: Session; id: number } | null> {
+async function probeContentProfileConsentGate(): Promise<{
+  session: Session;
+  id: number;
+} | null> {
   const session = await newSession();
   const email = `contentprobe_${Date.now()}@test.com`;
   const reg = await register(session, email);
   if (!reg.id) {
-    record("Content-profile consent gate setup", false, "could not register the probe account");
+    record(
+      "Content-profile consent gate setup",
+      false,
+      "could not register the probe account",
+    );
     return null;
   }
   await enrollFace(session, reg.id);
 
   const authedHeaders = { Origin: BASE, Cookie: session.cookies };
-  const beforeConsent = await fetch(`${BASE}/api/users/me/content-profile`, { headers: authedHeaders });
+  const beforeConsent = await fetch(`${BASE}/api/users/me/content-profile`, {
+    headers: authedHeaders,
+  });
   const beforeBody = (await beforeConsent.json()) as { keywords?: unknown[] };
-  record("Content profile: empty before consent is granted", Array.isArray(beforeBody.keywords) && beforeBody.keywords.length === 0, `keywords.length=${beforeBody.keywords?.length}`);
+  record(
+    "Content profile: empty before consent is granted",
+    Array.isArray(beforeBody.keywords) && beforeBody.keywords.length === 0,
+    `keywords.length=${beforeBody.keywords?.length}`,
+  );
 
   await fetch(`${BASE}/api/users/me/content-personalization-consent`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
     body: JSON.stringify({ consent: true }),
   });
-  const uploadText = Buffer.from("Security probes are my favourite hobby. I write security probes every day.").toString("base64");
+  const uploadText = Buffer.from(
+    "Security probes are my favourite hobby. I write security probes every day.",
+  ).toString("base64");
   await fetch(`${BASE}/api/uploads`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
     // Declared as the uploader's own writing: undeclared uploads are, correctly, excluded from the profile.
-    body: JSON.stringify({ fileName: "probe.txt", mimeType: "text/plain", dataBase64: uploadText, contentSource: "own_work" }),
+    body: JSON.stringify({
+      fileName: "probe.txt",
+      mimeType: "text/plain",
+      dataBase64: uploadText,
+      contentSource: "own_work",
+    }),
   });
-  const afterConsent = await fetch(`${BASE}/api/users/me/content-profile`, { headers: authedHeaders });
-  const afterBody = (await afterConsent.json()) as { keywords?: { keyword: string }[] };
-  const gotKeyword = afterBody.keywords?.some((k) => k.keyword === "probes" || k.keyword === "security");
-  record("Content profile: reflects real uploaded content once consented", !!gotKeyword, `keywords=${JSON.stringify(afterBody.keywords?.map((k) => k.keyword))}`);
+  const afterConsent = await fetch(`${BASE}/api/users/me/content-profile`, {
+    headers: authedHeaders,
+  });
+  const afterBody = (await afterConsent.json()) as {
+    keywords?: { keyword: string }[];
+  };
+  const gotKeyword = afterBody.keywords?.some(
+    (k) => k.keyword === "probes" || k.keyword === "security",
+  );
+  record(
+    "Content profile: reflects real uploaded content once consented",
+    !!gotKeyword,
+    `keywords=${JSON.stringify(afterBody.keywords?.map((k) => k.keyword))}`,
+  );
 
   await fetch(`${BASE}/api/users/me/content-personalization-consent`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies },
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
     body: JSON.stringify({ consent: false }),
   });
-  const afterWithdraw = await fetch(`${BASE}/api/users/me/content-profile`, { headers: authedHeaders });
+  const afterWithdraw = await fetch(`${BASE}/api/users/me/content-profile`, {
+    headers: authedHeaders,
+  });
   const withdrawBody = (await afterWithdraw.json()) as { keywords?: unknown[] };
-  record("Content profile: empty again immediately after withdrawing consent", Array.isArray(withdrawBody.keywords) && withdrawBody.keywords.length === 0, `keywords.length=${withdrawBody.keywords?.length}`);
+  record(
+    "Content profile: empty again immediately after withdrawing consent",
+    Array.isArray(withdrawBody.keywords) && withdrawBody.keywords.length === 0,
+    `keywords.length=${withdrawBody.keywords?.length}`,
+  );
   return { session, id: reg.id };
 }
 
@@ -385,49 +702,99 @@ async function probeContentProfileConsentGate(): Promise<{ session: Session; id:
 // subscription-abuse analysis (R-PAY-3) names explicitly: a duplicated
 // request must never create a second charge, and a payment must never be
 // refundable twice (or refundable at all before it completes).
-async function probePaymentIdempotencyAndRefund(account: { session: Session; id: number } | null) {
+async function probePaymentIdempotencyAndRefund(
+  account: { session: Session; id: number } | null,
+) {
   if (!account) {
-    record("Payment idempotency/refund setup", false, "no probe account available (content-profile probe setup failed)");
+    record(
+      "Payment idempotency/refund setup",
+      false,
+      "no probe account available (content-profile probe setup failed)",
+    );
     return;
   }
   const { session } = account;
 
-  const authedPost = (path: string, body?: Record<string, unknown>, extraHeaders: Record<string, string> = {}) => fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE, "X-CSRF-Token": session.csrf, Cookie: session.cookies, ...extraHeaders },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const authedPost = (
+    path: string,
+    body?: Record<string, unknown>,
+    extraHeaders: Record<string, string> = {},
+  ) =>
+    fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": session.csrf,
+        Cookie: session.cookies,
+        ...extraHeaders,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
   const idempotencyKey = `probe-${Date.now()}`;
-  const makeIdempotentPayment = () => authedPost("/api/payments", { amount: 42, currency: "USD", description: "Idempotency probe" }, { "Idempotency-Key": idempotencyKey });
-  const first = (await (await makeIdempotentPayment()).json()) as { id?: number };
-  const second = (await (await makeIdempotentPayment()).json()) as { id?: number };
+  const makeIdempotentPayment = () =>
+    authedPost(
+      "/api/payments",
+      { amount: 42, currency: "USD", description: "Idempotency probe" },
+      { "Idempotency-Key": idempotencyKey },
+    );
+  const first = (await (await makeIdempotentPayment()).json()) as {
+    id?: number;
+  };
+  const second = (await (await makeIdempotentPayment()).json()) as {
+    id?: number;
+  };
   record(
     "Payment idempotency: retried request with the same key returns the SAME payment, not a duplicate",
     !!first.id && first.id === second.id,
     `first=${first.id} second=${second.id}`,
   );
 
-  const payment = (await (await authedPost("/api/payments", { amount: 15, currency: "USD", description: "Refund abuse probe" })).json()) as { id?: number };
+  const payment = (await (
+    await authedPost("/api/payments", {
+      amount: 15,
+      currency: "USD",
+      description: "Refund abuse probe",
+    })
+  ).json()) as { id?: number };
   if (!payment.id) {
     record("Refund abuse setup", false, "could not create a payment to refund");
     return;
   }
 
   const firstRefund = await authedPost(`/api/payments/${payment.id}/refund`);
-  record("Refund: a completed payment can be refunded once", firstRefund.status === 200, `got ${firstRefund.status}`);
+  record(
+    "Refund: a completed payment can be refunded once",
+    firstRefund.status === 200,
+    `got ${firstRefund.status}`,
+  );
 
   const secondRefund = await authedPost(`/api/payments/${payment.id}/refund`);
-  record("Refund abuse: refunding the same payment twice is rejected", secondRefund.status !== 200, `got ${secondRefund.status}`);
+  record(
+    "Refund abuse: refunding the same payment twice is rejected",
+    secondRefund.status !== 200,
+    `got ${secondRefund.status}`,
+  );
 
   // Promise.all fires these truly in parallel — sequential retries would
   // only exercise the check-then-act path once, not the actual race window.
   const raceKey = `race-${Date.now()}`;
   const concurrentPayments = await Promise.all(
-    Array.from({ length: 5 }, () => authedPost("/api/payments", { amount: 10, currency: "USD", description: "Concurrency race probe" }, { "Idempotency-Key": raceKey })),
+    Array.from({ length: 5 }, () =>
+      authedPost(
+        "/api/payments",
+        { amount: 10, currency: "USD", description: "Concurrency race probe" },
+        { "Idempotency-Key": raceKey },
+      ),
+    ),
   );
-  const concurrentBodies = (await Promise.all(concurrentPayments.map((r) => r.json()))) as { id?: number }[];
-  const distinctIds = new Set(concurrentBodies.map((b) => b.id).filter((id) => id !== undefined));
+  const concurrentBodies = (await Promise.all(
+    concurrentPayments.map((r) => r.json()),
+  )) as { id?: number }[];
+  const distinctIds = new Set(
+    concurrentBodies.map((b) => b.id).filter((id) => id !== undefined),
+  );
   const any500 = concurrentPayments.some((r) => r.status === 500);
   record(
     "Idempotency under real concurrency: 5 parallel requests with the same key create exactly one payment, no 500s",
@@ -435,17 +802,33 @@ async function probePaymentIdempotencyAndRefund(account: { session: Session; id:
     `distinct ids=${JSON.stringify([...distinctIds])}, statuses=${concurrentPayments.map((r) => r.status).join(",")}`,
   );
 
-  const raceRefundTarget = (await (await authedPost("/api/payments", { amount: 20, currency: "USD", description: "Refund concurrency race probe" })).json()) as { id?: number };
+  const raceRefundTarget = (await (
+    await authedPost("/api/payments", {
+      amount: 20,
+      currency: "USD",
+      description: "Refund concurrency race probe",
+    })
+  ).json()) as { id?: number };
   if (raceRefundTarget.id) {
-    const concurrentRefunds = await Promise.all(Array.from({ length: 5 }, () => authedPost(`/api/payments/${raceRefundTarget.id}/refund`)));
-    const successCount = concurrentRefunds.filter((r) => r.status === 200).length;
+    const concurrentRefunds = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        authedPost(`/api/payments/${raceRefundTarget.id}/refund`),
+      ),
+    );
+    const successCount = concurrentRefunds.filter(
+      (r) => r.status === 200,
+    ).length;
     record(
       "Refund under real concurrency: exactly one of 5 parallel refund attempts on the same payment succeeds",
       successCount === 1,
       `successes=${successCount}/5, statuses=${concurrentRefunds.map((r) => r.status).join(",")}`,
     );
   } else {
-    record("Refund concurrency race setup", false, "could not create a payment to race-refund");
+    record(
+      "Refund concurrency race setup",
+      false,
+      "could not create a payment to race-refund",
+    );
   }
 }
 
@@ -463,8 +846,13 @@ const contentProbeAccount = await probeContentProfileConsentGate();
 await probePaymentIdempotencyAndRefund(contentProbeAccount);
 
 const failed = results.filter((r) => !r.pass);
-console.log(`\n${results.length - failed.length}/${results.length} probes passed.`);
+console.log(
+  `\n${results.length - failed.length}/${results.length} probes passed.`,
+);
 if (failed.length > 0) {
-  console.error(`${failed.length} FAILED:`, failed.map((r) => r.name));
+  console.error(
+    `${failed.length} FAILED:`,
+    failed.map((r) => r.name),
+  );
   process.exitCode = 1;
 }

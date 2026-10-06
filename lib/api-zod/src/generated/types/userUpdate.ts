@@ -8,7 +8,10 @@
 import type { UserUpdateRole } from './userUpdateRole';
 
 export interface UserUpdate {
-  /** @minLength 1 */
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
   name?: string;
   role?: UserUpdateRole;
 }

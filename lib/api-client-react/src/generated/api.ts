@@ -28,10 +28,13 @@ import type {
   AiSystemId,
   AiSystemStaffState,
   AiSystemsResponse,
+  AssessDataBreachInput,
   AuthResponse,
+  BreachNotice,
   ChainRepairResult,
   ChainRestoreResult,
   ContentProfileResult,
+  DataBreach,
   DataExport,
   DeleteUserConfirmation,
   DeletionAuditEntry,
@@ -40,12 +43,15 @@ import type {
   FaceVerifyInput,
   ForgotPasswordInput,
   ForgotPasswordResult,
+  GovernmentDisclosure,
   HealthStatus,
   ListSecurityLogsParams,
   LogChainVerification,
   LoginCredentials,
   LoginResponse,
   LogoutAllResult,
+  NotifyDataBreachUsersInput,
+  NotifyDataBreachUsersResult,
   Payment,
   PaymentInput,
   PaymentWebhookInput,
@@ -53,6 +59,9 @@ import type {
   Plan,
   PrivacyPolicyAcknowledgeInput,
   PrivacyPolicyStatus,
+  RecordDataBreachInput,
+  RecordGovernmentDisclosureInput,
+  RegulatorNotificationInput,
   ResetPasswordFaceInput,
   ResetPasswordResult,
   ResolveAiChallengeInput,
@@ -2320,6 +2329,744 @@ export function useExportMyData<TData = Awaited<ReturnType<typeof exportMyData>>
 
 
 
+
+export const getExportMyDataReadableUrl = () => {
+
+
+
+
+  return `/api/users/me/export/readable`
+}
+
+/**
+ * A self-contained HTML page (no scripts) that opens in any browser and can be printed or saved as a PDF, written for someone who isn't technical. Lists files rather than including their contents. Shares the 5-an-hour limit with the JSON export; each download is audit-logged as DATA_EXPORTED.
+ * @summary The same personal data as one readable web page, for people rather than programs (privacy policy section 11)
+ */
+export const exportMyDataReadable = async ( options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getExportMyDataReadableUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportMyDataReadableQueryKey = () => {
+    return [
+    `/api/users/me/export/readable`
+    ] as const;
+    }
+
+
+export const getExportMyDataReadableQueryOptions = <TData = Awaited<ReturnType<typeof exportMyDataReadable>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportMyDataReadable>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportMyDataReadableQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportMyDataReadable>>> = ({ signal }) => exportMyDataReadable({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportMyDataReadable>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportMyDataReadableQueryResult = NonNullable<Awaited<ReturnType<typeof exportMyDataReadable>>>
+export type ExportMyDataReadableQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary The same personal data as one readable web page, for people rather than programs (privacy policy section 11)
+ */
+
+export function useExportMyDataReadable<TData = Awaited<ReturnType<typeof exportMyDataReadable>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportMyDataReadable>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportMyDataReadableQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListMyBreachNoticesUrl = () => {
+
+
+
+
+  return `/api/users/me/breach-notices`
+}
+
+/**
+ * @summary Data breach notices sent to this account, newest first
+ */
+export const listMyBreachNotices = async ( options?: Parameters<typeof customFetch>[1]): Promise<BreachNotice[]> => {
+
+  return customFetch<BreachNotice[]>(getListMyBreachNoticesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyBreachNoticesQueryKey = () => {
+    return [
+    `/api/users/me/breach-notices`
+    ] as const;
+    }
+
+
+export const getListMyBreachNoticesQueryOptions = <TData = Awaited<ReturnType<typeof listMyBreachNotices>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyBreachNotices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyBreachNoticesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyBreachNotices>>> = ({ signal }) => listMyBreachNotices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyBreachNotices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyBreachNoticesQueryResult = NonNullable<Awaited<ReturnType<typeof listMyBreachNotices>>>
+export type ListMyBreachNoticesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Data breach notices sent to this account, newest first
+ */
+
+export function useListMyBreachNotices<TData = Awaited<ReturnType<typeof listMyBreachNotices>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyBreachNotices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyBreachNoticesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAcknowledgeBreachNoticeUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/me/breach-notices/${id}/acknowledge`
+}
+
+/**
+ * @summary Confirm this account has read a data breach notice; recorded as DATA_BREACH_NOTICE_ACKNOWLEDGED
+ */
+export const acknowledgeBreachNotice = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<BreachNotice> => {
+
+  return customFetch<BreachNotice>(getAcknowledgeBreachNoticeUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeBreachNoticeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeBreachNotice>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeBreachNotice>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acknowledgeBreachNotice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeBreachNotice>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acknowledgeBreachNotice(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeBreachNoticeMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeBreachNotice>>>
+
+    export type AcknowledgeBreachNoticeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Confirm this account has read a data breach notice; recorded as DATA_BREACH_NOTICE_ACKNOWLEDGED
+ */
+export const useAcknowledgeBreachNotice = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeBreachNotice>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeBreachNotice>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcknowledgeBreachNoticeMutationOptions(options));
+    }
+
+export const getListDataBreachesUrl = () => {
+
+
+
+
+  return `/api/data-breaches`
+}
+
+/**
+ * @summary The data breach register, newest first, with each breach's deadlines and next step (security analysts and administrators)
+ */
+export const listDataBreaches = async ( options?: Parameters<typeof customFetch>[1]): Promise<DataBreach[]> => {
+
+  return customFetch<DataBreach[]>(getListDataBreachesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDataBreachesQueryKey = () => {
+    return [
+    `/api/data-breaches`
+    ] as const;
+    }
+
+
+export const getListDataBreachesQueryOptions = <TData = Awaited<ReturnType<typeof listDataBreaches>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDataBreaches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDataBreachesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDataBreaches>>> = ({ signal }) => listDataBreaches({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDataBreaches>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDataBreachesQueryResult = NonNullable<Awaited<ReturnType<typeof listDataBreaches>>>
+export type ListDataBreachesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary The data breach register, newest first, with each breach's deadlines and next step (security analysts and administrators)
+ */
+
+export function useListDataBreaches<TData = Awaited<ReturnType<typeof listDataBreaches>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDataBreaches>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDataBreachesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordDataBreachUrl = () => {
+
+
+
+
+  return `/api/data-breaches`
+}
+
+/**
+ * @summary Record a suspected data breach; its 30-day assessment deadline starts from when it was discovered (security analysts and administrators)
+ */
+export const recordDataBreach = async (recordDataBreachInput: RecordDataBreachInput, options?: Parameters<typeof customFetch>[1]): Promise<DataBreach> => {
+
+  return customFetch<DataBreach>(getRecordDataBreachUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recordDataBreachInput)
+  }
+);}
+
+
+
+
+
+export const getRecordDataBreachMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordDataBreach>>, TError,{data: BodyType<RecordDataBreachInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordDataBreach>>, TError,{data: BodyType<RecordDataBreachInput>}, TContext> => {
+
+const mutationKey = ['recordDataBreach'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordDataBreach>>, {data: BodyType<RecordDataBreachInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordDataBreach(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordDataBreachMutationResult = NonNullable<Awaited<ReturnType<typeof recordDataBreach>>>
+    export type RecordDataBreachMutationBody = BodyType<RecordDataBreachInput>
+    export type RecordDataBreachMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record a suspected data breach; its 30-day assessment deadline starts from when it was discovered (security analysts and administrators)
+ */
+export const useRecordDataBreach = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordDataBreach>>, TError,{data: BodyType<RecordDataBreachInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordDataBreach>>,
+        TError,
+        {data: BodyType<RecordDataBreachInput>},
+        TContext
+      > => {
+      return useMutation(getRecordDataBreachMutationOptions(options));
+    }
+
+export const getAssessDataBreachUrl = (id: number,) => {
+
+
+
+
+  return `/api/data-breaches/${id}/assess`
+}
+
+/**
+ * @summary Record whether the breach is likely to cause serious harm (an eligible data breach that must be notified) (security analysts and administrators)
+ */
+export const assessDataBreach = async (id: number,
+    assessDataBreachInput: AssessDataBreachInput, options?: Parameters<typeof customFetch>[1]): Promise<DataBreach> => {
+
+  return customFetch<DataBreach>(getAssessDataBreachUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assessDataBreachInput)
+  }
+);}
+
+
+
+
+
+export const getAssessDataBreachMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assessDataBreach>>, TError,{id: number;data: BodyType<AssessDataBreachInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assessDataBreach>>, TError,{id: number;data: BodyType<AssessDataBreachInput>}, TContext> => {
+
+const mutationKey = ['assessDataBreach'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assessDataBreach>>, {id: number;data: BodyType<AssessDataBreachInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  assessDataBreach(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssessDataBreachMutationResult = NonNullable<Awaited<ReturnType<typeof assessDataBreach>>>
+    export type AssessDataBreachMutationBody = BodyType<AssessDataBreachInput>
+    export type AssessDataBreachMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record whether the breach is likely to cause serious harm (an eligible data breach that must be notified) (security analysts and administrators)
+ */
+export const useAssessDataBreach = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assessDataBreach>>, TError,{id: number;data: BodyType<AssessDataBreachInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assessDataBreach>>,
+        TError,
+        {id: number;data: BodyType<AssessDataBreachInput>},
+        TContext
+      > => {
+      return useMutation(getAssessDataBreachMutationOptions(options));
+    }
+
+export const getNotifyDataBreachUsersUrl = (id: number,) => {
+
+
+
+
+  return `/api/data-breaches/${id}/notify-users`
+}
+
+/**
+ * @summary Tell the people affected, by email and with a notice in the app until they confirm reading it (administrators)
+ */
+export const notifyDataBreachUsers = async (id: number,
+    notifyDataBreachUsersInput: NotifyDataBreachUsersInput, options?: Parameters<typeof customFetch>[1]): Promise<NotifyDataBreachUsersResult> => {
+
+  return customFetch<NotifyDataBreachUsersResult>(getNotifyDataBreachUsersUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(notifyDataBreachUsersInput)
+  }
+);}
+
+
+
+
+
+export const getNotifyDataBreachUsersMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof notifyDataBreachUsers>>, TError,{id: number;data: BodyType<NotifyDataBreachUsersInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof notifyDataBreachUsers>>, TError,{id: number;data: BodyType<NotifyDataBreachUsersInput>}, TContext> => {
+
+const mutationKey = ['notifyDataBreachUsers'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof notifyDataBreachUsers>>, {id: number;data: BodyType<NotifyDataBreachUsersInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  notifyDataBreachUsers(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NotifyDataBreachUsersMutationResult = NonNullable<Awaited<ReturnType<typeof notifyDataBreachUsers>>>
+    export type NotifyDataBreachUsersMutationBody = BodyType<NotifyDataBreachUsersInput>
+    export type NotifyDataBreachUsersMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Tell the people affected, by email and with a notice in the app until they confirm reading it (administrators)
+ */
+export const useNotifyDataBreachUsers = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof notifyDataBreachUsers>>, TError,{id: number;data: BodyType<NotifyDataBreachUsersInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof notifyDataBreachUsers>>,
+        TError,
+        {id: number;data: BodyType<NotifyDataBreachUsersInput>},
+        TContext
+      > => {
+      return useMutation(getNotifyDataBreachUsersMutationOptions(options));
+    }
+
+export const getRecordRegulatorNotificationUrl = (id: number,) => {
+
+
+
+
+  return `/api/data-breaches/${id}/regulator`
+}
+
+/**
+ * @summary Record when the Office of the Australian Information Commissioner was told, and its reference (administrators)
+ */
+export const recordRegulatorNotification = async (id: number,
+    regulatorNotificationInput: RegulatorNotificationInput, options?: Parameters<typeof customFetch>[1]): Promise<DataBreach> => {
+
+  return customFetch<DataBreach>(getRecordRegulatorNotificationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(regulatorNotificationInput)
+  }
+);}
+
+
+
+
+
+export const getRecordRegulatorNotificationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRegulatorNotification>>, TError,{id: number;data: BodyType<RegulatorNotificationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordRegulatorNotification>>, TError,{id: number;data: BodyType<RegulatorNotificationInput>}, TContext> => {
+
+const mutationKey = ['recordRegulatorNotification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordRegulatorNotification>>, {id: number;data: BodyType<RegulatorNotificationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  recordRegulatorNotification(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordRegulatorNotificationMutationResult = NonNullable<Awaited<ReturnType<typeof recordRegulatorNotification>>>
+    export type RecordRegulatorNotificationMutationBody = BodyType<RegulatorNotificationInput>
+    export type RecordRegulatorNotificationMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record when the Office of the Australian Information Commissioner was told, and its reference (administrators)
+ */
+export const useRecordRegulatorNotification = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRegulatorNotification>>, TError,{id: number;data: BodyType<RegulatorNotificationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordRegulatorNotification>>,
+        TError,
+        {id: number;data: BodyType<RegulatorNotificationInput>},
+        TContext
+      > => {
+      return useMutation(getRecordRegulatorNotificationMutationOptions(options));
+    }
+
+export const getListGovernmentDisclosuresUrl = () => {
+
+
+
+
+  return `/api/government-disclosures`
+}
+
+/**
+ * @summary The written record of personal information disclosed to government or law-enforcement agencies (security analysts and administrators)
+ */
+export const listGovernmentDisclosures = async ( options?: Parameters<typeof customFetch>[1]): Promise<GovernmentDisclosure[]> => {
+
+  return customFetch<GovernmentDisclosure[]>(getListGovernmentDisclosuresUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGovernmentDisclosuresQueryKey = () => {
+    return [
+    `/api/government-disclosures`
+    ] as const;
+    }
+
+
+export const getListGovernmentDisclosuresQueryOptions = <TData = Awaited<ReturnType<typeof listGovernmentDisclosures>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGovernmentDisclosures>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGovernmentDisclosuresQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGovernmentDisclosures>>> = ({ signal }) => listGovernmentDisclosures({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGovernmentDisclosures>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGovernmentDisclosuresQueryResult = NonNullable<Awaited<ReturnType<typeof listGovernmentDisclosures>>>
+export type ListGovernmentDisclosuresQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary The written record of personal information disclosed to government or law-enforcement agencies (security analysts and administrators)
+ */
+
+export function useListGovernmentDisclosures<TData = Awaited<ReturnType<typeof listGovernmentDisclosures>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGovernmentDisclosures>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGovernmentDisclosuresQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordGovernmentDisclosureUrl = () => {
+
+
+
+
+  return `/api/government-disclosures`
+}
+
+/**
+ * @summary Record a disclosure made because the law required or authorised it (Australian Privacy Principle 6.5 written note) (administrators)
+ */
+export const recordGovernmentDisclosure = async (recordGovernmentDisclosureInput: RecordGovernmentDisclosureInput, options?: Parameters<typeof customFetch>[1]): Promise<GovernmentDisclosure> => {
+
+  return customFetch<GovernmentDisclosure>(getRecordGovernmentDisclosureUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recordGovernmentDisclosureInput)
+  }
+);}
+
+
+
+
+
+export const getRecordGovernmentDisclosureMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordGovernmentDisclosure>>, TError,{data: BodyType<RecordGovernmentDisclosureInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordGovernmentDisclosure>>, TError,{data: BodyType<RecordGovernmentDisclosureInput>}, TContext> => {
+
+const mutationKey = ['recordGovernmentDisclosure'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordGovernmentDisclosure>>, {data: BodyType<RecordGovernmentDisclosureInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordGovernmentDisclosure(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordGovernmentDisclosureMutationResult = NonNullable<Awaited<ReturnType<typeof recordGovernmentDisclosure>>>
+    export type RecordGovernmentDisclosureMutationBody = BodyType<RecordGovernmentDisclosureInput>
+    export type RecordGovernmentDisclosureMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Record a disclosure made because the law required or authorised it (Australian Privacy Principle 6.5 written note) (administrators)
+ */
+export const useRecordGovernmentDisclosure = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordGovernmentDisclosure>>, TError,{data: BodyType<RecordGovernmentDisclosureInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordGovernmentDisclosure>>,
+        TError,
+        {data: BodyType<RecordGovernmentDisclosureInput>},
+        TContext
+      > => {
+      return useMutation(getRecordGovernmentDisclosureMutationOptions(options));
+    }
 
 export const getSetTrainingConsentUrl = () => {
 

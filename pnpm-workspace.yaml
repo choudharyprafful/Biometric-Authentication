@@ -45,15 +45,15 @@ packages:
   # conflicting @types/react instance broke secureai's own typecheck the
   # moment mobile was added — see artifacts/mobile/README.md). Mobile gets
   # its own independent `pnpm install` inside artifacts/mobile instead.
-  - '!artifacts/mobile'
+  - "!artifacts/mobile"
 
 catalog:
-  '@tailwindcss/vite': ^4.1.14
-  '@tanstack/react-query': ^5.90.21
-  '@types/node': ^25.3.3
-  '@types/react': ^19.2.0
-  '@types/react-dom': ^19.2.0
-  '@vitejs/plugin-react': ^5.0.4
+  "@tailwindcss/vite": ^4.1.14
+  "@tanstack/react-query": ^5.90.21
+  "@types/node": ^25.3.3
+  "@types/react": ^19.2.0
+  "@types/react-dom": ^19.2.0
+  "@vitejs/plugin-react": ^5.0.4
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
   drizzle-orm: ^0.45.2
@@ -73,21 +73,20 @@ catalog:
 autoInstallPeers: false
 
 onlyBuiltDependencies:
-  - '@swc/core'
+  - "@swc/core"
   - esbuild
   - msw
   - unrs-resolver
 
 overrides:
-  # Only linux-x64 (CI/deployment) and win32-x64 (local dev on this machine)
-  # are ever actually needed — every other platform binary is excluded to
-  # keep installs smaller.
-  "esbuild>@esbuild/darwin-arm64": "-"
-  "esbuild>@esbuild/darwin-x64": "-"
+  # Platform binaries for build tools nobody here runs on (BSDs, 32-bit, mobile, uncommon
+  # CPUs) are left out of the lockfile. Kept: linux-x64 (CI, deployment), Windows, macOS
+  # (Apple silicon and Intel) and 64-bit ARM Linux, so anyone cloning the repository can run
+  # the Quick start; until 2026-09-30 only linux-x64 and win32-x64 were kept, so the web app
+  # and API could not build on a Mac. pnpm installs only the binary for the machine it runs on.
   "esbuild>@esbuild/freebsd-arm64": "-"
   "esbuild>@esbuild/freebsd-x64": "-"
   "esbuild>@esbuild/linux-arm": "-"
-  "esbuild>@esbuild/linux-arm64": "-"
   "esbuild>@esbuild/linux-ia32": "-"
   "esbuild>@esbuild/linux-loong64": "-"
   "esbuild>@esbuild/linux-mips64el": "-"
@@ -99,40 +98,28 @@ overrides:
   "esbuild>@esbuild/openbsd-arm64": "-"
   "esbuild>@esbuild/openbsd-x64": "-"
   "esbuild>@esbuild/sunos-x64": "-"
-  "esbuild>@esbuild/win32-arm64": "-"
   "esbuild>@esbuild/win32-ia32": "-"
-  "esbuild>@esbuild/aix-ppc64": '-'
-  "esbuild>@esbuild/android-arm": '-'
-  "esbuild>@esbuild/android-arm64": '-'
-  "esbuild>@esbuild/android-x64": '-'
-  "esbuild>@esbuild/openharmony-arm64": '-'
+  "esbuild>@esbuild/aix-ppc64": "-"
+  "esbuild>@esbuild/android-arm": "-"
+  "esbuild>@esbuild/android-arm64": "-"
+  "esbuild>@esbuild/android-x64": "-"
+  "esbuild>@esbuild/openharmony-arm64": "-"
   "lightningcss>lightningcss-android-arm64": "-"
-  "lightningcss>lightningcss-darwin-arm64": "-"
-  "lightningcss>lightningcss-darwin-x64": "-"
   "lightningcss>lightningcss-freebsd-x64": "-"
   "lightningcss>lightningcss-linux-arm-gnueabihf": "-"
-  "lightningcss>lightningcss-linux-arm64-gnu": "-"
   "lightningcss>lightningcss-linux-arm64-musl": "-"
   "lightningcss>lightningcss-linux-x64-musl": "-"
-  "lightningcss>lightningcss-win32-arm64-msvc": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-android-arm64": "-"
-  "@tailwindcss/oxide>@tailwindcss/oxide-darwin-arm64": "-"
-  "@tailwindcss/oxide>@tailwindcss/oxide-darwin-x64": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-freebsd-x64": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-linux-arm-gnueabihf": "-"
-  "@tailwindcss/oxide>@tailwindcss/oxide-linux-arm64-gnu": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-linux-arm64-musl": "-"
-  "@tailwindcss/oxide>@tailwindcss/oxide-win32-arm64-msvc": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-linux-x64-musl": "-"
   "rollup>@rollup/rollup-android-arm-eabi": "-"
   "rollup>@rollup/rollup-android-arm64": "-"
-  "rollup>@rollup/rollup-darwin-arm64": "-"
-  "rollup>@rollup/rollup-darwin-x64": "-"
   "rollup>@rollup/rollup-freebsd-arm64": "-"
   "rollup>@rollup/rollup-freebsd-x64": "-"
   "rollup>@rollup/rollup-linux-arm-gnueabihf": "-"
   "rollup>@rollup/rollup-linux-arm-musleabihf": "-"
-  "rollup>@rollup/rollup-linux-arm64-gnu": "-"
   "rollup>@rollup/rollup-linux-arm64-musl": "-"
   "rollup>@rollup/rollup-linux-loong64-gnu": "-"
   "rollup>@rollup/rollup-linux-loong64-musl": "-"
@@ -144,7 +131,6 @@ overrides:
   "rollup>@rollup/rollup-linux-x64-musl": "-"
   "rollup>@rollup/rollup-openbsd-x64": "-"
   "rollup>@rollup/rollup-openharmony-arm64": "-"
-  "rollup>@rollup/rollup-win32-arm64-msvc": "-"
   "rollup>@rollup/rollup-win32-ia32-msvc": "-"
   "@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64": "-"
   "@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64": "-"
@@ -156,9 +142,26 @@ overrides:
   "@expo/ngrok-bin>@expo/ngrok-bin-sunos-x64": "-"
   "@expo/ngrok-bin>@expo/ngrok-bin-win32-ia32": "-"
   "@expo/ngrok-bin>@expo/ngrok-bin-win32-x64": "-"
-  # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
+  # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it.
+  # 0.28.1 fixes the development server's arbitrary file read (pnpm audit, 2026-09-29).
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
-  esbuild: "0.27.3"
+  esbuild: "0.28.2"
+  # Patched versions for advisories in transitive dependencies (pnpm audit, 2026-09-29).
+  # qs is Express's query-string parser, so it runs on every API request: denial of service via
+  # isBuffer, and an array-limit bypass. The rest are build and codegen tooling.
+  "qs@<6.16.0": "^6.16.0"
+  "fast-uri@<3.1.6": "^3.1.6" # orval codegen (ajv): host confusion, SSRF
+  "js-yaml@>=4.0.0 <4.3.2": "^4.3.2" # orval codegen: CPU exhaustion
+  "brace-expansion@>=4.0.0 <5.0.9": "^5.0.9" # orval's typedoc (minimatch): denial of service
+  "nanoid@<3.3.18": "^3.3.18" # postcss in the web build
+  "node-fetch@<2.6.7": "^2.6.7" # TensorFlow.js's Node.js fallback, unused in the browser
+  # Advisories published 2026-10-05 (pnpm audit, 2026-10-06). proxy-addr decides which proxies
+  # Express trusts for req.ip, which every per-IP rate limit and the audit log rely on (docs/04
+  # R-AUTH-8): an IPv6 trust subnet with zero leading bits trusted every client (critical).
+  "proxy-addr@<2.0.8": "^2.0.8"
+  "markdown-it@<14.3.1": "^14.3.1" # orval's typedoc: quadratic linkify parsing
+  "postcss-selector-parser@<7.1.6": "^7.1.6" # web build (Tailwind typography): CPU exhaustion
+  "fast-copy@>=4.0.0 <4.1.0": "^4.1.0" # pino-pretty, development logging: stack exhaustion
 
 allowBuilds:
   esbuild: true

@@ -1,4 +1,11 @@
-import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  timestamp,
+  jsonb,
+} from "drizzle-orm/pg-core";
 
 // Populated exclusively by a Postgres AFTER DELETE trigger on security_logs
 // (see api-server/src/lib/dbBootstrap.ts) — never written to directly by
@@ -26,7 +33,9 @@ export const securityLogDeletionsTable = pgTable("security_log_deletions", {
   // a separate, lower-privileged database role for the app itself.
   deletedByAppActor: text("deleted_by_app_actor"),
   deletedByClientAddr: text("deleted_by_client_addr"),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export type SecurityLogDeletion = typeof securityLogDeletionsTable.$inferSelect;

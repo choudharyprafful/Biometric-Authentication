@@ -1,4 +1,4 @@
-const API = '/api/auth/biometric-key';
+const API = "/api/auth/biometric-key";
 
 function readCsrfCookie(): string | null {
   const match = /(?:^|;\s*)csrf_token=([^;]*)/.exec(document.cookie);
@@ -6,9 +6,11 @@ function readCsrfCookie(): string | null {
 }
 
 function mutatingHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   const csrfToken = readCsrfCookie();
-  if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   return headers;
 }
 
@@ -24,13 +26,15 @@ export interface LinkCode {
  *  basis for the redeem step being unauthenticated on the other end. */
 export async function createDeviceLinkCode(): Promise<LinkCode> {
   const res = await fetch(`${API}/create-link-code`, {
-    method: 'POST',
-    credentials: 'include',
+    method: "POST",
+    credentials: "include",
     headers: mutatingHeaders(),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as { error?: string }).error || 'Failed to generate a link code');
+    throw new Error(
+      (data as { error?: string }).error || "Failed to generate a link code",
+    );
   }
   return res.json();
 }

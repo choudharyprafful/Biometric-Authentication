@@ -43,7 +43,11 @@ export function releaseAttempt(key: string): void {
 // releases afterward if it doesn't count (see routes/auth.ts). Checks and
 // increments atomically so concurrent requests can't both read the count
 // before either one increments it.
-export function checkAndRecordRequest(key: string, maxRequests: number, windowMs: number): RateLimitResult {
+export function checkAndRecordRequest(
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+): RateLimitResult {
   const now = Date.now();
   const entry = attempts.get(key);
 
@@ -53,7 +57,12 @@ export function checkAndRecordRequest(key: string, maxRequests: number, windowMs
   }
 
   if (entry.count >= maxRequests) {
-    return { allowed: false, retryAfterSeconds: Math.ceil((windowMs - (now - entry.firstAttemptAt)) / 1000) };
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.ceil(
+        (windowMs - (now - entry.firstAttemptAt)) / 1000,
+      ),
+    };
   }
 
   entry.count += 1;

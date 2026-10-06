@@ -36,18 +36,37 @@ function parseDistance(details: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-export async function computeFaceVerificationAlerts(): Promise<SecurityAlert[]> {
+export async function computeFaceVerificationAlerts(): Promise<
+  SecurityAlert[]
+> {
   const since = new Date(Date.now() - ALERT_WINDOW_MINUTES * 60 * 1000);
 
   const rows = await db
-    .select({ userId: securityLogsTable.userId, userEmail: securityLogsTable.userEmail, details: securityLogsTable.details })
+    .select({
+      userId: securityLogsTable.userId,
+      userEmail: securityLogsTable.userEmail,
+      details: securityLogsTable.details,
+    })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.eventType, "LOGIN_FACE_FAILED"), gte(securityLogsTable.timestamp, since), isNotNull(securityLogsTable.userId)));
+    .where(
+      and(
+        eq(securityLogsTable.eventType, "LOGIN_FACE_FAILED"),
+        gte(securityLogsTable.timestamp, since),
+        isNotNull(securityLogsTable.userId),
+      ),
+    );
 
-  const byUser = new Map<number, { email: string | null; distances: number[]; count: number }>();
+  const byUser = new Map<
+    number,
+    { email: string | null; distances: number[]; count: number }
+  >();
   for (const row of rows) {
     if (row.userId === null) continue;
-    const entry = byUser.get(row.userId) ?? { email: row.userEmail, distances: [], count: 0 };
+    const entry = byUser.get(row.userId) ?? {
+      email: row.userEmail,
+      distances: [],
+      count: 0,
+    };
     entry.count += 1;
     const distance = parseDistance(row.details);
     if (distance !== null) entry.distances.push(distance);
@@ -62,7 +81,8 @@ export async function computeFaceVerificationAlerts(): Promise<SecurityAlert[]> 
     if (entry.count >= FACE_FAILURE_SPIKE_THRESHOLD) {
       alerts.push({
         id: `face-failure-spike:${userId}`,
-        severity: entry.count >= FACE_FAILURE_SPIKE_THRESHOLD * 2 ? "high" : "medium",
+        severity:
+          entry.count >= FACE_FAILURE_SPIKE_THRESHOLD * 2 ? "high" : "medium",
         message: `${entry.count} failed face-verification attempts for ${who} in the last ${ALERT_WINDOW_MINUTES} minutes`,
         count: entry.count,
         windowMinutes: ALERT_WINDOW_MINUTES,
@@ -70,7 +90,11 @@ export async function computeFaceVerificationAlerts(): Promise<SecurityAlert[]> 
     }
 
     if (entry.distances.length >= PROBING_MIN_ATTEMPTS) {
-      const clustered = entry.distances.filter((d) => d >= FACE_MATCH_THRESHOLD && d < FACE_MATCH_THRESHOLD + PROBING_BAND_WIDTH).length;
+      const clustered = entry.distances.filter(
+        (d) =>
+          d >= FACE_MATCH_THRESHOLD &&
+          d < FACE_MATCH_THRESHOLD + PROBING_BAND_WIDTH,
+      ).length;
       if (clustered >= PROBING_MIN_ATTEMPTS) {
         alerts.push({
           id: `face-threshold-probing:${userId}`,

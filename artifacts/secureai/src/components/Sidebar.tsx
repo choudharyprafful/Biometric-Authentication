@@ -1,10 +1,31 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { useAuth } from '../contexts/AuthContext';
-import { useLogoutUser, getGetCurrentUserQueryKey } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Shield, LayoutDashboard, Users, Activity, AlertTriangle, CreditCard, Lock, ShieldCheck, BrainCircuit, Bot, Eye, Settings, LogOut, Menu, X, FileText } from 'lucide-react';
-import { cn } from '../lib/utils';
+import React, { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  useLogoutUser,
+  getGetCurrentUserQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Shield,
+  LayoutDashboard,
+  Users,
+  Activity,
+  AlertTriangle,
+  CreditCard,
+  Lock,
+  ShieldCheck,
+  BrainCircuit,
+  Bot,
+  Eye,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  FileText,
+  Scale,
+} from "lucide-react";
+import { cn } from "../lib/utils";
 
 // `roles` restricts a nav item to specific roles; omitted means everyone.
 // Admin is a superset role — it has every other role's rights, including
@@ -13,18 +34,39 @@ import { cn } from '../lib/utils';
 // the delete/role-change controls stay admin-only inside it (see
 // pages/Users.tsx).
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/users', label: 'Users', icon: Users, roles: ['admin', 'it_support'] },
-  { href: '/security-logs', label: 'Audit Logs', icon: Activity, roles: ['security_analyst', 'admin'] },
-  { href: '/threats', label: 'Threat Intel', icon: AlertTriangle },
-  { href: '/payments', label: 'Payments', icon: CreditCard },
-  { href: '/uploads', label: 'Data Vault', icon: Lock },
-  { href: '/data-protection', label: 'Data Protection', icon: ShieldCheck },
-  { href: '/ai-security', label: 'AI Security', icon: BrainCircuit },
-  { href: '/ai', label: 'How We Use AI', icon: Bot },
-  { href: '/ai-oversight', label: 'AI Oversight', icon: Eye, roles: ['security_analyst', 'admin'] },
-  { href: '/enroll', label: 'Security Settings', icon: Settings },
-  { href: '/privacy', label: 'Privacy Policy', icon: FileText },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    href: "/users",
+    label: "Users",
+    icon: Users,
+    roles: ["admin", "it_support"],
+  },
+  {
+    href: "/security-logs",
+    label: "Audit Logs",
+    icon: Activity,
+    roles: ["security_analyst", "admin"],
+  },
+  { href: "/threats", label: "Threat Intel", icon: AlertTriangle },
+  { href: "/payments", label: "Payments", icon: CreditCard },
+  { href: "/uploads", label: "Data Vault", icon: Lock },
+  { href: "/data-protection", label: "Data Protection", icon: ShieldCheck },
+  { href: "/ai-security", label: "AI Security", icon: BrainCircuit },
+  { href: "/ai", label: "How We Use AI", icon: Bot },
+  {
+    href: "/ai-oversight",
+    label: "AI Oversight",
+    icon: Eye,
+    roles: ["security_analyst", "admin"],
+  },
+  {
+    href: "/privacy-compliance",
+    label: "Privacy Compliance",
+    icon: Scale,
+    roles: ["security_analyst", "admin"],
+  },
+  { href: "/enroll", label: "Security Settings", icon: Settings },
+  { href: "/privacy", label: "Privacy Policy", icon: FileText },
 ];
 
 export function Sidebar() {
@@ -48,7 +90,7 @@ export function Sidebar() {
       // even if the session check is delayed by a network cache.
       queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
       queryClient.removeQueries({ queryKey: getGetCurrentUserQueryKey() });
-      setLocation('/');
+      setLocation("/");
     }
   };
 
@@ -59,7 +101,9 @@ export function Sidebar() {
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-sidebar border-b border-border flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-primary" />
-          <span className="font-mono font-bold tracking-widest text-foreground uppercase text-sm">SecureAI</span>
+          <span className="font-mono font-bold tracking-widest text-foreground uppercase text-sm">
+            SecureAI
+          </span>
         </div>
         <button
           type="button"
@@ -82,8 +126,8 @@ export function Sidebar() {
 
       <div
         className={cn(
-          'w-64 border-r border-border bg-sidebar flex flex-col h-screen fixed top-0 left-0 z-50 transition-transform duration-200 md:translate-x-0 md:z-40',
-          isOpen ? 'translate-x-0' : '-translate-x-full',
+          "w-64 border-r border-border bg-sidebar flex flex-col h-screen fixed top-0 left-0 z-50 transition-transform duration-200 md:translate-x-0 md:z-40",
+          isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="p-6 border-b border-border flex items-center justify-between gap-3">
@@ -92,8 +136,12 @@ export function Sidebar() {
               <Shield className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="font-mono font-bold tracking-widest text-foreground uppercase">SecureAI</h1>
-              <p className="text-[10px] font-mono text-primary/70 uppercase tracking-widest">Platform v1.0.0</p>
+              <h1 className="font-mono font-bold tracking-widest text-foreground uppercase">
+                SecureAI
+              </h1>
+              <p className="text-[10px] font-mono text-primary/70 uppercase tracking-widest">
+                Platform v1.0.0
+              </p>
             </div>
           </div>
           <button
@@ -109,17 +157,32 @@ export function Sidebar() {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => {
             if (item.roles && !item.roles.includes(user.role)) return null;
-            const isActive = location === item.href || location.startsWith(item.href + '/');
+            const isActive =
+              location === item.href || location.startsWith(item.href + "/");
 
             return (
-              <Link key={item.href} href={item.href} className="block" onClick={() => setIsOpen(false)}>
-                <div className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-sm font-mono text-sm tracking-wide transition-all group",
-                  isActive
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent"
-                )}>
-                  <item.icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+              <Link
+                key={item.href}
+                href={item.href}
+                className="block"
+                onClick={() => setIsOpen(false)}
+              >
+                <div
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-sm font-mono text-sm tracking-wide transition-all group",
+                    isActive
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent",
+                  )}
+                >
+                  <item.icon
+                    className={cn(
+                      "w-5 h-5",
+                      isActive
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  />
                   {item.label}
                 </div>
               </Link>
@@ -130,10 +193,21 @@ export function Sidebar() {
         <div className="p-4 border-t border-border bg-sidebar-accent/30">
           <div className="flex items-center justify-between mb-4">
             <div className="overflow-hidden">
-              <p className="font-mono text-sm text-foreground truncate">{user.name}</p>
-              <p className="font-mono text-xs text-muted-foreground truncate">{user.email}</p>
+              <p className="font-mono text-sm text-foreground truncate">
+                {user.name}
+              </p>
+              <p className="font-mono text-xs text-muted-foreground truncate">
+                {user.email}
+              </p>
             </div>
-            <div className={cn("w-2 h-2 rounded-full", user.faceEnrolled ? "bg-primary shadow-[0_0_8px_rgba(0,255,255,0.8)]" : "bg-muted-foreground")} />
+            <div
+              className={cn(
+                "w-2 h-2 rounded-full",
+                user.faceEnrolled
+                  ? "bg-primary shadow-[0_0_8px_rgba(0,255,255,0.8)]"
+                  : "bg-muted-foreground",
+              )}
+            />
           </div>
           <button
             onClick={handleLogout}
@@ -141,7 +215,7 @@ export function Sidebar() {
             className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all font-mono text-xs uppercase tracking-wider"
           >
             <LogOut className="w-4 h-4" />
-            {logout.isPending ? 'Logging out...' : 'Terminate Session'}
+            {logout.isPending ? "Logging out..." : "Terminate Session"}
           </button>
         </div>
       </div>

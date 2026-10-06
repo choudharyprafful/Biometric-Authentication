@@ -26,22 +26,24 @@ export interface CardDetails {
   cvv: string;
 }
 
-export const EMPTY_CARD: CardDetails = { number: '', expiry: '', cvv: '' };
+export const EMPTY_CARD: CardDetails = { number: "", expiry: "", cvv: "" };
 
 export function formatCardNumber(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 19);
-  return (digits.match(/.{1,4}/g) ?? []).join(' ');
+  const digits = raw.replace(/\D/g, "").slice(0, 19);
+  return (digits.match(/.{1,4}/g) ?? []).join(" ");
 }
 
 export function formatExpiry(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 4);
-  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  return digits.length <= 2
+    ? digits
+    : `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
 
 /** Standard Luhn checksum — the same format check every real card number
  *  satisfies, used here purely for realistic client-side validation. */
 export function luhnCheck(cardNumber: string): boolean {
-  const digits = cardNumber.replace(/\D/g, '');
+  const digits = cardNumber.replace(/\D/g, "");
   if (digits.length < 12 || digits.length > 19) return false;
   let sum = 0;
   let alternate = false;
@@ -67,20 +69,21 @@ export function isExpiryValid(expiry: string): boolean {
   return lastDayOfExpiryMonth >= new Date();
 }
 
-export type CardBrand = 'Visa' | 'Mastercard' | 'Amex' | 'Discover' | 'JCB' | 'Diners Club' | 'Card';
+export type CardBrand =
+  "Visa" | "Mastercard" | "Amex" | "Discover" | "JCB" | "Diners Club" | "Card";
 
 /** Brand is derived from the leading digits only (a standard, publicly
  *  documented numbering scheme — not sensitive on its own, unlike the
  *  rest of the number). Used purely for a realistic "charged" receipt. */
 export function getCardBrand(number: string): CardBrand {
-  const digits = number.replace(/\D/g, '');
-  if (/^4/.test(digits)) return 'Visa';
-  if (/^(5[1-5]|2[2-7])/.test(digits)) return 'Mastercard';
-  if (/^3[47]/.test(digits)) return 'Amex';
-  if (/^(6011|65|64[4-9])/.test(digits)) return 'Discover';
-  if (/^(2131|1800|35)/.test(digits)) return 'JCB';
-  if (/^3(0[0-5]|[68])/.test(digits)) return 'Diners Club';
-  return 'Card';
+  const digits = number.replace(/\D/g, "");
+  if (/^4/.test(digits)) return "Visa";
+  if (/^(5[1-5]|2[2-7])/.test(digits)) return "Mastercard";
+  if (/^3[47]/.test(digits)) return "Amex";
+  if (/^(6011|65|64[4-9])/.test(digits)) return "Discover";
+  if (/^(2131|1800|35)/.test(digits)) return "JCB";
+  if (/^3(0[0-5]|[68])/.test(digits)) return "Diners Club";
+  return "Card";
 }
 
 // Each real network fixes its own PAN length and CVV length — a
@@ -95,7 +98,7 @@ const PAN_LENGTHS_BY_BRAND: Record<CardBrand, number[]> = {
   Amex: [15],
   Discover: [16, 19],
   JCB: [16, 19],
-  'Diners Club': [14, 16, 19],
+  "Diners Club": [14, 16, 19],
   Card: [12, 13, 14, 15, 16, 17, 18, 19],
 };
 
@@ -105,7 +108,7 @@ const CVV_LENGTH_BY_BRAND: Record<CardBrand, number> = {
   Amex: 4,
   Discover: 3,
   JCB: 3,
-  'Diners Club': 3,
+  "Diners Club": 3,
   Card: 3,
 };
 
@@ -113,8 +116,11 @@ const CVV_LENGTH_BY_BRAND: Record<CardBrand, number> = {
  *  scheme actually allows — a check the brand-agnostic Luhn pass alone
  *  can't make (a Luhn-valid number can still be the wrong length for the
  *  network its prefix claims to belong to). */
-export function isPanLengthValidForBrand(number: string, brand: CardBrand): boolean {
-  const digits = number.replace(/\D/g, '');
+export function isPanLengthValidForBrand(
+  number: string,
+  brand: CardBrand,
+): boolean {
+  const digits = number.replace(/\D/g, "");
   return PAN_LENGTHS_BY_BRAND[brand].includes(digits.length);
 }
 
@@ -138,6 +144,6 @@ export function isCardFormValid(card: CardDetails): boolean {
 /** Last 4 digits only — the one part of a card number that's routinely
  *  shown on real receipts precisely because it isn't sensitive by itself. */
 export function getLast4(number: string): string {
-  const digits = number.replace(/\D/g, '');
+  const digits = number.replace(/\D/g, "");
   return digits.slice(-4);
 }

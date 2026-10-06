@@ -22,7 +22,8 @@ export interface Actor {
 
 // ── On/off switches ─────────────────────────────────────────────────────────────────────────────────
 
-const TOGGLE_DETAILS = /^system=([a-z-]+); enabled=(true|false); reason=([\s\S]*)$/;
+const TOGGLE_DETAILS =
+  /^system=([a-z-]+); enabled=(true|false); reason=([\s\S]*)$/;
 
 export interface AiSystemState {
   enabled: boolean;
@@ -34,23 +35,41 @@ export interface AiSystemState {
 // Short enough that a switch takes effect almost at once; long enough that a busy endpoint doesn't
 // re-read the log on every request.
 const STATE_CACHE_MS = 5000;
-let stateCache: { at: number; states: Map<AiSystemId, AiSystemState> } | null = null;
+let stateCache: { at: number; states: Map<AiSystemId, AiSystemState> } | null =
+  null;
 
-export async function aiSystemStates(): Promise<Map<AiSystemId, AiSystemState>> {
-  if (stateCache && Date.now() - stateCache.at < STATE_CACHE_MS) return stateCache.states;
+export async function aiSystemStates(): Promise<
+  Map<AiSystemId, AiSystemState>
+> {
+  if (stateCache && Date.now() - stateCache.at < STATE_CACHE_MS)
+    return stateCache.states;
   const rows = await db
-    .select({ details: securityLogsTable.details, userEmail: securityLogsTable.userEmail, timestamp: securityLogsTable.timestamp })
+    .select({
+      details: securityLogsTable.details,
+      userEmail: securityLogsTable.userEmail,
+      timestamp: securityLogsTable.timestamp,
+    })
     .from(securityLogsTable)
     .where(eq(securityLogsTable.eventType, "AI_SYSTEM_TOGGLED"))
     .orderBy(desc(securityLogsTable.timestamp), desc(securityLogsTable.id))
     .limit(500);
-  const states = new Map<AiSystemId, AiSystemState>(AI_SYSTEMS.map((s) => [s.id, { enabled: true, changedAt: null, changedBy: null, reason: null }]));
+  const states = new Map<AiSystemId, AiSystemState>(
+    AI_SYSTEMS.map((s) => [
+      s.id,
+      { enabled: true, changedAt: null, changedBy: null, reason: null },
+    ]),
+  );
   const settled = new Set<string>();
   for (const row of rows) {
     const m = TOGGLE_DETAILS.exec(row.details);
     if (!m || !isAiSystemId(m[1]!) || settled.has(m[1]!)) continue;
     settled.add(m[1]!);
-    states.set(m[1]!, { enabled: m[2] === "true", changedAt: row.timestamp.toISOString(), changedBy: row.userEmail, reason: m[3]! });
+    states.set(m[1]!, {
+      enabled: m[2] === "true",
+      changedAt: row.timestamp.toISOString(),
+      changedBy: row.userEmail,
+      reason: m[3]!,
+    });
   }
   stateCache = { at: Date.now(), states };
   return states;
@@ -61,7 +80,12 @@ export async function isAiSystemEnabled(id: AiSystemId): Promise<boolean> {
   return (await aiSystemStates()).get(id)?.enabled ?? true;
 }
 
-export async function setAiSystemEnabled(id: AiSystemId, enabled: boolean, reason: string, actor: Actor): Promise<void> {
+export async function setAiSystemEnabled(
+  id: AiSystemId,
+  enabled: boolean,
+  reason: string,
+  actor: Actor,
+): Promise<void> {
   await recordEvent({
     eventType: "AI_SYSTEM_TOGGLED",
     details: `system=${id}; enabled=${enabled}; reason=${reason}`,
@@ -76,7 +100,8 @@ export async function setAiSystemEnabled(id: AiSystemId, enabled: boolean, reaso
 // ── Challenges ──────────────────────────────────────────────────────────────────────────────────────
 
 const CHALLENGE_DETAILS = /^system=([a-z-]+); ref=([^;]*); message=([\s\S]*)$/;
-const RESOLUTION_DETAILS = /^challenge=(\d+); outcome=(upheld|not-upheld); note=([\s\S]*)$/;
+const RESOLUTION_DETAILS =
+  /^challenge=(\d+); outcome=(upheld|not-upheld); note=([\s\S]*)$/;
 const ACKNOWLEDGEMENT_DETAILS = /^challenge=(\d+); note=([\s\S]*)$/;
 
 // Team 2's response target (Gillian Habgood, 2026-09-26): acknowledge a challenge within 1-2 business
@@ -88,11 +113,19 @@ const TIME_ZONE = "Australia/Melbourne";
 
 /** The calendar date in Melbourne, as YYYY-MM-DD. */
 function localDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
 }
 
 /** The date `days` business days after the Melbourne date of `from`. */
-export function acknowledgeByDate(from: Date, days = CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS): string {
+export function acknowledgeByDate(
+  from: Date,
+  days = CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS,
+): string {
   const d = new Date(`${localDate(from)}T00:00:00Z`);
   let added = 0;
   while (added < days) {
@@ -125,7 +158,12 @@ export interface AiChallenge {
   resolvedBy: string | null;
 }
 
-export async function submitChallenge(systemId: AiSystemId, reference: string | null, message: string, actor: Actor): Promise<number> {
+export async function submitChallenge(
+  systemId: AiSystemId,
+  reference: string | null,
+  message: string,
+  actor: Actor,
+): Promise<number> {
   return recordEvent({
     eventType: "AI_DECISION_CHALLENGED",
     details: `system=${systemId}; ref=${reference ?? ""}; message=${message}`,
@@ -136,39 +174,82 @@ export async function submitChallenge(systemId: AiSystemId, reference: string | 
   });
 }
 
-type RecordedEvent = { details: string; userEmail: string | null; timestamp: Date };
+type RecordedEvent = {
+  details: string;
+  userEmail: string | null;
+  timestamp: Date;
+};
 
 /** The first matching event for each challenge id; a later one from a simultaneous review is ignored. */
-function firstPerChallenge<T>(rows: RecordedEvent[], pattern: RegExp, read: (m: RegExpExecArray, row: RecordedEvent) => T): Map<number, T> {
+function firstPerChallenge<T>(
+  rows: RecordedEvent[],
+  pattern: RegExp,
+  read: (m: RegExpExecArray, row: RecordedEvent) => T,
+): Map<number, T> {
   const byChallenge = new Map<number, T>();
   for (const row of rows) {
     const m = pattern.exec(row.details);
-    if (m && !byChallenge.has(Number(m[1]))) byChallenge.set(Number(m[1]), read(m, row));
+    if (m && !byChallenge.has(Number(m[1])))
+      byChallenge.set(Number(m[1]), read(m, row));
   }
   return byChallenge;
 }
 
 /** Every challenge, or one account's own, newest first, each with its acknowledgement and resolution if it has them. */
-export async function listChallenges(onlyUserId?: number): Promise<AiChallenge[]> {
+export async function listChallenges(
+  onlyUserId?: number,
+): Promise<AiChallenge[]> {
   const filed = await db
-    .select({ id: securityLogsTable.id, details: securityLogsTable.details, userEmail: securityLogsTable.userEmail, timestamp: securityLogsTable.timestamp })
+    .select({
+      id: securityLogsTable.id,
+      details: securityLogsTable.details,
+      userEmail: securityLogsTable.userEmail,
+      timestamp: securityLogsTable.timestamp,
+    })
     .from(securityLogsTable)
-    .where(onlyUserId === undefined
-      ? eq(securityLogsTable.eventType, "AI_DECISION_CHALLENGED")
-      : and(eq(securityLogsTable.eventType, "AI_DECISION_CHALLENGED"), eq(securityLogsTable.userId, onlyUserId)))
+    .where(
+      onlyUserId === undefined
+        ? eq(securityLogsTable.eventType, "AI_DECISION_CHALLENGED")
+        : and(
+            eq(securityLogsTable.eventType, "AI_DECISION_CHALLENGED"),
+            eq(securityLogsTable.userId, onlyUserId),
+          ),
+    )
     .orderBy(desc(securityLogsTable.id))
     .limit(200);
   if (filed.length === 0) return [];
 
-  const eventsOf = (type: "AI_CHALLENGE_RESOLVED" | "AI_CHALLENGE_ACKNOWLEDGED") =>
+  const eventsOf = (
+    type: "AI_CHALLENGE_RESOLVED" | "AI_CHALLENGE_ACKNOWLEDGED",
+  ) =>
     db
-      .select({ details: securityLogsTable.details, userEmail: securityLogsTable.userEmail, timestamp: securityLogsTable.timestamp })
+      .select({
+        details: securityLogsTable.details,
+        userEmail: securityLogsTable.userEmail,
+        timestamp: securityLogsTable.timestamp,
+      })
       .from(securityLogsTable)
       .where(eq(securityLogsTable.eventType, type))
       .orderBy(securityLogsTable.id);
-  const [resolutions, acknowledgements] = await Promise.all([eventsOf("AI_CHALLENGE_RESOLVED"), eventsOf("AI_CHALLENGE_ACKNOWLEDGED")]);
-  const resolvedBy = firstPerChallenge(resolutions, RESOLUTION_DETAILS, (m, r) => ({ outcome: m[2] as ChallengeOutcome, note: m[3]!, at: r.timestamp.toISOString(), by: r.userEmail }));
-  const acknowledgedBy = firstPerChallenge(acknowledgements, ACKNOWLEDGEMENT_DETAILS, (m, a) => ({ note: m[2]!, at: a.timestamp.toISOString(), by: a.userEmail }));
+  const [resolutions, acknowledgements] = await Promise.all([
+    eventsOf("AI_CHALLENGE_RESOLVED"),
+    eventsOf("AI_CHALLENGE_ACKNOWLEDGED"),
+  ]);
+  const resolvedBy = firstPerChallenge(
+    resolutions,
+    RESOLUTION_DETAILS,
+    (m, r) => ({
+      outcome: m[2] as ChallengeOutcome,
+      note: m[3]!,
+      at: r.timestamp.toISOString(),
+      by: r.userEmail,
+    }),
+  );
+  const acknowledgedBy = firstPerChallenge(
+    acknowledgements,
+    ACKNOWLEDGEMENT_DETAILS,
+    (m, a) => ({ note: m[2]!, at: a.timestamp.toISOString(), by: a.userEmail }),
+  );
   const today = localDate(new Date());
 
   const challenges: AiChallenge[] = [];
@@ -210,11 +291,16 @@ export class ChallengeAlreadyResolvedError extends Error {}
 export class ChallengeAlreadyAcknowledgedError extends Error {}
 
 /** Tells the person their challenge has been seen and how it will be investigated. */
-export async function acknowledgeChallenge(challengeId: number, note: string, actor: Actor): Promise<void> {
+export async function acknowledgeChallenge(
+  challengeId: number,
+  note: string,
+  actor: Actor,
+): Promise<void> {
   const current = (await listChallenges()).find((c) => c.id === challengeId);
   if (!current) throw new ChallengeNotFoundError();
   if (current.status === "resolved") throw new ChallengeAlreadyResolvedError();
-  if (current.status === "acknowledged") throw new ChallengeAlreadyAcknowledgedError();
+  if (current.status === "acknowledged")
+    throw new ChallengeAlreadyAcknowledgedError();
   await recordEvent({
     eventType: "AI_CHALLENGE_ACKNOWLEDGED",
     details: `challenge=${challengeId}; note=${note}`,
@@ -230,25 +316,42 @@ export async function computeChallengeAlerts(): Promise<SecurityAlert[]> {
   const overdue = (await listChallenges()).filter((c) => c.overdue);
   if (overdue.length === 0) return [];
   const oldest = overdue[overdue.length - 1]!;
-  return [{
-    id: "ai-challenges-overdue",
-    severity: "medium",
-    message: `${overdue.length} AI challenge${overdue.length === 1 ? "" : "s"} not acknowledged within ${CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS} business days (oldest submitted ${oldest.submittedAt.slice(0, 10)})`,
-    count: overdue.length,
-    windowMinutes: 0,
-  }];
+  return [
+    {
+      id: "ai-challenges-overdue",
+      severity: "medium",
+      message: `${overdue.length} AI challenge${overdue.length === 1 ? "" : "s"} not acknowledged within ${CHALLENGE_ACKNOWLEDGE_BUSINESS_DAYS} business days (oldest submitted ${oldest.submittedAt.slice(0, 10)})`,
+      count: overdue.length,
+      windowMinutes: 0,
+    },
+  ];
 }
 
-export async function resolveChallenge(challengeId: number, outcome: ChallengeOutcome, note: string, actor: Actor): Promise<void> {
+export async function resolveChallenge(
+  challengeId: number,
+  outcome: ChallengeOutcome,
+  note: string,
+  actor: Actor,
+): Promise<void> {
   const [filed] = await db
     .select({ id: securityLogsTable.id })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.id, challengeId), eq(securityLogsTable.eventType, "AI_DECISION_CHALLENGED")));
+    .where(
+      and(
+        eq(securityLogsTable.id, challengeId),
+        eq(securityLogsTable.eventType, "AI_DECISION_CHALLENGED"),
+      ),
+    );
   if (!filed) throw new ChallengeNotFoundError();
   const [existing] = await db
     .select({ id: securityLogsTable.id })
     .from(securityLogsTable)
-    .where(and(eq(securityLogsTable.eventType, "AI_CHALLENGE_RESOLVED"), like(securityLogsTable.details, `challenge=${challengeId}; %`)))
+    .where(
+      and(
+        eq(securityLogsTable.eventType, "AI_CHALLENGE_RESOLVED"),
+        like(securityLogsTable.details, `challenge=${challengeId}; %`),
+      ),
+    )
     .limit(1);
   if (existing) throw new ChallengeAlreadyResolvedError();
   await recordEvent({
@@ -292,13 +395,25 @@ async function outcomeWindow(days: number): Promise<AiOutcomeWindow> {
   const rows = await db
     .select({ eventType: securityLogsTable.eventType, n: count() })
     .from(securityLogsTable)
-    .where(and(gte(securityLogsTable.timestamp, since), inArray(securityLogsTable.eventType, MONITORED_EVENTS)))
+    .where(
+      and(
+        gte(securityLogsTable.timestamp, since),
+        inArray(securityLogsTable.eventType, MONITORED_EVENTS),
+      ),
+    )
     .groupBy(securityLogsTable.eventType);
-  const n = (t: AuditEventType) => Number(rows.find((r) => r.eventType === t)?.n ?? 0);
+  const n = (t: AuditEventType) =>
+    Number(rows.find((r) => r.eventType === t)?.n ?? 0);
   const [shown] = await db
     .select({ n: count() })
     .from(securityLogsTable)
-    .where(and(gte(securityLogsTable.timestamp, since), eq(securityLogsTable.eventType, "BEHAVIOR_MODEL_QUERIED"), like(securityLogsTable.details, "suggested %")));
+    .where(
+      and(
+        gte(securityLogsTable.timestamp, since),
+        eq(securityLogsTable.eventType, "BEHAVIOR_MODEL_QUERIED"),
+        like(securityLogsTable.details, "suggested %"),
+      ),
+    );
   return {
     days,
     faceScans: n("LOGIN_FACE_SUCCESS") + n("LOGIN_FACE_FAILED"),

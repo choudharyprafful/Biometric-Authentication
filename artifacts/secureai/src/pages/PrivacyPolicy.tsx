@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
-import { Link } from 'wouter';
-import { FileText } from 'lucide-react';
-import { Card } from '../components/ui';
-import { useAuth } from '../contexts/AuthContext';
-import { PRIVACY_POLICY, type PolicyBlock } from '../lib/privacyPolicy';
-import { PrivacyPolicyAcknowledge } from '../components/PrivacyPolicyNotice';
-import { DownloadMyData } from '../components/DownloadMyData';
+import React, { useEffect } from "react";
+import { Link } from "wouter";
+import { FileText } from "lucide-react";
+import { Card } from "../components/ui";
+import { useAuth } from "../contexts/AuthContext";
+import { PRIVACY_POLICY, type PolicyBlock } from "../lib/privacyPolicy";
+import { PrivacyPolicyAcknowledge } from "../components/PrivacyPolicyNotice";
+import { DownloadMyData } from "../components/DownloadMyData";
 
 // The policy text lives in lib/privacyPolicy.ts. Public: readable before signing in, like /ai.
 
@@ -20,7 +20,9 @@ function Inline({ text }: { text: string }) {
     if (at > last) parts.push(text.slice(last, at));
     parts.push(
       <Link key={at} href={m[2]}>
-        <span className="text-primary underline underline-offset-2 cursor-pointer">{m[1]}</span>
+        <span className="text-primary underline underline-offset-2 cursor-pointer">
+          {m[1]}
+        </span>
       </Link>,
     );
     last = at + m[0].length;
@@ -30,11 +32,20 @@ function Inline({ text }: { text: string }) {
 }
 
 function Block({ block }: { block: PolicyBlock }) {
-  if (block.kind === 'p') return <p className="text-sm text-foreground leading-relaxed"><Inline text={block.text} /></p>;
-  if (block.kind === 'list') {
+  if (block.kind === "p")
+    return (
+      <p className="text-sm text-foreground leading-relaxed">
+        <Inline text={block.text} />
+      </p>
+    );
+  if (block.kind === "list") {
     return (
       <ul className="text-sm text-foreground list-disc pl-5 space-y-1.5 leading-relaxed">
-        {block.items.map((item) => <li key={item}><Inline text={item} /></li>)}
+        {block.items.map((item) => (
+          <li key={item}>
+            <Inline text={item} />
+          </li>
+        ))}
       </ul>
     );
   }
@@ -44,15 +55,28 @@ function Block({ block }: { block: PolicyBlock }) {
         <thead>
           <tr className="bg-muted/30">
             {block.head.map((h) => (
-              <th key={h} className="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2 border-b border-border align-bottom">{h}</th>
+              <th
+                key={h}
+                className="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2 border-b border-border align-bottom"
+              >
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {block.rows.map((row) => (
-            <tr key={row[0]} className="border-b border-border last:border-b-0 align-top">
+            <tr
+              key={row[0]}
+              className="border-b border-border last:border-b-0 align-top"
+            >
               {row.map((cell, i) => (
-                <td key={i} className={`px-3 py-2 ${i === 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}><Inline text={cell} /></td>
+                <td
+                  key={i}
+                  className={`px-3 py-2 ${i === 0 ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                >
+                  <Inline text={cell} />
+                </td>
               ))}
             </tr>
           ))}
@@ -79,34 +103,55 @@ export default function PrivacyPolicy() {
           Privacy Policy
         </h1>
         <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">
-          Version {PRIVACY_POLICY.version} · effective {PRIVACY_POLICY.effectiveDate}
+          Version {PRIVACY_POLICY.version} · effective{" "}
+          {PRIVACY_POLICY.effectiveDate}
         </p>
       </div>
 
-      <div className="border border-primary/40 bg-primary/10 p-4 text-sm text-foreground" data-testid="privacy-demo-notice">
+      <div
+        className="border border-primary/40 bg-primary/10 p-4 text-sm text-foreground"
+        data-testid="privacy-demo-notice"
+      >
         {PRIVACY_POLICY.demoNotice}
       </div>
       <p className="text-xs text-muted-foreground">{PRIVACY_POLICY.status}</p>
 
       <Card className="space-y-2">
-        <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Contents</h2>
+        <h2 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Contents
+        </h2>
         <ol className="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1">
           {PRIVACY_POLICY.sections.map((s) => (
             <li key={s.id}>
-              <a href={`#${s.id}`} className="text-primary hover:underline underline-offset-2">{s.title}</a>
+              <a
+                href={`#${s.id}`}
+                className="text-primary hover:underline underline-offset-2"
+              >
+                {s.title}
+              </a>
             </li>
           ))}
         </ol>
       </Card>
 
       {PRIVACY_POLICY.sections.map((section) => (
-        <section key={section.id} id={section.id} className="space-y-3 scroll-mt-24">
-          <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">{section.title}</h2>
-          {section.blocks.map((block, i) => <Block key={i} block={block} />)}
-          {section.id === 'your-rights' && user && <DownloadMyData />}
-          {section.id === 'changes' && (
+        <section
+          key={section.id}
+          id={section.id}
+          className="space-y-3 scroll-mt-24"
+        >
+          <h2 className="font-mono font-bold uppercase tracking-widest text-foreground">
+            {section.title}
+          </h2>
+          {section.blocks.map((block, i) => (
+            <Block key={i} block={block} />
+          ))}
+          {section.id === "your-rights" && user && <DownloadMyData />}
+          {section.id === "changes" && (
             <p className="text-sm text-foreground">
-              Contact: <span className="font-mono">{PRIVACY_POLICY.contact}</span> ({<Inline text={PRIVACY_POLICY.contactNote} />}).
+              Contact:{" "}
+              <span className="font-mono">{PRIVACY_POLICY.contact}</span> (
+              {<Inline text={PRIVACY_POLICY.contactNote} />}).
             </p>
           )}
         </section>
