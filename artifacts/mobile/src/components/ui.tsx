@@ -291,6 +291,74 @@ const checkStyles = StyleSheet.create({
   },
 });
 
+/** A sign-in method to choose (fingerprint or face): the whole box is the button. */
+export function MethodOption({
+  title,
+  detail,
+  onPress,
+  disabled,
+  isLoading,
+  recommended,
+  testID,
+}: {
+  title: string;
+  detail: string;
+  onPress: () => void;
+  disabled?: boolean;
+  isLoading?: boolean;
+  recommended?: boolean;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || isLoading}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled, busy: !!isLoading }}
+      testID={testID}
+      style={({ pressed }) => [
+        methodStyles.box,
+        pressed && methodStyles.pressed,
+        disabled && { opacity: 0.45 },
+      ]}
+    >
+      <View style={methodStyles.head}>
+        <Text style={methodStyles.title}>{title}</Text>
+        {recommended ? <Badge tone="primary">Recommended</Badge> : null}
+        {isLoading ? (
+          <ActivityIndicator
+            color={colors.primary}
+            style={methodStyles.spinner}
+          />
+        ) : null}
+      </View>
+      <Text style={methodStyles.detail}>{detail}</Text>
+    </Pressable>
+  );
+}
+
+const methodStyles = StyleSheet.create({
+  box: {
+    alignSelf: "stretch",
+    borderWidth: 1,
+    borderColor: `${colors.primary}55`,
+    backgroundColor: `${colors.primary}0D`,
+    padding: 14,
+    gap: 6,
+  },
+  pressed: { backgroundColor: `${colors.primary}26` },
+  head: { flexDirection: "row", alignItems: "center", gap: 10 },
+  title: {
+    fontFamily: fonts.mono,
+    color: colors.primary,
+    fontSize: 15,
+    textTransform: "uppercase",
+    letterSpacing: 2,
+  },
+  spinner: { marginLeft: "auto" },
+  detail: { color: colors.mutedForeground, fontSize: 12, lineHeight: 18 },
+});
+
 export function ShieldBadge({ size = 64 }: { size?: number }) {
   const pulse = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {

@@ -57,11 +57,12 @@ function RootView() {
   // on the server); say so rather than sending them into enrolment, which would be refused.
   if (user.parentConsentPending) return <AwaitingGuardianView />;
 
-  // Either factor satisfies MFA (see requireMfaEnrolled.ts) — a mobile
-  // account only ever has passkeyEnrolled, never faceEnrolled. That field
-  // name is reused from the WebAuthn-passkey era but now also covers device
-  // biometric keys (Keystore + BiometricPrompt) — see routes/auth.ts mapUser
-  // and src/lib/biometricKey.ts for why mobile no longer uses real passkeys.
+  // Either factor satisfies MFA (see requireMfaEnrolled.ts): face (the
+  // website's face check, which the app also offers — src/components/
+  // FaceCapture.tsx) or passkeyEnrolled. That field name is reused from the
+  // WebAuthn-passkey era but now also covers device biometric keys (Keystore +
+  // BiometricPrompt) — see routes/auth.ts mapUser and src/lib/biometricKey.ts
+  // for why mobile no longer uses real passkeys.
   const mfaComplete = user.faceEnrolled || user.passkeyEnrolled;
   return mfaComplete ? <AppShell /> : <EnrollScreen />;
 }

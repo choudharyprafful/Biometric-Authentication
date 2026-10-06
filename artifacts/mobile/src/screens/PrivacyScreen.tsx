@@ -13,16 +13,29 @@ import {
   acknowledgeBreachNotice,
   acknowledgePrivacyPolicy,
   deleteMyAccount,
+  enrollFace,
   exportMyData,
   exportMyDataReadable,
   getPrivacyPolicyStatus,
   listMyBreachNotices,
+  removeFace,
   setContentPersonalizationConsent,
   setTrainingConsent,
   type BreachNotice,
   type PrivacyPolicyStatus,
 } from "../lib/api";
+import {
+  DEVICE_KEY_NAME,
+  DEVICE_KEY_PHRASE,
+  enrollBiometricKey,
+  isBiometricSupported,
+} from "../lib/biometricKey";
 import { useAuth } from "../context/AuthContext";
+import {
+  FaceCapture,
+  FACE_CHECK_SUPPORTED,
+  FACE_CONSENT_TEXT,
+} from "../components/FaceCapture";
 import {
   Button,
   Card,
@@ -36,7 +49,8 @@ import { PRIVACY_POLICY_URL, PRIVACY_POLICY_VERSION } from "../config";
 
 // Privacy policy sections 11, 13 and 14 on mobile, using the same endpoints as the web app's
 // Security Settings: read data breach notices, see and acknowledge the policy, change the optional
-// consents, download a copy of your data, and delete the account.
+// consents, choose the sign-in methods (fingerprint, face), download a copy of your data, and
+// delete the account.
 
 // Section 14: a notice stays at the top until the person confirms reading it (they're also emailed).
 function BreachNoticeCard({
@@ -210,6 +224,179 @@ function ConsentCard() {
   );
 }
 
+// The second sign-in step: set up fingerprint on this phone, and set up (Android) or remove face
+// sign-in.
+// Removing the face withdraws biometric consent, which deletes the template at once (policy section
+// 11). If it was the only second step, the app goes back to the set-up screen.
+function SignInMethodsCard() {
+  const { user, refetchUser } = useAuth();
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [faceConsent, setFaceConsent] = useState(false);
+  const [faceOpen, setFaceOpen] = useState(false);
+  const [busy, setBusy] = useState<"fingerprint" | "face" | "remove" | null>(
+    null,
+  );
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  useEffect(() => {
+    isBiometricSupported()
+      .then(setSupported)
+      .catch(() => setSupported(false));
+  }, []);
+  if (!user) return null;
+
+  const run = async (
+    which: "fingerprint" | "face" | "remove",
+    work: () => Promise<unknown>,
+    success: string,
+  ) => {
+    setBusy(which);
+    setError("");
+    setDone("");
+    try {
+      await work();
+      await refetchUser();
+      setDone(success);
+    } catch (err: any) {
+      setError(err?.message || "That didn't work. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const setUpFace = (descriptor: number[]) => {
+    setFaceOpen(false);
+    setFaceConsent(false);
+    void run(
+      "face",
+      () => enrollFace(user.id, descriptor, true),
+      "Face sign-in is set up.",
+    );
+  };
+
+  const confirmRemoveFace = () =>
+    Alert.alert(
+      "Remove face sign-in?",
+      user.passkeyEnrolled
+        ? `This deletes your face template and withdraws your consent. You'll sign in with ${DEVICE_KEY_PHRASE}.`
+        : "This deletes your face template and withdraws your consent. Face is your only second sign-in step, so you'll be asked to set one up again straight away.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () =>
+            void run(
+              "remove",
+              () => removeFace(user.id),
+              "Face sign-in is removed and your face template deleted.",
+            ),
+        },
+      ],
+    );
+
+  return (
+    <Card style={styles.card}>
+      <Label>Sign-in Methods</Label>
+      <Text style={styles.body}>
+        {FACE_CHECK_SUPPORTED
+          ? "After your password, you finish signing in with your fingerprint or your face. Set up both to have a spare."
+          : "After your password, you finish signing in with Face ID or Touch ID."}
+      </Text>
+
+      <View style={styles.method}>
+        <Text style={styles.title}>{DEVICE_KEY_NAME}</Text>
+        <Text style={styles.text}>
+          {user.passkeyEnrolled
+            ? "Set up: a device key or passkey is registered to your account."
+            : "Not set up."}
+        </Text>
+        <Text style={styles.muted}>
+          {supported === false
+            ? "This phone has no biometric set up in its settings."
+            : "Setting it up here replaces any key this app made before on this phone."}
+        </Text>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={() =>
+            void run(
+              "fingerprint",
+              () => enrollBiometricKey("Mobile device"),
+              `${DEVICE_KEY_NAME} sign-in is set up on this phone.`,
+            )
+          }
+          isLoading={busy === "fingerprint"}
+          disabled={supported !== true || busy !== null}
+          testID="button-setup-fingerprint"
+        >
+          Set Up {DEVICE_KEY_NAME} on This Phone
+        </Button>
+      </View>
+
+      <View style={styles.method}>
+        <Text style={styles.title}>Face</Text>
+        {user.faceEnrolled ? (
+          <>
+            <Text style={styles.text}>
+              Set up. Your face template is stored encrypted, with your consent.
+            </Text>
+            <Button
+              variant="destructive"
+              size="sm"
+              onPress={confirmRemoveFace}
+              isLoading={busy === "remove"}
+              disabled={busy !== null}
+              testID="button-remove-face"
+            >
+              Remove Face Sign-in
+            </Button>
+          </>
+        ) : !FACE_CHECK_SUPPORTED ? (
+          <Text style={styles.text}>
+            Not set up. Face sign-in can be set up on the website.
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.text}>Not set up.</Text>
+            <CheckRow
+              checked={faceConsent}
+              onChange={setFaceConsent}
+              testID="checkbox-biometric-consent"
+            >
+              {FACE_CONSENT_TEXT}
+            </CheckRow>
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => {
+                setError("");
+                setDone("");
+                setFaceOpen(true);
+              }}
+              isLoading={busy === "face"}
+              disabled={!faceConsent || busy !== null}
+              testID="button-setup-face"
+            >
+              Set Up Face Sign-in
+            </Button>
+          </>
+        )}
+      </View>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {done ? <Text style={styles.done}>{done}</Text> : null}
+
+      <FaceCapture
+        visible={faceOpen}
+        title="Set up face sign-in"
+        onCapture={setUpFace}
+        onCancel={() => setFaceOpen(false)}
+      />
+    </Card>
+  );
+}
+
 type ExportFormat = "readable" | "json";
 
 function ExportCard() {
@@ -358,6 +545,7 @@ export function PrivacyScreen() {
         ))}
       <PolicyCard status={status} onAcknowledged={setStatus} />
       <ConsentCard />
+      <SignInMethodsCard />
       <ExportCard />
       <DeleteCard />
     </ScrollView>
@@ -383,6 +571,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   consents: { gap: 14 },
+  method: {
+    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  done: { fontFamily: fonts.mono, color: colors.success, fontSize: 11 },
   row: { flexDirection: "row", gap: 10 },
   flex: { flex: 1 },
   gapTop: { marginTop: 4 },

@@ -325,3 +325,18 @@ review the new text: version 2026-10-04 changes sections 9, 10 and 11 and adds s
 One interpretation to confirm: "challenge the records (2 years)" was read as records of challenges to AI
 decisions (docs/11 section 3), the only challenge process SecureAI has. If the client meant something else,
 for example how long someone has to dispute a record, the period is one constant in `lib/retention.ts`.
+
+## 5e. 2026-10-06: face sign-in in the Android app (privacy policy version 2026-10-06)
+
+The Android app now lets people choose fingerprint or face as the second sign-in step (docs/04 §0,
+R-AUTH-1, R-MOBILE-5). Face on the phone collects the same face template as the website, through the
+same page, for the same purpose, kept and deleted the same way; no new kind of personal information is
+collected. The policy text changed only where it said the template is computed "in your browser":
+version 2026-10-06 changes the face template row in section 2 (computed on your device, in your browser
+or in the phone app; a passkey or your phone's fingerprint instead; delete it in Security Settings or in
+Privacy & Your Data). Team 2 may want to confirm:
+
+- that the app's consent wording (the website's, adapted: "computed on this phone", "I can use my
+  fingerprint instead", "under Privacy & Your Data") is acceptable as express consent for biometric
+  information;
+- that collecting the template through the app needs no change beyond section 2.

@@ -8,7 +8,7 @@
     "scheme": "secureai",
     "android": {
       "package": "com.secureai.mobile",
-      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"],
+      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT", "CAMERA"],
       "allowBackup": false
     },
     "ios": {

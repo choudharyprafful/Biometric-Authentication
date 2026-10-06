@@ -189,6 +189,37 @@ export async function login(
   return request("/auth/login", { method: "POST", body: { email, password } });
 }
 
+// Face sign-in, with the descriptor from src/components/FaceCapture.tsx: the same endpoints as the
+// website's face path (docs/04 R-AUTH-1).
+
+/** Second sign-in step by face. tempToken is the one login() returned. */
+export async function verifyFace(
+  descriptor: number[],
+  tempToken: string,
+): Promise<{ user: AppUser }> {
+  return request("/auth/face-verify", {
+    method: "POST",
+    body: { descriptor, tempToken },
+  });
+}
+
+/** Stores the face template. The server refuses without consent: biometric information needs the person's express consent. */
+export async function enrollFace(
+  userId: number,
+  descriptor: number[],
+  consent: boolean,
+): Promise<AppUser> {
+  return request(`/users/${userId}/enroll-face`, {
+    method: "POST",
+    body: { descriptor, consent },
+  });
+}
+
+/** Withdraws biometric consent, which deletes the face template straight away. */
+export async function removeFace(userId: number): Promise<AppUser> {
+  return request(`/users/${userId}/face`, { method: "DELETE" });
+}
+
 export async function getMe(): Promise<AppUser | null> {
   try {
     return await request<AppUser>("/auth/me");

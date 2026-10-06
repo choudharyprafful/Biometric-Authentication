@@ -1,5 +1,14 @@
+import { Platform } from "react-native";
 import ReactNativeBiometrics from "react-native-biometrics";
 import { request, type AppUser } from "./api";
+
+// The device key's name on screen. Android unlocks it with whichever strong biometric the phone
+// has, for nearly every phone the fingerprint (an app can't choose); an iPhone uses Face ID or
+// Touch ID.
+export const DEVICE_KEY_NAME =
+  Platform.OS === "ios" ? "Face ID or Touch ID" : "Fingerprint";
+export const DEVICE_KEY_PHRASE =
+  Platform.OS === "ios" ? "Face ID or Touch ID" : "your fingerprint";
 
 // Device-native biometric second factor, using Android Keystore + BiometricPrompt
 // directly instead of WebAuthn/passkeys. Chosen specifically because native passkey

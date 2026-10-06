@@ -21,6 +21,7 @@ import ResponsibleAi from "./pages/ResponsibleAi";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AiOversight from "./pages/AiOversight";
 import PrivacyCompliance from "./pages/PrivacyCompliance";
+import AppFace from "./pages/AppFace";
 
 const queryClient = new QueryClient();
 
@@ -108,9 +109,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <AuthProvider>
-          <Router />
-        </AuthProvider>
+        <Switch>
+          {/* The phone app's face check, outside AuthProvider so it makes no API call: the app's
+              WebView shares the app's cookies (pages/AppFace.tsx). */}
+          <Route path="/app-face" component={AppFace} />
+          <Route>
+            <AuthProvider>
+              <Router />
+            </AuthProvider>
+          </Route>
+        </Switch>
       </WouterRouter>
     </QueryClientProvider>
   );

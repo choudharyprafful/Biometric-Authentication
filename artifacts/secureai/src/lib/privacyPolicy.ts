@@ -1,7 +1,8 @@
 // SecureAI's privacy policy. Written by Team 2 (Ethics & Governance), draft of 23 September 2026;
 // updated by Team 1 on 26 September 2026 so every statement matches what the app does (the changes
 // are listed in docs/08, section 5c); updated on 4 October 2026 for the client's requirements on
-// retention, government requests, readable data copies and data breaches (docs/08, section 5d).
+// retention, government requests, readable data copies and data breaches (docs/08, section 5d);
+// updated on 6 October 2026 for face sign-in in the phone app (docs/08, section 5e).
 // The version must match PRIVACY_POLICY_VERSION in
 // artifacts/api-server/src/lib/privacyPolicy.ts; scripts/check-privacy-policy-version.mjs checks it
 // in CI. Change the version whenever the text changes, and signed-in users are asked to review it.
@@ -20,12 +21,12 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: "2026-10-04",
-  effectiveDate: "4 October 2026",
+  version: "2026-10-06",
+  effectiveDate: "6 October 2026",
   status:
-    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times, and on 4 October 2026 to add the client's requirements: how long records are kept, requests from government agencies, a readable copy of your data, and data breaches. Pending review by Team 2 and a legal adviser; not legal advice.",
+    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times, on 4 October 2026 to add the client's requirements: how long records are kept, requests from government agencies, a readable copy of your data, and data breaches, and on 6 October 2026 because the phone app now offers face sign-in too. Pending review by Team 2 and a legal adviser; not legal advice.",
   demoNotice:
-    "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead.",
+    "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey, or fingerprint sign-in in the phone app, instead.",
   contact: "privacy@secureai.example",
   contactNote:
     "placeholder address, not yet monitored: until it is, use the challenge form on [How SecureAI uses AI](/ai#challenge)",
@@ -74,9 +75,9 @@ export const PRIVACY_POLICY = {
             ],
             [
               "Face template (only if you choose face sign-in)",
-              "128 numbers computed in your browser from the camera. The camera image never leaves your device; the template is sent to us and stored encrypted",
+              "128 numbers computed on your device from the camera, in your browser or in the SecureAI phone app. The camera image never leaves your device; the template is sent to us and stored encrypted",
               "Very high: biometric information is sensitive information under the Privacy Act 1988, even when encrypted",
-              "Confirming it's you at sign-in and password reset, and nothing else. Collected only with your express consent, and you can use a passkey instead. Delete it any time in Security Settings",
+              "Confirming it's you at sign-in and password reset, and nothing else. Collected only with your express consent, and you can use a passkey or your phone's fingerprint instead. Delete it any time in Security Settings, or in Privacy & Your Data in the phone app",
             ],
             [
               "Passkey or phone key",

@@ -19,8 +19,10 @@ flowchart TB
         MobileUI["Same REST API, same role gates"]
         DeviceKey["react-native-biometrics<br/>RSA key in Android Keystore / iOS Keychain,<br/>unlocked by the device biometric"]
         Pinning["Certificate pinning<br/>(Android release builds)"]
+        FaceCheck["Face check (Android, optional): the site's /app-face page<br/>in an origin-locked WebView, same face-api.js code"]
         MobileUI --- DeviceKey
         MobileUI --- Pinning
+        MobileUI --- FaceCheck
     end
 
     subgraph WebHost["Web hosting (Amplify behind CloudFront)"]
