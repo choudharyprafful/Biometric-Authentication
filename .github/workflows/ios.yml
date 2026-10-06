@@ -6,8 +6,9 @@ name: iOS app
 #   - the certificate pins, and that they match the chain the live site serves today;
 #   - no plain-HTTP exception in a Release build;
 #   - the camera usage text, and the patched biometric key flag.
-# Finally it runs the app in a Simulator: a screenshot, and the cookie the live API sets on the app's
-# first request, which shows the pinned TLS connection worked.
+# Finally it runs the app in a Simulator: a screenshot; the app's first request to the live API
+# completing, with the API's cookie stored; and the same app with both pins replaced being refused,
+# which shows iOS really enforces the pin set rather than ignoring it.
 # Kept as artifacts: the built app (it installs on any Mac's Simulator), the screenshot, the app's log,
 # and the Podfile.lock that pod install produced. Commit that Podfile.lock when it differs from the
 # repository's (artifacts/mobile/README.md, "iOS").
@@ -179,27 +180,61 @@ jobs:
           fi
           echo "The app started and is still running."
 
-      - name: The app's first request to the live API got through the pinned connection
+      - name: "Pinning, part 1: with the real pins, the app's first request to the live API completes"
         run: |
-          # On launch the app asks the API who is signed in (src/context/AuthContext.tsx); the answer is a
-          # 401 that sets a csrf_token cookie. With a wrong pin the request fails before any response, and
-          # no cookie exists. Sending the app to the background makes iOS write its cookies to disk.
+          # On launch the app asks the API who is signed in (src/context/AuthContext.tsx): a 401 that sets
+          # a csrf_token cookie. CFNetwork logs a summary of every request; sending the app to the
+          # background makes iOS write its cookies to disk (Library/Cookies/<bundle id>.binarycookies).
           xcrun simctl launch "$UDID" com.apple.Preferences
           sleep 10
+          LOG="$RUNNER_TEMP/out/app-log.txt"
           xcrun simctl spawn "$UDID" log show --last 5m --style compact \
-            --predicate 'process == "SecureAI"' > "$RUNNER_TEMP/out/app-log.txt" 2>&1 || true
-          # Supporting evidence only (the cookie below is the test): TLS and ATS failures, if any.
-          grep -i -E "Code=-120[0-2]|-9802|-9807|ATS failed|pinning" "$RUNNER_TEMP/out/app-log.txt" \
-            && echo "::warning::The app's log mentions a TLS or pinning problem (see app-log.txt)" || true
-          DATA=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)
-          JAR="$DATA/Library/Cookies/Cookies.binarycookies"
-          if [ -f "$JAR" ] && grep -a -q "csrf_token" "$JAR" && grep -a -q "$APP_HOST" "$JAR"; then
-            echo "The live API's csrf_token cookie is stored: the pinned connection works."
-          else
-            echo "::error::No cookie from the live API: the app's first request did not complete"
-            ls -la "$DATA/Library" "$DATA/Library/Cookies" 2>/dev/null || true
+            --predicate 'process == "SecureAI"' > "$LOG" 2>&1 || true
+          grep -E "summary for task (success|failure)" "$LOG" | cut -c1-200 || true
+          if ! grep -q "summary for task success .*response_status=401" "$LOG"; then
+            echo "::error::The app's log shows no completed request to the live API"
             exit 1
           fi
+          DATA=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)
+          shopt -s nullglob
+          jars=("$DATA"/Library/Cookies/*.binarycookies)
+          if [ ${#jars[@]} -eq 0 ] || ! grep -a -q "csrf_token" "${jars[@]}" || ! grep -a -q "$APP_HOST" "${jars[@]}"; then
+            echo "::error::The live API's cookie is not in the app's cookie store"
+            ls -la "$DATA/Library/Cookies" 2>/dev/null || true
+            exit 1
+          fi
+          echo "The request completed over TLS with the pins in place, and the API's csrf_token cookie is stored."
+
+      - name: "Pinning, part 2: with wrong pins, iOS refuses the live API"
+        run: |
+          # The same build with both pinned keys replaced. If iOS enforces the pin set, the request must now
+          # fail before any response; had it ignored the pins (a mistyped key, say), it would still get a 401.
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl uninstall "$UDID" "$BUNDLE_ID"
+          WRONG="$RUNNER_TEMP/wrong-pins/SecureAI.app"
+          mkdir -p "$(dirname "$WRONG")"
+          cp -R "$APP" "$WRONG"
+          for i in 0 1; do
+            /usr/libexec/PlistBuddy -c "Set :NSAppTransportSecurity:NSPinnedDomains:$APP_HOST:NSPinnedCAIdentities:$i:SPKI-SHA256-BASE64 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" "$WRONG/Info.plist"
+          done
+          xcrun simctl install "$UDID" "$WRONG"
+          START=$(date "+%Y-%m-%d %H:%M:%S")
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 30
+          LOG="$RUNNER_TEMP/out/app-log-wrong-pins.txt"
+          xcrun simctl spawn "$UDID" log show --start "$START" --style compact \
+            --predicate 'process == "SecureAI"' > "$LOG" 2>&1 || true
+          grep -E "summary for task (success|failure)|ATS|-9802|-9843|-1200|-1202" "$LOG" | cut -c1-220 > "$RUNNER_TEMP/evidence.txt" || true
+          head -n 20 "$RUNNER_TEMP/evidence.txt"
+          if grep -q "summary for task success" "$LOG"; then
+            echo "::error::With wrong pins the app still reached the API: iOS is not enforcing the pin set"
+            exit 1
+          fi
+          if ! grep -q "summary for task failure" "$LOG"; then
+            echo "::error::The app made no request with the wrong pins, so this proves nothing"
+            exit 1
+          fi
+          echo "With wrong pins every request to the live API failed: iOS enforces the pin set."
 
       - name: Keep the app, its log, the screenshot and the Podfile.lock
         if: always()
