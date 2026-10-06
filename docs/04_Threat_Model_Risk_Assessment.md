@@ -576,6 +576,19 @@ Done in this PoC:
   through an actual GitHub Actions runner, and — unlike every other command in this section — couldn't be
   smoke-tested locally either (Semgrep doesn't run natively on Windows without Docker/WSL, neither of
   which is available on this dev machine). Written and reasoned about, not yet observed to pass.
+- **Dependency vulnerability scanning, 2026-10-06:** CI's audit failed on pull request #19 because of
+  advisories published on 2026-10-05, not because of that change: 6 findings (1 critical, 1 high, 4
+  moderate). The critical one is in code that serves requests: `proxy-addr`, which Express uses to decide
+  which proxies to trust for `req.ip`, and so every per-IP rate limit and the audit log's IP address
+  (R-AUTH-8). An IPv6 trust subnet with zero leading bits, or an IPv4-mapped one with a short prefix,
+  trusted every client, so `X-Forwarded-For` was believed from anyone. SecureAI's trust list (loopback and
+  CloudFront's published ranges, none with zero leading bits) is not that configuration, but it now runs
+  the patched 2.0.8. Also patched: `nodemailer` 10.0.12 (a quoted recipient followed by a comment could
+  add text to the SMTP envelope; the API sends account and breach-notice email), and in tooling
+  `markdown-it` 14.3.2, `postcss-selector-parser` 7.1.6 (a major version up for Tailwind's typography
+  plugin; the built CSS is byte-identical) and `fast-copy` 4.1.1. Left for one day: `source-map-js` 1.2.2
+  (high, build-time only), published 2026-09-30 and so still inside the 7-day minimum release age; it is
+  added once that passes. Verified: typecheck, API and web builds, and the CI suites on the pull request.
 - **Dependency vulnerability scanning, re-run 2026-09-29:** 14 findings (10 high, 2 moderate, 2 low), all fixed
   by overrides in `pnpm-workspace.yaml`; `pnpm audit` now reports none. One reached code that serves requests:
   `qs`, Express's query-string parser (denial of service via `isBuffer`, and an array-limit bypass), now

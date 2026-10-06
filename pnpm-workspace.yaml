@@ -155,6 +155,13 @@ overrides:
   "brace-expansion@>=4.0.0 <5.0.9": "^5.0.9" # orval's typedoc (minimatch): denial of service
   "nanoid@<3.3.18": "^3.3.18" # postcss in the web build
   "node-fetch@<2.6.7": "^2.6.7" # TensorFlow.js's Node.js fallback, unused in the browser
+  # Advisories published 2026-10-05 (pnpm audit, 2026-10-06). proxy-addr decides which proxies
+  # Express trusts for req.ip, which every per-IP rate limit and the audit log rely on (docs/04
+  # R-AUTH-8): an IPv6 trust subnet with zero leading bits trusted every client (critical).
+  "proxy-addr@<2.0.8": "^2.0.8"
+  "markdown-it@<14.3.1": "^14.3.1" # orval's typedoc: quadratic linkify parsing
+  "postcss-selector-parser@<7.1.6": "^7.1.6" # web build (Tailwind typography): CPU exhaustion
+  "fast-copy@>=4.0.0 <4.1.0": "^4.1.0" # pino-pretty, development logging: stack exhaustion
 
 allowBuilds:
   esbuild: true
