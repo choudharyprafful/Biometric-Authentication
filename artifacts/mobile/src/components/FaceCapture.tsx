@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -105,6 +105,9 @@ export function FaceCapture({
   const [loadError, setLoadError] = useState("");
   // A new WebView for each try, so each try starts a fresh camera and blink check.
   const [attempt, setAttempt] = useState(0);
+  // One descriptor per opening: a second would be a second sign-in attempt, which the server
+  // refuses while the first is in progress.
+  const captured = useRef(false);
 
   const requestCamera = useCallback(() => {
     setCamera("asking");
@@ -113,19 +116,25 @@ export function FaceCapture({
 
   useEffect(() => {
     if (!visible) return;
+    captured.current = false;
     setLoadError("");
     requestCamera();
   }, [visible, requestCamera]);
 
   const retry = () => {
+    captured.current = false;
     setLoadError("");
     setAttempt((n) => n + 1);
   };
 
   const handleMessage = (event: WebViewMessageEvent) => {
-    if (originOf(event.nativeEvent.url) !== WEB_ORIGIN) return;
+    if (captured.current || originOf(event.nativeEvent.url) !== WEB_ORIGIN) {
+      return;
+    }
     const descriptor = parseFaceMessage(event.nativeEvent.data);
-    if (descriptor) onCapture(descriptor);
+    if (!descriptor) return;
+    captured.current = true;
+    onCapture(descriptor);
   };
 
   let body: React.ReactNode;
