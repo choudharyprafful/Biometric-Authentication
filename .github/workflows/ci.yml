@@ -25,6 +25,9 @@ jobs:
       # Typecheck + pnpm audit gated at --audit-level=critical (see
       # package.json's "ci" script and docs/04, Section 3).
       - run: pnpm run ci
+      # Everything committed is Prettier-formatted (the pre-commit hook in .githooks does it locally;
+      # this catches a commit made without it).
+      - run: pnpm run format:check
       # The AI Security page serves results recorded from the team's Python
       # proof-of-concepts; fail if a PoC changed without them being regenerated.
       - run: python3 artifacts/ai-model/ai_security_report.py --check
@@ -37,6 +40,9 @@ jobs:
       # The encryption keyring: data stays readable through a key change, a dropped or
       # relabelled key fails loudly, and SESSION_SECRET stops opening data after the move.
       - run: pnpm --filter @workspace/api-server run verify:keyring
+      # Security alert email: every listed address and no one else, no header injection from alert
+      # text, and a mail server outage never stopping the alert job.
+      - run: pnpm --filter @workspace/api-server run verify:alert-email
       # The deploy hook that installs ClamAV on the API instance.
       - run: shellcheck artifacts/api-server/.platform/hooks/prebuild/10_clamav.sh
       # The privacy policy text and the version the API records must match.

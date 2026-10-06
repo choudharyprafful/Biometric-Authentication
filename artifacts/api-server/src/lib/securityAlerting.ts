@@ -1,11 +1,8 @@
 /**
- * Pushes suspicious-activity alerts to an external channel instead of
- * waiting for someone to look at the dashboard. Email was deliberately not
- * used as that channel: no real SMTP/email-API provider is configured in
- * this environment, so a security-alert email would need a credential this
- * project has never had. A generic outgoing webhook needs only a URL, and
- * is the same integration point Slack, Discord, PagerDuty, and a plain
- * custom endpoint all already accept.
+ * Pushes suspicious-activity alerts out instead of waiting for someone to look at the dashboard: to
+ * a generic outgoing webhook (SECURITY_ALERT_WEBHOOK_URL; Slack, Discord, PagerDuty and a plain
+ * custom endpoint all accept it) and by email (SECURITY_ALERT_EMAILS, lib/alertEmail.ts). Email was
+ * left out at first because the project had no SMTP account; it has had one since 2026-09-13.
  */
 
 import { and, count, eq, gte, isNotNull } from "drizzle-orm";
@@ -18,6 +15,8 @@ import { computeAccountSharingAlerts } from "./sessionLimit";
 import { computePaymentAbuseAlerts } from "./paymentLifecycle";
 import { computeChallengeAlerts } from "./aiGovernance";
 import { computeBreachAlerts } from "./dataBreaches";
+import { alertRecipients, deliverAlertEmail } from "./alertEmail";
+import { isEmailConfigured } from "./mailer";
 
 const ALERT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_SPIKE_THRESHOLD = 3;
@@ -186,20 +185,41 @@ async function checkAndNotifyHighSeverityAlerts(): Promise<void> {
     const last = lastNotifiedAt.get(alert.id);
     if (last && now - last < NOTIFY_COOLDOWN_MS) continue;
 
-    const result = await deliverWebhook(alert);
-    if (!result.attempted) continue; // no webhook configured — nothing more to do this cycle
+    const webhook = await deliverWebhook(alert);
+    const email = await deliverAlertEmail(alert);
+    if (!webhook.attempted && !email.attempted) continue; // no channel configured — nothing more to do this cycle
 
     lastNotifiedAt.set(alert.id, now);
-    if (!result.delivered) {
+    if (webhook.attempted && !webhook.delivered) {
       logger.warn(
-        { alertId: alert.id, error: result.error },
+        { alertId: alert.id, error: webhook.error },
         "Security alert webhook delivery failed",
       );
     }
+    if (email.attempted && email.delivered < email.recipients) {
+      logger.warn(
+        {
+          alertId: alert.id,
+          delivered: email.delivered,
+          recipients: email.recipients,
+        },
+        "Security alert email delivery failed",
+      );
+    }
 
+    // Counts only: the audit log is read more widely than the list of who receives alerts.
+    const outcomes: string[] = [];
+    if (webhook.attempted)
+      outcomes.push(
+        `webhook delivery ${webhook.delivered ? "succeeded" : `failed (${webhook.error})`}`,
+      );
+    if (email.attempted)
+      outcomes.push(
+        `emailed to ${email.delivered} of ${email.recipients} recipient(s)`,
+      );
     await logEvent({
       eventType: "SECURITY_ALERT_NOTIFIED",
-      details: `${alert.message} — webhook delivery ${result.delivered ? "succeeded" : `failed (${result.error})`}`,
+      details: `${alert.message} — ${outcomes.join("; ")}`,
     });
   }
 }
@@ -213,6 +233,15 @@ const ALERT_POLL_INTERVAL_MS = Number(
 
 /** unref() so it never blocks shutdown. */
 export function startSecurityAlertingJob(): void {
+  // Which channels high-severity alerts go to, so a deployment shows whether anyone is notified.
+  logger.info(
+    {
+      webhook: Boolean(process.env["SECURITY_ALERT_WEBHOOK_URL"]),
+      emailRecipients: alertRecipients().length,
+      emailConfigured: isEmailConfigured(),
+    },
+    "Security alerting: notification channels",
+  );
   checkAndNotifyHighSeverityAlerts().catch((err) =>
     logger.warn({ err }, "Security alerting: initial check failed"),
   );

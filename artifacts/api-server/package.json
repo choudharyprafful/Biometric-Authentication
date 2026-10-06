@@ -12,7 +12,8 @@
     "verify:clamd": "tsx ./src/lib/clamdClient.verify.ts",
     "verify:keyring": "tsx ./src/lib/fileEncryption.verify.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "verify:retention": "tsx ./src/lib/retention.verify.ts"
+    "verify:retention": "tsx ./src/lib/retention.verify.ts",
+    "verify:alert-email": "tsx ./src/lib/alertEmail.verify.ts"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",

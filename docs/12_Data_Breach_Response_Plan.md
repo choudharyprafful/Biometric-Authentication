@@ -42,7 +42,8 @@ The security dashboard raises an alert for every breach still waiting on a step:
 - **High** once the 30 days have passed without an assessment.
 - **High** for an eligible breach until both the people affected and the OAIC have been told.
 
-High alerts are also sent to the alert webhook (`SECURITY_ALERT_WEBHOOK_URL`), repeating until the step
+High alerts are also emailed to the addresses in `SECURITY_ALERT_EMAILS` and sent to the alert webhook
+(`SECURITY_ALERT_WEBHOOK_URL`) where those are set, repeating every 30 minutes until the step
 is done (`lib/dataBreaches.ts` `computeBreachAlerts`).
 
 ### What the people affected receive
