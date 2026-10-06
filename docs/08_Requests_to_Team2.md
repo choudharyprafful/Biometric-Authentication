@@ -308,8 +308,8 @@ Still needed from Team 2 (the page says so where it applies):
 
 ## 5d. Received 2026-10-02: the client's requirements (Miifile Pty Ltd)
 
-The client sent these after reviewing the project. All six are built and tested locally (2026-10-04, branch
-`feature/client-retention-breach-export`) and not yet deployed. They settle two of the items this document
+The client sent these after reviewing the project. All six were built and tested on 2026-10-04 (PR #19) and
+are live with API v22 since 2026-10-06. They settle two of the items this document
 was waiting on from Team 2 (the retention periods) and add a privacy policy section, so Team 2 may want to
 review the new text: version 2026-10-04 changes sections 9, 10 and 11 and adds section 14.
 

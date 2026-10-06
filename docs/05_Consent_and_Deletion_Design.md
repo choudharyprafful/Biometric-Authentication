@@ -138,8 +138,8 @@ and payment purges existed but were switched off by default (`SECURITY_LOGS_RETE
 them, and the two settings were removed. The breach register and the record of disclosures to government
 agencies are not purged: they are the evidence that the law was followed (docs/12, section 4).
 
-Production needs `node scripts/ops/migrate-retention-and-breaches.mjs` once, before the API version that
-uses it: it installs the purge function with the right owner and permissions, and the API refuses to purge
+Production ran `node scripts/ops/migrate-retention-and-breaches.mjs` on 2026-10-06, before API v22 (any
+other database needs it once, before the API version that uses it): it installs the purge function with the right owner and permissions, and the API refuses to purge
 (and says so in its log) rather than falling back to deleting rows directly.
 
 ## 5. AI/ML training-data consent & deletion
