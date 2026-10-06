@@ -6,6 +6,7 @@ import {
   ScrollView,
   Linking,
   Alert,
+  Platform,
 } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -33,8 +34,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import {
   FaceCapture,
-  FACE_CHECK_SUPPORTED,
   FACE_CONSENT_TEXT,
+  FACE_OPTION_NAME,
 } from "../components/FaceCapture";
 import {
   Button,
@@ -224,8 +225,8 @@ function ConsentCard() {
   );
 }
 
-// The second sign-in step: set up fingerprint on this phone, and set up (Android) or remove face
-// sign-in.
+// The second sign-in step: set up the device key on this phone (fingerprint, or Face ID or Touch ID),
+// and set up or remove face sign-in.
 // Removing the face withdraws biometric consent, which deletes the template at once (policy section
 // 11). If it was the only second step, the app goes back to the set-up screen.
 function SignInMethodsCard() {
@@ -299,9 +300,9 @@ function SignInMethodsCard() {
     <Card style={styles.card}>
       <Label>Sign-in Methods</Label>
       <Text style={styles.body}>
-        {FACE_CHECK_SUPPORTED
-          ? "After your password, you finish signing in with your fingerprint or your face. Set up both to have a spare."
-          : "After your password, you finish signing in with Face ID or Touch ID."}
+        {Platform.OS === "ios"
+          ? "After your password, you finish signing in with Face ID or Touch ID, or a face scan. Set up both to have a spare."
+          : "After your password, you finish signing in with your fingerprint or your face. Set up both to have a spare."}
       </Text>
 
       <View style={styles.method}>
@@ -335,7 +336,7 @@ function SignInMethodsCard() {
       </View>
 
       <View style={styles.method}>
-        <Text style={styles.title}>Face</Text>
+        <Text style={styles.title}>{FACE_OPTION_NAME}</Text>
         {user.faceEnrolled ? (
           <>
             <Text style={styles.text}>
@@ -352,10 +353,6 @@ function SignInMethodsCard() {
               Remove Face Sign-in
             </Button>
           </>
-        ) : !FACE_CHECK_SUPPORTED ? (
-          <Text style={styles.text}>
-            Not set up. Face sign-in can be set up on the website.
-          </Text>
         ) : (
           <>
             <Text style={styles.text}>Not set up.</Text>

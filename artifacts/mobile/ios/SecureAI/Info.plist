@@ -44,7 +44,28 @@
       <false/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
+      <key>NSPinnedDomains</key>
+      <dict>
+        <key>d2zb1uxt99m5ks.cloudfront.net</key>
+        <dict>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSPinnedCAIdentities</key>
+          <array>
+            <dict>
+              <key>SPKI-SHA256-BASE64</key>
+              <string>G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=</string>
+            </dict>
+            <dict>
+              <key>SPKI-SHA256-BASE64</key>
+              <string>++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=</string>
+            </dict>
+          </array>
+        </dict>
+      </dict>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>SecureAI uses the front camera only when you choose a face scan to sign in. The camera image stays on this iPhone.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>SecureAI uses Face ID to securely verify your identity and unlock your device biometric key.</string>
     <key>UILaunchStoryboardName</key>

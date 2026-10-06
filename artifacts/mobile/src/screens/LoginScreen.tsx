@@ -6,10 +6,12 @@ import {
   StyleSheet,
   ScrollView,
   Linking,
+  Platform,
 } from "react-native";
 import { login, verifyFace } from "../lib/api";
 import {
   DEVICE_KEY_NAME,
+  DEVICE_KEY_PHRASE,
   loginWithBiometricKey,
   linkDeviceWithCode,
 } from "../lib/biometricKey";
@@ -23,7 +25,11 @@ import {
   SectionNote,
   ShieldBadge,
 } from "../components/ui";
-import { FaceCapture, FACE_CHECK_SUPPORTED } from "../components/FaceCapture";
+import {
+  FaceCapture,
+  FACE_OPTION_NAME,
+  FACE_OPTION_PHRASE,
+} from "../components/FaceCapture";
 import { colors, fonts } from "../theme";
 import { PRIVACY_POLICY_URL } from "../config";
 
@@ -171,9 +177,9 @@ export function LoginScreen({
             </View>
 
             <SectionNote>
-              {FACE_CHECK_SUPPORTED
-                ? "Biometric MFA — after your password, choose fingerprint or face to finish signing in."
-                : "Biometric MFA — after your password, finish signing in with Face ID or Touch ID."}
+              {Platform.OS === "ios"
+                ? "Biometric MFA — after your password, finish signing in with Face ID or Touch ID, or a face scan."
+                : "Biometric MFA — after your password, choose fingerprint or face to finish signing in."}
             </SectionNote>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -215,43 +221,37 @@ export function LoginScreen({
             <ShieldBadge size={48} />
             <Text style={styles.verifyTitle}>Verify It's You</Text>
             <Text style={styles.verifySubtitle}>
-              {FACE_CHECK_SUPPORTED
-                ? "Password confirmed. Choose how to finish signing in."
-                : "Password confirmed. Finish signing in with your device biometric."}
+              Password confirmed. Choose how to finish signing in.
             </Text>
             <View style={styles.methods}>
               <MethodOption
                 title={DEVICE_KEY_NAME}
-                recommended={steps.fingerprint && FACE_CHECK_SUPPORTED}
+                recommended={steps.fingerprint}
                 detail={
                   steps.fingerprint
                     ? "Unlocks a key kept on this phone, which signs a one-time challenge. Your biometric never leaves the phone."
-                    : FACE_CHECK_SUPPORTED
-                      ? "Not set up for this account. Sign in with your face, then set it up under Privacy & Your Data."
-                      : 'Not set up for this account. Use "Link this device" below.'
+                    : `Not set up for this account. Sign in with ${FACE_OPTION_PHRASE}, then set it up under Privacy & Your Data.`
                 }
                 onPress={handleFingerprint}
                 disabled={!steps.fingerprint || checking !== null}
                 isLoading={checking === "fingerprint"}
                 testID="button-signin-fingerprint"
               />
-              {FACE_CHECK_SUPPORTED ? (
-                <MethodOption
-                  title="Face"
-                  detail={
-                    steps.face
-                      ? "Look at the front camera and blink: the same face check as the website."
-                      : "Not set up for this account. Sign in with your fingerprint, then set it up under Privacy & Your Data."
-                  }
-                  onPress={() => {
-                    setError("");
-                    setFaceOpen(true);
-                  }}
-                  disabled={!steps.face || checking !== null}
-                  isLoading={checking === "face"}
-                  testID="button-signin-face"
-                />
-              ) : null}
+              <MethodOption
+                title={FACE_OPTION_NAME}
+                detail={
+                  steps.face
+                    ? "Look at the front camera and blink: the same face check as the website."
+                    : `Not set up for this account. Sign in with ${DEVICE_KEY_PHRASE}, then set it up under Privacy & Your Data.`
+                }
+                onPress={() => {
+                  setError("");
+                  setFaceOpen(true);
+                }}
+                disabled={!steps.face || checking !== null}
+                isLoading={checking === "face"}
+                testID="button-signin-face"
+              />
             </View>
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
 import {
   DEVICE_KEY_NAME,
   enrollBiometricKey,
@@ -17,20 +17,20 @@ import {
 } from "../components/ui";
 import {
   FaceCapture,
-  FACE_CHECK_SUPPORTED,
   FACE_CONSENT_TEXT,
+  FACE_OPTION_NAME,
 } from "../components/FaceCapture";
 import { colors, fonts } from "../theme";
 
 // The second sign-in step every account needs before anything else (requireMfaEnrolled on the
 // server). The person chooses one; the other can be added later under Privacy & Your Data.
-// - Fingerprint: a device biometric key, not a WebAuthn passkey — see src/lib/biometricKey.ts for
-//   why. This is the brief's own design (decision #1): the biometric unlocks a key on the phone
-//   that signs a server challenge, and never leaves the phone.
-// - Face (Android): the website's face check, in a WebView (src/components/FaceCapture.tsx). It
-//   stores a face template on the server, the documented departure from the brief that the website
-//   already makes (docs/04_Threat_Model_Risk_Assessment.md, R-AUTH-1), so it needs its own express
-//   consent. On an iPhone, Face ID unlocks the device key instead.
+// - Fingerprint (Face ID or Touch ID on an iPhone): a device biometric key, not a WebAuthn passkey —
+//   see src/lib/biometricKey.ts for why. This is the brief's own design (decision #1): the biometric
+//   unlocks a key on the phone that signs a server challenge, and never leaves the phone.
+// - Face ("Face scan" on an iPhone): the website's face check, in a WebView
+//   (src/components/FaceCapture.tsx). It stores a face template on the server, the documented
+//   departure from the brief that the website already makes (docs/04_Threat_Model_Risk_Assessment.md,
+//   R-AUTH-1), so it needs its own express consent.
 export function EnrollScreen() {
   const { user, refetchUser } = useAuth();
   const [supported, setSupported] = useState<boolean | null>(null);
@@ -90,20 +90,20 @@ export function EnrollScreen() {
 
       <Card topAccent>
         <SectionNote tone="destructive">
-          {FACE_CHECK_SUPPORTED
-            ? "Mandatory — a password alone isn't enough. Access is blocked until you set up fingerprint or face sign-in. You can add the other later under Privacy & Your Data."
-            : "Mandatory — a password alone isn't enough. Access is blocked until this phone's biometric key is registered."}
+          {Platform.OS === "ios"
+            ? "Mandatory — a password alone isn't enough. Access is blocked until you set up Face ID or Touch ID, or a face scan. You can add the other later under Privacy & Your Data."
+            : "Mandatory — a password alone isn't enough. Access is blocked until you set up fingerprint or face sign-in. You can add the other later under Privacy & Your Data."}
         </SectionNote>
 
         <View style={styles.methods}>
           <MethodOption
             title={DEVICE_KEY_NAME}
-            recommended={FACE_CHECK_SUPPORTED}
+            recommended
             detail={
               supported === false
-                ? FACE_CHECK_SUPPORTED
-                  ? "This phone has no fingerprint set up. Add one in the phone's settings, or choose face."
-                  : "This device doesn't support biometric authentication."
+                ? Platform.OS === "ios"
+                  ? "This iPhone has no Face ID or Touch ID set up. Add it in Settings, or choose a face scan."
+                  : "This phone has no fingerprint set up. Add one in the phone's settings, or choose face."
                 : "Unlocks a key stored securely on this phone. The key signs a challenge from the server: your biometric never leaves the phone, and the server never sees it."
             }
             onPress={handleFingerprint}
@@ -111,19 +111,17 @@ export function EnrollScreen() {
             isLoading={busy === "fingerprint"}
             testID="button-enroll-fingerprint"
           />
-          {FACE_CHECK_SUPPORTED ? (
-            <MethodOption
-              title="Face"
-              detail="Look at the front camera and blink: the same face check as the website. A template of your face is stored, encrypted, on SecureAI's servers."
-              onPress={() => {
-                setError("");
-                setChosen("face");
-              }}
-              disabled={busy !== null}
-              isLoading={busy === "face"}
-              testID="button-enroll-face"
-            />
-          ) : null}
+          <MethodOption
+            title={FACE_OPTION_NAME}
+            detail="Look at the front camera and blink: the same face check as the website. A template of your face is stored, encrypted, on SecureAI's servers."
+            onPress={() => {
+              setError("");
+              setChosen("face");
+            }}
+            disabled={busy !== null}
+            isLoading={busy === "face"}
+            testID="button-enroll-face"
+          />
         </View>
 
         {chosen === "face" && (

@@ -84,15 +84,17 @@ sequenceDiagram
 
 ## Mobile: fingerprint or face (added 2026-10-06)
 
-The Android app asks which second step to use. Android can't be asked for face rather than fingerprint
-(`BiometricPrompt` uses whichever strong biometric the phone has), and many phones' face unlock is
-Class 1, which apps can't use at all, so the app's Face option is the website's own face check, shown in
-a WebView. Both options use the same endpoints as the website.
+The phone app asks which second step to use (Android since 2026-10-06, iPhone since 2026-10-07).
+Android can't be asked for face rather than fingerprint (`BiometricPrompt` uses whichever strong
+biometric the phone has), and many phones' face unlock is Class 1, which apps can't use at all, so the
+app's Face option is the website's own face check, shown in a WebView. On an iPhone the device key opens
+with Face ID or Touch ID, so the same option is called "Face scan" there. Both options use the same
+endpoints as the website.
 
 ```mermaid
 sequenceDiagram
     participant U as Person
-    participant App as Android app
+    participant App as Phone app
     participant W as WebView (the site's /app-face page)
     participant A as API server
 
@@ -104,7 +106,7 @@ sequenceDiagram
     alt Fingerprint (listed first, recommended: the brief's design)
         App->>A: POST /auth/biometric-key/login-options
         A-->>App: challenge
-        U->>App: Fingerprint in BiometricPrompt unlocks the Keystore key, which SIGNS the challenge
+        U->>App: Fingerprint (Android) or Face ID / Touch ID (iPhone) unlocks the device key, which SIGNS the challenge
         App->>A: POST /auth/biometric-key/login-verify {signature}
     else Face (the website's face check)
         App->>U: Ask for the camera permission (first time only)
@@ -125,7 +127,9 @@ sequenceDiagram
   rendered outside the website's sign-in provider; a request from it could otherwise disturb the app's
   half-finished sign-in. The app sends the descriptor itself. The WebView isn't incognito, because on
   Android that deletes every cookie, the app's own session included.
-- **iOS** is unchanged: Face ID already unlocks the device key there, which is the brief's design.
+- **iPhone** (2026-10-07): the device key opens with Face ID or Touch ID, and the camera option is
+  called "Face scan". iOS asks for the camera itself the first time the page opens it, and WebKit gives
+  the camera only to the site's own page.
 - The face option carries R-AUTH-1's gap (a descriptor, not a signature); the WebView's own risks are
   R-MOBILE-5 (`04_Threat_Model_Risk_Assessment.md`).
 

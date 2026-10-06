@@ -70,3 +70,12 @@ overrides:
 trustPolicyExclude:
   - semver@5.7.2
   - semver@6.3.1
+
+# One line in react-native-biometrics' iOS code (docs/04 R-MOBILE-4, 2026-10-07): the device key is
+# created with kSecAccessControlBiometryCurrentSet instead of BiometryAny, so it stops working when a
+# fingerprint or face is added to or removed from the iPhone, as Android's key already does. Without
+# it, someone who knows the passcode could enrol their own face and then use the key. The library has
+# no option for this. Re-check the patch when upgrading the library: pnpm fails the install if it no
+# longer applies.
+patchedDependencies:
+  react-native-biometrics@3.0.1: patches/react-native-biometrics@3.0.1.patch

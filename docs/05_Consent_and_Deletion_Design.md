@@ -43,7 +43,7 @@ Withdrawal is deletion, not a separate state: there is no "consent withdrawn, da
 `biometricConsentGiven`/`biometricConsentAt` in the same database update.
 
 Where it is asked (updated 2026-10-06): on the website's Security Settings (`Enroll.tsx`) and, since
-the Android app offers face sign-in (docs/04 R-AUTH-1, R-MOBILE-5), on the app's set-up screen and in
+the phone app offers face sign-in (Android 2026-10-06, iPhone 2026-10-07; docs/04 R-AUTH-1, R-MOBILE-5), on the app's set-up screen and in
 Privacy & Your Data. Both show the same wording as an unticked box, and the camera opens only after it
 is ticked; removing face sign-in in either place calls the same `DELETE /users/:id/face`.
 

@@ -14,7 +14,8 @@
     "ios": {
       "bundleIdentifier": "com.secureai.mobile",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "SecureAI uses Face ID to securely verify your identity and unlock your device biometric key."
+        "NSFaceIDUsageDescription": "SecureAI uses Face ID to securely verify your identity and unlock your device biometric key.",
+        "NSCameraUsageDescription": "SecureAI uses the front camera only when you choose a face scan to sign in. The camera image stays on this iPhone."
       }
     }
   }

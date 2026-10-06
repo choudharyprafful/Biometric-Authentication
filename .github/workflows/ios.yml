@@ -1,0 +1,209 @@
+name: iOS app
+
+# Builds the iOS app on a GitHub-hosted Mac, because nobody on the team can build it on Windows. It
+# installs the mobile app's packages and CocoaPods, typechecks, and builds a Release app for the iPhone
+# Simulator. Then it checks what went into the app:
+#   - the certificate pins, and that they match the chain the live site serves today;
+#   - no plain-HTTP exception in a Release build;
+#   - the camera usage text, and the patched biometric key flag.
+# Finally it runs the app in a Simulator: a screenshot, and the cookie the live API sets on the app's
+# first request, which shows the pinned TLS connection worked.
+# Kept as artifacts: the built app (it installs on any Mac's Simulator), the screenshot, the app's log,
+# and the Podfile.lock that pod install produced. Commit that Podfile.lock when it differs from the
+# repository's (artifacts/mobile/README.md, "iOS").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - artifacts/mobile/**
+      - .github/workflows/ios.yml
+  pull_request:
+    paths:
+      - artifacts/mobile/**
+      - .github/workflows/ios.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: iOS app (Simulator build)
+    runs-on: macos-15
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+        working-directory: artifacts/mobile
+    env:
+      # Baked into the JS bundle at build time (src/config.ts); the same values as .env.example.
+      EXPO_PUBLIC_API_BASE_URL: https://d2zb1uxt99m5ks.cloudfront.net/api
+      EXPO_PUBLIC_APP_ORIGIN: https://secureai-mobile.app
+      EXPO_NO_TELEMETRY: "1"
+      APP_HOST: d2zb1uxt99m5ks.cloudfront.net
+      BUNDLE_ID: com.secureai.mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The mobile app is its own pnpm root (artifacts/mobile/pnpm-workspace.yaml), installed with the
+      # pnpm its lockfile was written by, not the root workspace's.
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.20.0
+          package_json_file: artifacts/mobile/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: artifacts/mobile/pnpm-lock.yaml
+
+      - name: Xcode 16.4 (React Native 0.76 is built and tested against Xcode 16)
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app
+          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/out"
+
+      - name: Install the app's packages (applies patches/)
+        run: pnpm install --frozen-lockfile
+
+      - name: The iOS device key is created with BiometryCurrentSet (patches/, docs/04 R-MOBILE-4)
+        run: |
+          f=node_modules/react-native-biometrics/ios/ReactNativeBiometrics.m
+          grep -n "kSecAccessControlBiometryCurrentSet" "$f"
+          if grep -n "= kSecAccessControlBiometryAny;" "$f"; then
+            echo "::error::react-native-biometrics still creates the key with BiometryAny"
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: pod install
+        working-directory: artifacts/mobile/ios
+        run: |
+          pod install
+          cp Podfile.lock "$RUNNER_TEMP/out/Podfile.lock"
+          if git diff --quiet -- Podfile.lock; then
+            echo "Podfile.lock is up to date."
+          else
+            echo "::notice::pod install changed Podfile.lock: commit the copy in the ios-simulator-build artifact."
+            git diff --stat -- Podfile.lock
+          fi
+
+      - name: Build (Release, iPhone Simulator, arm64)
+        working-directory: artifacts/mobile/ios
+        run: |
+          if ! xcodebuild -workspace SecureAI.xcworkspace -scheme SecureAI -configuration Release \
+            -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/dd" ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build \
+            > "$RUNNER_TEMP/out/build.log" 2>&1; then
+            grep -n -E "error:|\*\* BUILD FAILED" "$RUNNER_TEMP/out/build.log" | head -40
+            tail -n 80 "$RUNNER_TEMP/out/build.log"
+            exit 1
+          fi
+          tail -n 5 "$RUNNER_TEMP/out/build.log"
+          echo "APP=$RUNNER_TEMP/dd/Build/Products/Release-iphonesimulator/SecureAI.app" >> "$GITHUB_ENV"
+
+      - name: Check what went into the app
+        run: |
+          PB=/usr/libexec/PlistBuddy
+          PLIST="$APP/Info.plist"
+          plutil -p "$PLIST" | sed -n '/NSAppTransportSecurity/,/^  }/p'
+          pins=$("$PB" -c "Print :NSAppTransportSecurity:NSPinnedDomains:$APP_HOST:NSPinnedCAIdentities" "$PLIST")
+          for pin in "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=" "++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI="; do
+            if ! grep -qF "$pin" <<<"$pins"; then echo "::error::pin $pin missing"; exit 1; fi
+          done
+          echo "Pins present: Amazon RSA 2048 M04 and Amazon Root CA 1."
+          if "$PB" -c "Print :NSAppTransportSecurity:NSAllowsLocalNetworking" "$PLIST" >/dev/null 2>&1; then
+            echo "::error::The Release build still allows plain HTTP to local addresses"
+            exit 1
+          fi
+          echo "No plain-HTTP exception in the Release build."
+          echo "Camera text: $("$PB" -c "Print :NSCameraUsageDescription" "$PLIST")"
+          if ! grep -a -q "/app-face" "$APP/main.jsbundle"; then
+            echo "::error::The JS bundle has no face check address"
+            exit 1
+          fi
+          if ! grep -a -q "$APP_HOST" "$APP/main.jsbundle"; then
+            echo "::error::The JS bundle doesn't point at the live API"
+            exit 1
+          fi
+          echo "JS bundle points at the live site and has the face check."
+
+      - name: The pins match the certificates the live site serves today
+        run: |
+          echo | openssl s_client -connect "$APP_HOST:443" -servername "$APP_HOST" -showcerts 2>/dev/null > "$RUNNER_TEMP/chain.pem"
+          awk -v dir="$RUNNER_TEMP" '/BEGIN CERT/{n++} n{print > (dir "/cert" n ".pem")}' "$RUNNER_TEMP/chain.pem"
+          found=0
+          for c in "$RUNNER_TEMP"/cert*.pem; do
+            spki=$(openssl x509 -in "$c" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64)
+            echo "$spki  $(openssl x509 -in "$c" -noout -subject)"
+            case "$spki" in
+              "G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c="|"++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=") found=$((found + 1)) ;;
+            esac
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::No pinned key is in the live chain: the installed app could not reach the API"
+            exit 1
+          fi
+          echo "$found of the 2 pinned keys are in the live chain."
+
+      - name: Run it in the Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              if "iOS" in runtime:
+                  for d in devices[runtime]:
+                      if d["name"].startswith("iPhone"):
+                          print(d["udid"]); sys.exit()
+          ')
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 45
+          xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/ios-launch.png"
+          if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE_ID"; then
+            echo "::error::The app is not running 45 seconds after launch"
+            exit 1
+          fi
+          echo "The app started and is still running."
+
+      - name: The app's first request to the live API got through the pinned connection
+        run: |
+          # On launch the app asks the API who is signed in (src/context/AuthContext.tsx); the answer is a
+          # 401 that sets a csrf_token cookie. With a wrong pin the request fails before any response, and
+          # no cookie exists. Sending the app to the background makes iOS write its cookies to disk.
+          xcrun simctl launch "$UDID" com.apple.Preferences
+          sleep 10
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'process == "SecureAI"' > "$RUNNER_TEMP/out/app-log.txt" 2>&1 || true
+          # Supporting evidence only (the cookie below is the test): TLS and ATS failures, if any.
+          grep -i -E "Code=-120[0-2]|-9802|-9807|ATS failed|pinning" "$RUNNER_TEMP/out/app-log.txt" \
+            && echo "::warning::The app's log mentions a TLS or pinning problem (see app-log.txt)" || true
+          DATA=$(xcrun simctl get_app_container "$UDID" "$BUNDLE_ID" data)
+          JAR="$DATA/Library/Cookies/Cookies.binarycookies"
+          if [ -f "$JAR" ] && grep -a -q "csrf_token" "$JAR" && grep -a -q "$APP_HOST" "$JAR"; then
+            echo "The live API's csrf_token cookie is stored: the pinned connection works."
+          else
+            echo "::error::No cookie from the live API: the app's first request did not complete"
+            ls -la "$DATA/Library" "$DATA/Library/Cookies" 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Keep the app, its log, the screenshot and the Podfile.lock
+        if: always()
+        run: |
+          if [ -n "$APP" ] && [ -d "$APP" ]; then
+            (cd "$(dirname "$APP")" && zip -qry "$RUNNER_TEMP/out/SecureAI-simulator.app.zip" SecureAI.app)
+          fi
+          ls -la "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: ios-simulator-build
+          path: ${{ runner.temp }}/out
+          retention-days: 14

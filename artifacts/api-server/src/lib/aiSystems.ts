@@ -51,7 +51,7 @@ export const AI_SYSTEMS: readonly AiSystem[] = [
     purpose:
       "Confirms it is the account owner when signing in or resetting a password, as one of the second factors.",
     whyAi:
-      "Recognising a face in a camera image cannot be written as fixed rules; a trained model turns the image into 128 numbers that can be compared. A passkey (in the phone app, fingerprint) is always offered as well, so nobody has to rely on the model.",
+      "Recognising a face in a camera image cannot be written as fixed rules; a trained model turns the image into 128 numbers that can be compared. A passkey (in the phone app, fingerprint, Face ID or Touch ID) is always offered as well, so nobody has to rely on the model.",
     decides:
       "Whether a face scan is close enough to the enrolled face (distance below 0.6). A miss refuses that attempt; after repeated misses the sign-in has to be restarted. It never locks or deletes an account.",
     dataUsed:
@@ -59,7 +59,7 @@ export const AI_SYSTEMS: readonly AiSystem[] = [
     runsWhere:
       "Face detection and template extraction on your device (your browser, or the phone app's face check); the comparison on the server.",
     humanOversight:
-      "Face is optional: you can set up and sign in with a passkey (in the phone app, fingerprint) instead, and add or remove your face at any time. IT support or an administrator can reset your second factors after checking it is you. Repeated failures, and scans clustered just above the match threshold, alert security analysts.",
+      "Face is optional: you can set up and sign in with a passkey (in the phone app, fingerprint, Face ID or Touch ID) instead, and add or remove your face at any time. IT support or an administrator can reset your second factors after checking it is you. Repeated failures, and scans clustered just above the match threshold, alert security analysts.",
     howToChallenge: CHALLENGE,
     knownLimits: [
       "Its accuracy has not been measured on SecureAI's own users: that needs a demographically labelled set of consented face images, which this project's synthetic-data rule rules out. The library reports 99.38% on the LFW benchmark, a dataset widely documented as demographically unbalanced.",
@@ -88,7 +88,7 @@ export const AI_SYSTEMS: readonly AiSystem[] = [
       "The same live camera frames, only on your device. Nothing is stored or sent.",
     runsWhere: "Your device: your browser, or the phone app's face check.",
     humanOversight:
-      "If it cannot see you blink, use your passkey or fingerprint instead; nothing is recorded against you.",
+      "If it cannot see you blink, use your passkey, fingerprint, Face ID or Touch ID instead; nothing is recorded against you.",
     howToChallenge: CHALLENGE,
     knownLimits: [
       "May not work for people who cannot blink normally, or with some eye conditions, glasses glare or poor light.",

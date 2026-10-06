@@ -154,6 +154,7 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				180C0594C79F439F661639CA /* [CP] Embed Pods Frameworks */,
+				85BE7DEEB8763A9B9D0883D8 /* [SecureAI] Release: no plain HTTP to local addresses */,
 			);
 			buildRules = (
 			);
@@ -315,6 +316,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-SecureAI/expo-configure-project.sh\"\n";
+		};
+		85BE7DEEB8763A9B9D0883D8 /* [SecureAI] Release: no plain HTTP to local addresses */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "[SecureAI] Release: no plain HTTP to local addresses";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Release builds talk only to the live HTTPS API. Plain HTTP to local network addresses is for\n# development (Metro and a local API), so it is removed from the built Info.plist here, as Android\n# allows cleartext in debug builds only (docs/04 R-MOBILE-4).\ncase \"$CONFIGURATION\" in\n  *Debug*) exit 0 ;;\nesac\nPLIST=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nif /usr/libexec/PlistBuddy -c \"Print :NSAppTransportSecurity:NSAllowsLocalNetworking\" \"$PLIST\" >/dev/null 2>&1; then\n  /usr/libexec/PlistBuddy -c \"Delete :NSAppTransportSecurity:NSAllowsLocalNetworking\" \"$PLIST\"\nfi\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 

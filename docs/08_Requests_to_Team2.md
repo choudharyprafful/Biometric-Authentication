@@ -340,3 +340,9 @@ Privacy & Your Data). Team 2 may want to confirm:
   fingerprint instead", "under Privacy & Your Data") is acceptable as express consent for biometric
   information;
 - that collecting the template through the app needs no change beyond section 2.
+
+**2026-10-07:** the iPhone app offers the same check, as "Face scan" next to Face ID or Touch ID. Its
+consent box says "I can use Face ID or Touch ID instead". At the next revision of the policy, section 2's
+"a passkey or your phone's fingerprint instead" could read "a passkey, or your phone's fingerprint, Face
+ID or Touch ID, instead". It was not changed now, because a new version asks everyone to review the
+policy again for one word.

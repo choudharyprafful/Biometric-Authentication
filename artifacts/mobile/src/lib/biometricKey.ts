@@ -61,10 +61,20 @@ export async function loginWithBiometricKey(): Promise<{ verified: boolean }> {
     { method: "POST" },
   );
 
-  const { success, signature } = await biometrics.createSignature({
-    promptMessage: "Confirm your biometric to sign in",
-    payload: challenge,
-  });
+  // A cancelled prompt resolves with success false. A rejection means the key itself can't be used:
+  // most often because a fingerprint or face was added to or removed from the phone since it was set
+  // up, which switches the key off on purpose (Android, and iOS through the library patch in
+  // pnpm-workspace.yaml; docs/04 R-MOBILE-4), or because this phone never had one.
+  const { success, signature } = await biometrics
+    .createSignature({
+      promptMessage: "Confirm your biometric to sign in",
+      payload: challenge,
+    })
+    .catch(() => {
+      throw new Error(
+        "This phone's sign-in key can't be used. If a fingerprint or face was added to the phone since you set it up, the key was switched off for safety: sign in another way and set it up again under Privacy & Your Data, or link this device.",
+      );
+    });
   if (!success || !signature)
     throw new Error("Biometric verification was cancelled or failed");
 

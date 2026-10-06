@@ -15,31 +15,33 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "./ui";
 import { colors, fonts } from "../theme";
 import { FACE_CHECK_URL, WEB_ORIGIN, originOf } from "../config";
+import { DEVICE_KEY_PHRASE } from "../lib/biometricKey";
 
 // Face sign-in on the phone (docs/04 R-AUTH-1). When an app asks Android for a biometric, Android
 // decides which one to use: an app can't ask for face rather than fingerprint, and many phones' face
-// unlock is rated too weak for apps to use at all. So the Face option is the website's own face
+// unlock is rated too weak for apps to use at all. So the face option is the website's own face
 // check: this opens the site's /app-face page in a WebView, the page computes the 128-number face
 // descriptor with the same models and blink check as the website, and posts it here. The caller
-// then sends it to the API over the app's own connection. Unlike the fingerprint option, which
-// signs a challenge with a key that never leaves the phone, this sends a face template: the same
-// documented departure from the brief that the website makes.
+// then sends it to the API over the app's own connection. Unlike the device key (fingerprint, Face
+// ID or Touch ID), which signs a challenge with a key that never leaves the phone, this sends a face
+// template: the same documented departure from the brief that the website makes. The iPhone app
+// offers it too since 2026-10-07, as the same alternative to the device key as on Android.
 //
 // The WebView gives the camera to any page it shows once the app holds the camera permission, so
 // it is locked to the site: it loads nothing from anywhere else, and only a message from the site's
 // own page is accepted.
 
-// Offered on Android only. On an iPhone, Face ID already unlocks the device key
-// (src/lib/biometricKey.ts), which is the brief's own design; this WebView path hasn't been built
-// or tested for iOS, which would need NSCameraUsageDescription first.
-export const FACE_CHECK_SUPPORTED = Platform.OS === "android";
+// The option's name. On Android it is "Face". An iPhone's Face ID already unlocks the device key
+// (src/lib/biometricKey.ts), so there it is a "Face scan", to keep the two apart.
+export const FACE_OPTION_NAME = Platform.OS === "ios" ? "Face scan" : "Face";
+export const FACE_OPTION_PHRASE =
+  Platform.OS === "ios" ? "a face scan" : "your face";
 
 const DESCRIPTOR_LENGTH = 128;
 
 // Asked with an unticked box before a face is set up (EnrollScreen, PrivacyScreen); the website asks
 // the same in Enroll.tsx. The server refuses to store a template without it.
-export const FACE_CONSENT_TEXT =
-  "I consent to SecureAI storing a template of my face for sign-in. Biometric information is sensitive information under the Privacy Act 1988, so this is asked separately from my account data, and only because I chose face sign-in: I can use my fingerprint instead. The template is 128 numbers computed on this phone (the camera image never leaves it), stored encrypted on SecureAI's servers in the United States, and used only to confirm it's me at sign-in and password reset. I can withdraw this consent at any time under Privacy & Your Data, which permanently deletes it.";
+export const FACE_CONSENT_TEXT = `I consent to SecureAI storing a template of my face for sign-in. Biometric information is sensitive information under the Privacy Act 1988, so this is asked separately from my account data, and only because I chose face sign-in: I can use ${Platform.OS === "ios" ? "Face ID or Touch ID" : "my fingerprint"} instead. The template is 128 numbers computed on this phone (the camera image never leaves it), stored encrypted on SecureAI's servers in the United States, and used only to confirm it's me at sign-in and password reset. I can withdraw this consent at any time under Privacy & Your Data, which permanently deletes it.`;
 
 /** The 128 finite numbers the face check page posts, or null for any other message. */
 export function parseFaceMessage(data: string): number[] | null {
@@ -67,6 +69,8 @@ export function parseFaceMessage(data: string): number[] | null {
 
 type CameraAccess = "asking" | "granted" | "denied" | "blocked";
 
+// On an iPhone the system asks for the camera itself, the first time the page opens it, with the
+// NSCameraUsageDescription text in Info.plist.
 async function askForCamera(): Promise<CameraAccess> {
   if (Platform.OS !== "android") return "granted";
   try {
@@ -137,6 +141,9 @@ export function FaceCapture({
     onCapture(descriptor);
   };
 
+  const stopped = () =>
+    setLoadError("The face check stopped unexpectedly. Try again.");
+
   let body: React.ReactNode;
   if (camera === "asking") {
     body = (
@@ -149,8 +156,8 @@ export function FaceCapture({
       <View style={styles.centered}>
         <Text style={styles.message}>
           {camera === "blocked"
-            ? "The camera is switched off for SecureAI. Turn it on in Settings, under Apps, SecureAI, Permissions, then try again. Or cancel and use your fingerprint."
-            : "Face sign-in needs the front camera. Allow it when asked, or cancel and use your fingerprint."}
+            ? `The camera is switched off for SecureAI. Turn it on in Settings, under Apps, SecureAI, Permissions, then try again. Or cancel and use ${DEVICE_KEY_PHRASE}.`
+            : `Face sign-in needs the front camera. Allow it when asked, or cancel and use ${DEVICE_KEY_PHRASE}.`}
         </Text>
         {camera === "blocked" ? (
           <Button
@@ -177,41 +184,51 @@ export function FaceCapture({
     );
   } else {
     body = (
-      <WebView
-        key={attempt}
-        source={{ uri: FACE_CHECK_URL }}
-        // Leaving the site is refused here; originWhitelist would hand such a link to the browser.
-        originWhitelist={[WEB_ORIGIN]}
-        onShouldStartLoadWithRequest={(request) =>
-          originOf(request.url) === WEB_ORIGIN
-        }
-        onMessage={handleMessage}
-        // The camera preview is a muted <video> that has to play without a tap.
-        mediaPlaybackRequiresUserAction={false}
-        allowsInlineMediaPlayback
-        setSupportMultipleWindows={false}
-        startInLoadingState
-        renderLoading={() => (
-          <View style={[StyleSheet.absoluteFill, styles.centered]}>
-            <ActivityIndicator color={colors.primary} />
-          </View>
-        )}
-        onError={() =>
-          setLoadError(
-            "The face check couldn't load. Check your internet connection and try again.",
-          )
-        }
-        onHttpError={() =>
-          setLoadError(
-            "The face check couldn't load. Try again in a moment, or use your fingerprint.",
-          )
-        }
-        onRenderProcessGone={() =>
-          setLoadError("The face check stopped unexpectedly. Try again.")
-        }
-        style={styles.webview}
-        testID="face-check-webview"
-      />
+      <>
+        <WebView
+          key={attempt}
+          source={{ uri: FACE_CHECK_URL }}
+          // Leaving the site is refused here; originWhitelist would hand such a link to the browser.
+          originWhitelist={[WEB_ORIGIN]}
+          onShouldStartLoadWithRequest={(request) =>
+            originOf(request.url) === WEB_ORIGIN
+          }
+          onMessage={handleMessage}
+          // The camera preview is a muted <video> that has to play without a tap, inside the page.
+          mediaPlaybackRequiresUserAction={false}
+          allowsInlineMediaPlayback
+          // iPhone: the site's own page gets the camera without WebKit asking a second time, once
+          // the system has; a page from anywhere else would be refused, though none can load here.
+          mediaCapturePermissionGrantType="grantIfSameHostElseDeny"
+          setSupportMultipleWindows={false}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={[StyleSheet.absoluteFill, styles.centered]}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          )}
+          onError={() =>
+            setLoadError(
+              "The face check couldn't load. Check your internet connection and try again.",
+            )
+          }
+          onHttpError={() =>
+            setLoadError(
+              `The face check couldn't load. Try again in a moment, or use ${DEVICE_KEY_PHRASE}.`,
+            )
+          }
+          onRenderProcessGone={stopped}
+          onContentProcessDidTerminate={stopped}
+          style={styles.webview}
+          testID="face-check-webview"
+        />
+        {Platform.OS === "ios" ? (
+          <Text style={styles.hint}>
+            Camera not starting? Allow it in Settings, SecureAI, Camera, or
+            cancel and use Face ID or Touch ID.
+          </Text>
+        ) : null}
+      </>
     );
   }
 
@@ -275,6 +292,14 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     textAlign: "center",
     marginBottom: 16,
+  },
+  hint: {
+    color: colors.mutedForeground,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
   },
   action: { alignSelf: "stretch", marginTop: 8 },
 });
