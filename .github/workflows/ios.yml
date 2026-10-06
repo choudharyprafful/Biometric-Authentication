@@ -97,7 +97,8 @@ jobs:
             -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$RUNNER_TEMP/dd" ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build \
             > "$RUNNER_TEMP/out/build.log" 2>&1; then
-            grep -n -E "error:|\*\* BUILD FAILED" "$RUNNER_TEMP/out/build.log" | head -40
+            grep -n -E "error:|\*\* BUILD FAILED" "$RUNNER_TEMP/out/build.log" > "$RUNNER_TEMP/errors.txt" || true
+            head -n 40 "$RUNNER_TEMP/errors.txt"
             tail -n 80 "$RUNNER_TEMP/out/build.log"
             exit 1
           fi
@@ -150,14 +151,17 @@ jobs:
 
       - name: Run it in the Simulator
         run: |
+          # An iPhone on an iOS 18 runtime, the one Xcode 16.4's SDK matches; the newest iOS otherwise.
           UDID=$(xcrun simctl list devices available --json | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]
-          for runtime in sorted(devices, reverse=True):
-              if "iOS" in runtime:
-                  for d in devices[runtime]:
-                      if d["name"].startswith("iPhone"):
-                          print(d["udid"]); sys.exit()
+          runtimes = sorted((r for r in devices if "iOS" in r), reverse=True)
+          runtimes.sort(key=lambda r: "iOS-18" not in r)
+          for runtime in runtimes:
+              for d in devices[runtime]:
+                  if d["name"].startswith("iPhone"):
+                      print(d["name"], runtime.rsplit(".", 1)[-1], file=sys.stderr)
+                      print(d["udid"]); sys.exit()
           ')
           echo "UDID=$UDID" >> "$GITHUB_ENV"
           xcrun simctl boot "$UDID"
@@ -166,7 +170,10 @@ jobs:
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
           sleep 45
           xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/out/ios-launch.png"
-          if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE_ID"; then
+          # The list is read whole first: grep -q stops at the first match and closes the pipe, and under
+          # pipefail the listing's broken pipe would fail this check exactly when the app is running.
+          running=$(xcrun simctl spawn "$UDID" launchctl list)
+          if ! grep -qF "$BUNDLE_ID" <<<"$running"; then
             echo "::error::The app is not running 45 seconds after launch"
             exit 1
           fi
