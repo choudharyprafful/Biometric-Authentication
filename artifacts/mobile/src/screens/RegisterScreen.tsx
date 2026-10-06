@@ -7,17 +7,32 @@ import { colors, fonts } from '../theme';
 
 export function RegisterScreen({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   const { refetchUser } = useAuth();
+
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const handleRegister = async () => {
     setError('');
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) {
+      setError('Enter date of birth as YYYY-MM-DD.');
+      return;
+    }
+
     setBusy(true);
+
     try {
-      await register(email.trim().toLowerCase(), name.trim(), password);
+      await register(
+        email.trim().toLowerCase(),
+        name.trim(),
+        password,
+        dateOfBirth.trim()
+      );
+
       await refetchUser();
     } catch (err: any) {
       setError(err?.message || 'Registration failed.');
@@ -25,6 +40,7 @@ export function RegisterScreen({ onSwitchToLogin }: { onSwitchToLogin: () => voi
       setBusy(false);
     }
   };
+
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -45,6 +61,16 @@ export function RegisterScreen({ onSwitchToLogin }: { onSwitchToLogin: () => voi
         <View style={styles.field}>
           <Label>Password</Label>
           <Input secureTextEntry value={password} onChangeText={setPassword} />
+        </View>
+
+        <View style={styles.field}>
+          <Label>Date of Birth (YYYY-MM-DD)</Label>
+          <Input
+            value={dateOfBirth}
+            onChangeText={setDateOfBirth}
+            placeholder="YYYY-MM-DD"
+            autoCapitalize="none"
+          />
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -74,8 +74,24 @@ export async function primeCsrfCookie(): Promise<void> {
   await request('/auth/me').catch(() => {});
 }
 
-export async function register(email: string, name: string, password: string): Promise<{ user: AppUser }> {
-  return request('/auth/register', { method: 'POST', body: { email, name, password, dataConsent: true } });
+export async function register(
+  email: string,
+  name: string,
+  password: string,
+  dateOfBirth: string,
+  parentGuardianEmail?: string
+): Promise<{ user: AppUser }> {
+  return request('/auth/register', {
+    method: 'POST',
+    body: {
+      email,
+      name,
+      password,
+      dataConsent: true,
+      dateOfBirth,
+      ...(parentGuardianEmail ? { parentGuardianEmail } : {}),
+    },
+  });
 }
 
 export async function login(email: string, password: string): Promise<LoginResult> {
