@@ -37,6 +37,7 @@ Built as a student deliverable for **Team 1 (Technical Security)**, per the cour
 | [10 — Production Launch Readiness](docs/10_Production_Launch_Readiness.md)                 | What a real Australian public launch would still need                                             |
 | [11 — Responsible AI Governance](docs/11_Responsible_AI_Governance.md)                     | The AI system register and Team 2's 20 Responsible AI elements, element by element                |
 | [12 — Data Breach Response Plan](docs/12_Data_Breach_Response_Plan.md)                     | Breach register, deadlines and notification, requests from government agencies                    |
+| [Team 1 Technical Scope](docs/Team1_Technical_Scope.pdf)                                   | The assignment brief these documents answer                                                       |
 
 ## Quick start
 
