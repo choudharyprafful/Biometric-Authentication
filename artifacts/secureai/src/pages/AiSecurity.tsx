@@ -373,6 +373,46 @@ function MemorisationCard({ mem }: { mem: AiPocMemorisation }) {
   );
 }
 
+function BehavioralRiskCard({ risk }: { risk: any }) {
+  return (
+    <Card className="space-y-5">
+      <h3 className="font-mono font-bold uppercase tracking-widest text-foreground">
+        Behavioral Risk Model
+      </h3>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-green-500/40 bg-green-500/5 p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Normal Login
+          </p>
+
+          <p className="font-mono text-2xl">
+            {risk.normalLogin.riskScore}
+          </p>
+
+          <Badge variant="success">
+            {risk.normalLogin.level}
+          </Badge>
+        </div>
+
+        <div className="border border-destructive/40 bg-destructive/5 p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Suspicious Login
+          </p>
+
+          <p className="font-mono text-2xl">
+            {risk.suspiciousLogin.riskScore}
+          </p>
+
+          <Badge variant="destructive">
+            {risk.suspiciousLogin.level}
+          </Badge>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function AiSecurity() {
   const { data, isLoading, isFetching, error, refetch } =
     useGetAiSecurityReport({
