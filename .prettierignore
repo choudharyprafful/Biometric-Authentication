@@ -11,9 +11,6 @@ artifacts/api-server/src/lib/aiPocReport.json
 # Face-model files, SHA-256 checked in CI (artifacts/secureai/face-model-weights.sha256)
 artifacts/secureai/public/models/
 
-# Third-party sample code and attachments
-attached_assets/
-
 # Lockfiles and native projects
 pnpm-lock.yaml
 artifacts/mobile/pnpm-lock.yaml

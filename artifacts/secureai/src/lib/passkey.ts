@@ -105,19 +105,3 @@ export async function resetPasswordWithPasskey(
     newPassword,
   });
 }
-
-/** True if the pending-login user has passkeys available (404 = none). */
-export async function passkeyLoginAvailable(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API}/login-options`, {
-      method: "POST",
-      credentials: "include",
-      headers: mutatingHeaders(),
-    });
-    // We only probe availability; a 200 also stores a challenge which is fine —
-    // loginWithPasskey requests fresh options anyway.
-    return res.ok;
-  } catch {
-    return false;
-  }
-}

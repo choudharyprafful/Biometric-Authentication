@@ -41,15 +41,11 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
 # Platform/tooling directories — not part of the project deliverable
 .cache/
 .local/
 .agents/
 .config/
-.replit-artifact/
 
 # Secrets — never commit real credentials (DATABASE_URL, SESSION_SECRET,
 # FILE_ENCRYPTION_KEY, WEBHOOK_SECRET all live here for local dev)

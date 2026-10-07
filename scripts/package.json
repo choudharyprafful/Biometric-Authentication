@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "security:load-test": "tsx ./src/security/load-test.ts",
     "security:probes": "tsx ./src/security/adversarial-probes.ts"

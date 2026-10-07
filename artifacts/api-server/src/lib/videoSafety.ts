@@ -103,16 +103,6 @@ function rebuildBox(type: string, content: Buffer): Buffer {
 
 const GPS_ATOM_TYPE = "©xyz"; // QuickTime GPS coordinate atom, e.g. "+37.3346-122.0090/"
 
-export type DetectedVideoFormat = "mp4";
-
-/** MP4/MOV always opens with an 'ftyp' box (ISO/IEC 14496-12 §4.3) —
- *  detected from the bytes, matching imageSafety.ts's own
- *  don't-trust-declared-MIME-type stance. */
-export function detectVideoFormat(buffer: Buffer): DetectedVideoFormat | null {
-  const box = readBox(buffer, 0, buffer.length);
-  return box && box.type === "ftyp" ? "mp4" : null;
-}
-
 /** Strips the GPS atom from 'moov > udta' when it's safe to do so. Returns
  *  the original buffer, byte-for-byte, whenever it isn't confident that's
  *  safe — including simply "there was nothing to strip." */
