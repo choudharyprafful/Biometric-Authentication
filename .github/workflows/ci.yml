@@ -43,6 +43,12 @@ jobs:
       # Security alert email: every listed address and no one else, no header injection from alert
       # text, and a mail server outage never stopping the alert job.
       - run: pnpm --filter @workspace/api-server run verify:alert-email
+      # The behaviour model's differential privacy: the noise is Laplace-shaped, one account's
+      # influence stays capped, a planted canary leaks within budget, and BEHAVIOR_MODEL_DP_EPSILON
+      # reaches the live suggestion endpoint (it didn't until 2026-10-07; docs/04 §2.2).
+      - run: pnpm --filter @workspace/api-server run verify:dp
+      # Data provenance: which uploads may feed which model (Team 2's acceptability matrix).
+      - run: pnpm --filter @workspace/api-server run verify:provenance
       # The deploy hook that installs ClamAV on the API instance.
       - run: shellcheck artifacts/api-server/.platform/hooks/prebuild/10_clamav.sh
       # The privacy policy text and the version the API records must match.

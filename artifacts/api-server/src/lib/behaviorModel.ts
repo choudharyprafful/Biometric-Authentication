@@ -12,7 +12,12 @@
 
 import { and, asc, eq, inArray, desc, notInArray } from "drizzle-orm";
 import { db, securityLogsTable, usersTable } from "@workspace/db";
-import { MAX_CONTRIBUTED_TRANSITIONS_PER_USER } from "./behaviorModelPrivacy";
+import {
+  MAX_CONTRIBUTED_TRANSITIONS_PER_USER,
+  applyDifferentialPrivacy,
+  privacyReport,
+  readEpsilonFromEnv,
+} from "./behaviorModelPrivacy";
 
 // Excluded from both training and "last event" lookups: including these
 // would make querying the model become the new "last event" (the widget
@@ -194,6 +199,50 @@ export function train(records: TrainingRecord[]): BehaviorTransitionModel {
     transitionsObserved,
     builtAt: new Date(),
   };
+}
+
+/** The model as predictions may use it. With BEHAVIOR_MODEL_DP_EPSILON set, both tables are noised
+ *  and only counts that clear the noisy release threshold remain (lib/behaviorModelPrivacy.ts,
+ *  docs/04 §2.2); unset, the trained model as it is, which predictNext guards with
+ *  MIN_DISTINCT_USERS. */
+export function releasableModel(
+  model: BehaviorTransitionModel,
+  epsilon: number | null = readEpsilonFromEnv(),
+): BehaviorTransitionModel {
+  return epsilon === null ? model : applyDifferentialPrivacy(model, epsilon);
+}
+
+/** Says at start-up whether differential privacy is on and, if so, what the configured ε does to
+ *  the current corpus, so a budget too strict to release anything is visible rather than looking
+ *  configured-fine. A value that isn't a positive number turns it off, which is worth a warning. */
+export async function logBehaviorModelPrivacyAtStartup(log: {
+  info: (o: object, m: string) => void;
+  warn: (o: object, m: string) => void;
+}): Promise<void> {
+  const epsilon = readEpsilonFromEnv();
+  if (epsilon === null) {
+    if (process.env["BEHAVIOR_MODEL_DP_EPSILON"]) {
+      log.warn(
+        {},
+        "Behaviour model: BEHAVIOR_MODEL_DP_EPSILON is not a positive number, so differential privacy is off",
+      );
+    } else {
+      log.info(
+        {},
+        "Behaviour model: differential privacy off (BEHAVIOR_MODEL_DP_EPSILON not set)",
+      );
+    }
+    return;
+  }
+  try {
+    const report = privacyReport(train(await buildTrainingCorpus()), epsilon);
+    log.info({ privacy: report }, "Behaviour model: differential privacy on");
+  } catch (err) {
+    log.warn(
+      { err },
+      "Behaviour model: could not assess the privacy budget at start-up",
+    );
+  }
 }
 
 export interface Prediction {

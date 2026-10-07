@@ -32,7 +32,8 @@ export {};
 // would run first. Testing the real train() matters more than avoiding this.
 process.env["DATABASE_URL"] ??= "postgresql://unused@127.0.0.1:1/unused";
 
-const { train, MIN_DISTINCT_USERS } = await import("./behaviorModel");
+const { train, MIN_DISTINCT_USERS, releasableModel, predictNext } =
+  await import("./behaviorModel");
 type TrainingRecord = Awaited<
   ReturnType<typeof import("./behaviorModel").buildTrainingCorpus>
 >[number];
@@ -44,6 +45,7 @@ const {
   MAX_CONTRIBUTED_TRANSITIONS_PER_USER,
   minimumUsersForEpsilon,
   minimumEpsilonForUsers,
+  readEpsilonFromEnv,
 } = await import("./behaviorModelPrivacy");
 
 let failures = 0;
@@ -215,6 +217,79 @@ console.log(
       `        N=${String(n).padEnd(7)} ε ≥ ${e === null ? "unreachable" : e.toFixed(2)}`,
     );
   }
+}
+
+console.log(
+  "\n[6] The switch — BEHAVIOR_MODEL_DP_EPSILON reaches the live suggestion endpoint",
+);
+// Until 2026-10-07 the mechanism above was correct and never used: nothing outside this file called
+// it, so setting the variable left the live model un-noised (docs/04 §2.2). These checks keep the
+// switch connected.
+{
+  const saved = process.env["BEHAVIOR_MODEL_DP_EPSILON"];
+  const readAs = (value: string | undefined) => {
+    if (value === undefined) delete process.env["BEHAVIOR_MODEL_DP_EPSILON"];
+    else process.env["BEHAVIOR_MODEL_DP_EPSILON"] = value;
+    return readEpsilonFromEnv();
+  };
+  const parsed = [
+    readAs(undefined),
+    readAs(""),
+    readAs("abc"),
+    readAs("0"),
+    readAs("-1"),
+    readAs("2.5"),
+  ];
+  check(
+    "reads the variable: a positive number turns it on, anything else leaves it off",
+    JSON.stringify(parsed) ===
+      JSON.stringify([null, null, null, null, null, 2.5]),
+    `unset, "", "abc", "0", "-1", "2.5" → ${JSON.stringify(parsed)}`,
+  );
+
+  const corpus = train([
+    { userId: 1, sequence: ["LOGIN_SUCCESS", "UPLOAD_CREATED"] },
+    { userId: 2, sequence: ["LOGIN_SUCCESS", "UPLOAD_CREATED"] },
+    { userId: 3, sequence: ["LOGIN_SUCCESS", "UPLOAD_CREATED"] },
+  ]);
+
+  readAs(undefined);
+  const off = releasableModel(corpus);
+  check(
+    "off: the model is used as trained, and three users are enough for a suggestion",
+    off === corpus &&
+      predictNext(off, null, "LOGIN_SUCCESS")?.eventType === "UPLOAD_CREATED",
+    `same model object: ${off === corpus}; suggestion: ${predictNext(off, null, "LOGIN_SUCCESS")?.eventType ?? "none"}`,
+  );
+
+  // The noise is random, and the release rule lets a too-rare cell through about 0.1% of the time
+  // (MAX_LEAK_PROBABILITY), so this counts over 1,000 releases with a wide margin, not one.
+  readAs("1");
+  let noised = 0;
+  let suggested = 0;
+  for (let i = 0; i < 1000; i++) {
+    const on = releasableModel(corpus);
+    if (on !== corpus) noised += 1;
+    if (predictNext(on, null, "LOGIN_SUCCESS") !== null) suggested += 1;
+  }
+  check(
+    "on (ε=1): the model is noised, and three users are far too few to release a suggestion",
+    noised === 1000 && suggested <= 10,
+    `noised ${noised}/1000; a suggestion got through ${suggested}/1000 times (allowed ≤ 10; needs ${minimumUsersForEpsilon(1)} users at ε=1)`,
+  );
+
+  const route = (await import("node:fs")).readFileSync(
+    new URL("../routes/behavior.ts", import.meta.url),
+    "utf8",
+  );
+  check(
+    "the suggestion endpoint predicts from releasableModel(), not from the raw model",
+    /predictNext\(\s*releasableModel\(/.test(route),
+    "routes/behavior.ts",
+  );
+
+  if (saved === undefined) delete process.env["BEHAVIOR_MODEL_DP_EPSILON"];
+  else process.env["BEHAVIOR_MODEL_DP_EPSILON"] = saved;
 }
 
 console.log(

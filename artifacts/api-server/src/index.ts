@@ -9,6 +9,7 @@ import {
   ensureRetentionPurge,
 } from "./lib/dbBootstrap";
 import { logClamdStatusAtStartup } from "./lib/clamdClient";
+import { logBehaviorModelPrivacyAtStartup } from "./lib/behaviorModel";
 
 const rawPort = process.env["PORT"];
 
@@ -46,4 +47,5 @@ app.listen(port, async (err) => {
   startKeyRotationJob();
   startSecurityAlertingJob();
   void logClamdStatusAtStartup(logger);
+  void logBehaviorModelPrivacyAtStartup(logger);
 });
