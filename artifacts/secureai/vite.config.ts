@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 
 // Local development defaults (README "Quick start"): port 5173, which is also the API's default
 // allowed origin (FRONTEND_PORT), served from "/". Deploys set both explicitly
-// (scripts/ops/deploy-web.mjs, amplify.yml).
+// (scripts/ops/deploy-web.mjs).
 const rawPort = process.env.PORT || "5173";
 
 const port = Number(rawPort);

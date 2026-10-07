@@ -185,7 +185,7 @@ silently discarding it — a deliberate, stated demo accommodation. That gate us
 neither correctly configured as `"production"` nor recognisably local dev (unset, mistyped, a future
 staging environment) would leak the link to any API caller, not just the intended recipient. Now an
 allow-list (`lib/devLinks.ts`: `NODE_ENV === "development"`, exactly) — every real deployment path today
-(the Dockerfile's own `ENV NODE_ENV=production`; local dev's own `NODE_ENV=development`) is unaffected,
+(the Elastic Beanstalk environment's `NODE_ENV=production` setting; local dev's own `NODE_ENV=development`) is unaffected,
 but a misconfigured environment now fails safe instead of leaking. Verified live: the link is still
 returned in real local dev, and a throwaway instance with `NODE_ENV` deliberately unset was confirmed to
 correctly return `null` where the old check would have leaked it. See `10_Production_Launch_Readiness.md`
