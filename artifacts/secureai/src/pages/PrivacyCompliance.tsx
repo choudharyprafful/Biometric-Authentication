@@ -436,7 +436,10 @@ function NotifyForm({
           </p>
           {result.unknownEmails.length > 0 && (
             <p className="text-destructive">
-              No account for: {result.unknownEmails.join(", ")}
+              No account for: {result.unknownEmails.join(", ")}. If any of them
+              deleted their account and their kept payment or security records
+              are involved, email them the same statement yourself (privacy
+              policy section 14).
             </p>
           )}
         </div>

@@ -345,4 +345,37 @@ Privacy & Your Data). Team 2 may want to confirm:
 consent box says "I can use Face ID or Touch ID instead". At the next revision of the policy, section 2's
 "a passkey or your phone's fingerprint instead" could read "a passkey, or your phone's fingerprint, Face
 ID or Touch ID, instead". It was not changed now, because a new version asks everyone to review the
-policy again for one word.
+policy again for one word. Changed in version 2026-10-07 (section 5f).
+
+## 5f. 2026-10-07: data breaches explained in more detail (privacy policy version 2026-10-07)
+
+Section 14 was rewritten so people can see what happens after a breach, and when they and the OAIC are
+told, which is what the client's breach requirement asked for (section 5d). It follows the response plan,
+`12_Data_Breach_Response_Plan.md`, which was updated to match. Version 2026-10-07 changes:
+
+- **Section 14**, now under headings:
+  - the five steps (contain, assess, tell the OAIC, tell you, review), each with when it happens, in a
+    table;
+  - what serious harm means and what decides whether it is likely;
+  - that no notification is needed when quick action means serious harm is no longer likely (s 26WF),
+    while the breach and the reasons are still recorded;
+  - how people are told, including people who deleted their account but whose payment or security
+    records are kept (section 10), who are emailed;
+  - what every notice says;
+  - how to spot a fake breach email;
+  - what people can do: follow the notice, sign out of all devices, change their password, tell us;
+  - the records kept, and complaints.
+
+  It also says that breaches at our service providers count.
+
+- **Section 2 and the notice at the top of the policy:** "Face ID or Touch ID" added next to fingerprint
+  (section 5e).
+
+Team 2 may want to confirm two commitments that are new in this version:
+
+- EU and UK users: the relevant data protection authority is told within 72 hours, and the people
+  affected are told directly when the risk to them is high (GDPR articles 33 and 34). The response lead
+  watches this deadline; the app's alerts follow the Australian scheme's (docs/12, section 5).
+- People who deleted their account are emailed by hand when a breach involves their kept records. The
+  app can't show them a notice, and "Tell the people affected" lists their addresses back as having no
+  account.

@@ -212,6 +212,9 @@ function fmt(date: Date): string {
 /**
  * The notification statement the Notifiable Data Breaches scheme asks for: who we are and how to
  * contact us, what happened, the kinds of information involved, and what the person should do.
+ * Privacy policy section 14 tells people that this email never asks for a password or payment
+ * details and that its only SecureAI link is the home page, so a fake is easier to spot. Keep both
+ * true.
  */
 function breachEmail(b: DataBreach): { subject: string; text: string } {
   return {

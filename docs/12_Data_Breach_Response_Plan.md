@@ -4,10 +4,15 @@ What SecureAI does when personal information may have been breached, and what it
 agency asks for someone's information. It follows Australia's Notifiable Data Breaches (NDB) scheme
 (Privacy Act 1988, Part IIIC) and the OAIC's four steps: contain, assess, notify, review.
 
-Written 4 October 2026 for Miifile Pty Ltd's requirements of 2 October 2026 (docs/08, section 5d). The
-app side is the **Privacy Compliance** page (security analysts and administrators), the breach notice
-people see in the web and phone apps, and the records behind them. This is a student proof of concept:
-a real deployment needs a named privacy officer and a legal review of this plan.
+Written 4 October 2026 for Miifile Pty Ltd's requirements of 2 October 2026 (docs/08, section 5d), and
+updated 7 October 2026 with the privacy policy's section 14 (version 2026-10-07, docs/08 section 5f),
+which tells people what this plan does: change the two together. The app side is the **Privacy
+Compliance** page (security analysts and administrators), the breach notice people see in the web and
+phone apps, and the records behind them. This is a student proof of concept: a real deployment needs a
+named privacy officer and a legal review of this plan.
+
+The plan covers information SecureAI's service providers hold for it (AWS and Google, privacy policy
+section 9) as well as its own systems: a breach on their side is handled the same way.
 
 ## 1. Who does what
 
@@ -24,15 +29,33 @@ every push.
 
 ## 2. The four steps
 
-| Step       | Deadline                                                                   | What to do                                                                                                                                                                                                        | Recorded as                                                                                                                                                     |
-| ---------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Contain | Straight away                                                              | Stop the exposure (revoke the key, close the bucket, rotate the password). Record the breach on Privacy Compliance with when it was discovered, what happened, the information involved and what people should do | `data_breaches` row; `DATA_BREACH_RECORDED` audit event                                                                                                         |
-| 2. Assess  | Within 30 days of discovering it (s 26WH)                                  | Decide whether serious harm is likely (s 26WG: the kind and sensitivity of the information, who has it, whether it is protected, what has been done since). Write down the reasons. Record when it was contained  | `assessment`, `assessment_note`, `assessed_at`; `DATA_BREACH_ASSESSED`                                                                                          |
-| 3. Notify  | As soon as practicable once it is an eligible data breach (s 26WK, s 26WL) | Submit the OAIC's Notifiable Data Breach form, then record the date and the OAIC's reference. Tell the people affected: listed accounts, or everyone                                                              | `regulator_notified_at`, `regulator_reference`, `users_notified_at`, `data_breach_notices` rows; `DATA_BREACH_REGULATOR_NOTIFIED`, `DATA_BREACH_USERS_NOTIFIED` |
-| 4. Review  | After the response                                                         | Fix the cause, update docs/04's risk register, and check this plan worked                                                                                                                                         | docs/04                                                                                                                                                         |
+| Step       | Deadline                                                                                                           | What to do                                                                                                                                                                                                                                                                                                   | Recorded as                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Contain | Straight away                                                                                                      | Stop the exposure (revoke the key, close the bucket, rotate the password). Record the breach on Privacy Compliance with when it was discovered, what happened, the information involved and what people should do                                                                                            | `data_breaches` row; `DATA_BREACH_RECORDED` audit event                                                                                                         |
+| 2. Assess  | Within 30 days of discovering it (s 26WH)                                                                          | Decide whether serious harm is likely (s 26WG: the kind and sensitivity of the information, who has it, whether it is protected, what has been done since). If action taken in time means it no longer is, the breach is not eligible (s 26WF): say so. Write down the reasons. Record when it was contained | `assessment`, `assessment_note`, `assessed_at`; `DATA_BREACH_ASSESSED`                                                                                          |
+| 3. Notify  | As soon as practicable once it is an eligible data breach, without waiting for the 30 days to end (s 26WK, s 26WL) | Submit the OAIC's Notifiable Data Breach form, then record the date and the OAIC's reference. Tell the people affected at the same time or straight after: listed accounts, or everyone, and by hand anyone who has deleted their account (below)                                                            | `regulator_notified_at`, `regulator_reference`, `users_notified_at`, `data_breach_notices` rows; `DATA_BREACH_REGULATOR_NOTIFIED`, `DATA_BREACH_USERS_NOTIFIED` |
+| 4. Review  | After the response                                                                                                 | Fix the cause, update docs/04's risk register, and check this plan worked                                                                                                                                                                                                                                    | docs/04                                                                                                                                                         |
 
 A breach judged not eligible stays in the register with its reasons. It can be reassessed if new facts
-come to light; every assessment stays in the audit log.
+come to light; every assessment stays in the audit log. People can be told about a breach that isn't
+eligible too, when there is something they can do to protect themselves: "Tell the people affected"
+works at any stage.
+
+### People who deleted their account
+
+Their payment and security records are kept after deletion, with their email (privacy policy section
+10), so a breach can involve them. The app can't show them a notice, and "Tell the people affected"
+lists their addresses back as having no account. Email them the same statement by hand, from the
+address the app's emails come from (the policy tells people breach emails come from it), and write in
+the assessment note that they were told and when.
+
+### EU and UK users
+
+If people in the EU or UK are affected, the response lead also tells the relevant supervisory authority
+within 72 hours of becoming aware of the breach, unless it is unlikely to result in a risk to their
+rights and freedoms (GDPR art. 33), and tells those people without undue delay if the risk to them is
+high (art. 34). The register's notification fields are for the OAIC: record the authority, the date and
+its reference in the assessment note.
 
 ### Deadlines are watched
 
@@ -54,14 +77,16 @@ is in plain words from the start.
 
 - **Email**, sent when an administrator chooses "Tell the people affected" (`lib/dataBreaches.ts`
   `breachEmail`). It ends with how to complain to the OAIC. If email isn't set up, the result says how
-  many could not be emailed.
+  many could not be emailed. It never asks for a password or payment details, and its only SecureAI link
+  is the home page. Policy section 14 tells people so, to make a fake easier to spot, so keep it that
+  way.
 - **A notice in the app**: at the top of every signed-in page on the website, and as a banner on the
   phone app that opens the full notice, until they choose "I've read this"
   (`DATA_BREACH_NOTICE_ACKNOWLEDGED`). The register shows how many were told and how many confirmed.
 - **Their data download** lists every notice they were sent (privacy policy section 11).
 
 Anyone already told about a breach is skipped, so it is safe to send again to a longer list. Addresses
-with no account are reported back rather than ignored.
+with no account are reported back rather than ignored (see "People who deleted their account" above).
 
 ## 3. Requests from government agencies
 
@@ -98,6 +123,10 @@ of challenges to AI decisions 2 years.
 - The NDB scheme also allows publishing a statement on the website when telling each person isn't
   practicable. The app has no public statement page; the in-app notice to everyone is the nearest
   equivalent.
+- The dashboard's alerts follow the NDB scheme's deadlines. The GDPR's 72 hours, for EU and UK users,
+  is the response lead's to watch.
+- People who deleted their account are emailed by hand (section 2). The app records only what staff
+  write in the assessment note.
 
 ## 6. How it was checked
 

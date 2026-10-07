@@ -32,6 +32,12 @@ function Inline({ text }: { text: string }) {
 }
 
 function Block({ block }: { block: PolicyBlock }) {
+  if (block.kind === "heading")
+    return (
+      <h3 className="font-mono text-sm uppercase tracking-widest text-foreground pt-2">
+        {block.text}
+      </h3>
+    );
   if (block.kind === "p")
     return (
       <p className="text-sm text-foreground leading-relaxed">
@@ -49,39 +55,65 @@ function Block({ block }: { block: PolicyBlock }) {
       </ul>
     );
   }
+  // Phones get each row as its own block, labelled with the column names, so no column sits
+  // off-screen; wider screens get the table.
   return (
-    <div className="overflow-x-auto border border-border">
-      <table className="w-full text-sm border-collapse min-w-[40rem]">
-        <thead>
-          <tr className="bg-muted/30">
-            {block.head.map((h) => (
-              <th
-                key={h}
-                className="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2 border-b border-border align-bottom"
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {block.rows.map((row) => (
-            <tr
-              key={row[0]}
-              className="border-b border-border last:border-b-0 align-top"
-            >
-              {row.map((cell, i) => (
-                <td
-                  key={i}
-                  className={`px-3 py-2 ${i === 0 ? "font-semibold text-foreground" : "text-muted-foreground"}`}
-                >
+    <div>
+      <div
+        className="sm:hidden border border-border divide-y divide-border"
+        data-testid="policy-table-stacked"
+      >
+        {block.rows.map((row) => (
+          <div key={row[0]} className="p-3 space-y-2">
+            <p className="text-sm font-semibold text-foreground">
+              <Inline text={row[0]} />
+            </p>
+            {row.slice(1).map((cell, i) => (
+              <div key={block.head[i + 1]}>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {block.head[i + 1]}
+                </p>
+                <p className="text-sm text-foreground leading-relaxed">
                   <Inline text={cell} />
-                </td>
+                </p>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="hidden sm:block overflow-x-auto border border-border">
+        <table className="w-full text-sm border-collapse min-w-[40rem]">
+          <thead>
+            <tr className="bg-muted/30">
+              {block.head.map((h) => (
+                <th
+                  key={h}
+                  className="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2 border-b border-border align-bottom"
+                >
+                  {h}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {block.rows.map((row) => (
+              <tr
+                key={row[0]}
+                className="border-b border-border last:border-b-0 align-top"
+              >
+                {row.map((cell, i) => (
+                  <td
+                    key={i}
+                    className={`px-3 py-2 ${i === 0 ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+                  >
+                    <Inline text={cell} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

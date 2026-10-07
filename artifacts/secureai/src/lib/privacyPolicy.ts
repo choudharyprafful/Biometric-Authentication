@@ -2,7 +2,10 @@
 // updated by Team 1 on 26 September 2026 so every statement matches what the app does (the changes
 // are listed in docs/08, section 5c); updated on 4 October 2026 for the client's requirements on
 // retention, government requests, readable data copies and data breaches (docs/08, section 5d);
-// updated on 6 October 2026 for face sign-in in the phone app (docs/08, section 5e).
+// updated on 6 October 2026 for face sign-in in the phone app (docs/08, section 5e); updated on
+// 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID
+// (docs/08, section 5f). Section 14 follows docs/12_Data_Breach_Response_Plan.md: change both
+// together.
 // The version must match PRIVACY_POLICY_VERSION in
 // artifacts/api-server/src/lib/privacyPolicy.ts; scripts/check-privacy-policy-version.mjs checks it
 // in CI. Change the version whenever the text changes, and signed-in users are asked to review it.
@@ -10,6 +13,7 @@
 // Inline links use [text](/path).
 
 export type PolicyBlock =
+  | { kind: "heading"; text: string }
   | { kind: "p"; text: string }
   | { kind: "list"; items: string[] }
   | { kind: "table"; head: string[]; rows: string[][] };
@@ -21,12 +25,12 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: "2026-10-06",
-  effectiveDate: "6 October 2026",
+  version: "2026-10-07",
+  effectiveDate: "7 October 2026",
   status:
-    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026 and updated by Team 1 on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times, on 4 October 2026 to add the client's requirements: how long records are kept, requests from government agencies, a readable copy of your data, and data breaches, and on 6 October 2026 because the phone app now offers face sign-in too. Pending review by Team 2 and a legal adviser; not legal advice.",
+    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; and on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID. Pending review by Team 2 and a legal adviser; not legal advice.",
   demoNotice:
-    "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey, or fingerprint sign-in in the phone app, instead.",
+    "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead, or in the phone app use your fingerprint, Face ID or Touch ID.",
   contact: "privacy@secureai.example",
   contactNote:
     "placeholder address, not yet monitored: until it is, use the challenge form on [How SecureAI uses AI](/ai#challenge)",
@@ -77,7 +81,7 @@ export const PRIVACY_POLICY = {
               "Face template (only if you choose face sign-in)",
               "128 numbers computed on your device from the camera, in your browser or in the SecureAI phone app. The camera image never leaves your device; the template is sent to us and stored encrypted",
               "Very high: biometric information is sensitive information under the Privacy Act 1988, even when encrypted",
-              "Confirming it's you at sign-in and password reset, and nothing else. Collected only with your express consent, and you can use a passkey or your phone's fingerprint instead. Delete it any time in Security Settings, or in Privacy & Your Data in the phone app",
+              "Confirming it's you at sign-in and password reset, and nothing else. Collected only with your express consent, and you can use a passkey, or your phone's fingerprint, Face ID or Touch ID, instead. Delete it any time in Security Settings, or in Privacy & Your Data in the phone app",
             ],
             [
               "Passkey or phone key",
@@ -376,19 +380,85 @@ export const PRIVACY_POLICY = {
       blocks: [
         {
           kind: "p",
-          text: "A data breach is when personal information is accessed or disclosed without permission, or lost. If we suspect one, we act straight away to contain it and assess it within 30 days. If it is likely to result in serious harm to you, we tell you and the Office of the Australian Information Commissioner (OAIC) as soon as practicable, as Australia's Notifiable Data Breaches scheme requires.",
+          text: "A data breach is when personal information we hold is accessed or disclosed without permission, or lost: for example, someone gets into our systems with a stolen password, a database is left open to the internet, or an email goes to the wrong person. This includes information our service providers hold for us (section 9). This section explains what we do, and when you and the Office of the Australian Information Commissioner (OAIC) are told, under Australia's Notifiable Data Breaches scheme (Privacy Act 1988, Part IIIC).",
         },
+        { kind: "heading", text: "What we do, and when" },
         {
-          kind: "list",
-          items: [
-            "How you are told: by email, and with a notice at the top of SecureAI (website and phone app) until you confirm you have read it.",
-            "What the notice says: what happened, the kinds of information involved, and what you should do to protect yourself.",
-            "What we record: every suspected breach, whether or not it had to be notified, with when it was discovered, contained and assessed, and when you and the OAIC were told.",
+          kind: "table",
+          head: ["Step", "When", "What we do"],
+          rows: [
+            [
+              "1. Contain",
+              "Straight away, as soon as we suspect a breach",
+              "Stop it getting worse, for example by cancelling a leaked key or password, or closing the way in. We record the breach and when we found out about it.",
+            ],
+            [
+              "2. Assess",
+              "Within 30 days of finding out, sooner if we can",
+              "Work out what happened, whose information is involved, and whether serious harm is likely (see below). We write down our reasons, and assess again if new facts come to light.",
+            ],
+            [
+              "3. Tell the OAIC",
+              "As soon as practicable once we believe serious harm is likely. We don't wait for the 30 days to end",
+              "Send the OAIC the statement the law requires, and record when we sent it and the OAIC's reference.",
+            ],
+            [
+              "4. Tell you",
+              "As soon as practicable: at the same time as the OAIC, or straight after",
+              "Email you and show you a notice in SecureAI (see below).",
+            ],
+            [
+              "5. Review",
+              "Once the breach has been dealt with",
+              "Fix the cause, and update our security risk assessment and our breach response plan.",
+            ],
           ],
         },
         {
           kind: "p",
-          text: "Notices you receive also appear in your data download (section 11). If you are not satisfied with how we handle a breach, you can complain to the OAIC (section 12).",
+          text: "If you are in the EU or UK, we also tell the relevant data protection authority within 72 hours of finding out, unless the breach is unlikely to put your rights at risk, and we tell you directly if the risk to you is high (GDPR, articles 33 and 34).",
+        },
+        { kind: "heading", text: "Which breaches we must tell you about" },
+        {
+          kind: "p",
+          text: "We must tell you about a breach that is likely to cause you serious harm. That harm can be financial, such as fraud or identity theft, or harm to your safety, wellbeing or reputation. Whether it is likely depends on how sensitive the information is (a face template is very sensitive, section 2), whether it was protected, for example encrypted with a key that wasn't also taken, who may have it, and what we have been able to do since. People make this judgement, not an automated system.",
+        },
+        {
+          kind: "p",
+          text: "If we act quickly enough that serious harm is no longer likely, for example a lost file is recovered before anyone could open it, the law doesn't require a notification. We still record the breach and our reasons, and we may still tell you if there is something you can do to protect yourself.",
+        },
+        { kind: "heading", text: "How we tell you" },
+        {
+          kind: "list",
+          items: [
+            "By email, to the address on your account.",
+            "With a notice at the top of every page of the website, and of every screen of the phone app, until you choose \"I've read this\". If our email doesn't reach you, the notice is still waiting when you next sign in.",
+            "If you have deleted your account, we can't show you a notice. If a breach involves the payment or security records we keep after deletion (section 10), we email you at the address kept with them.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "Every notice tells you what happened, which kinds of your information were involved, what you should do to protect yourself, and how to complain to the OAIC. The email also says when we found out, and how to contact us.",
+        },
+        { kind: "heading", text: "Spotting a fake" },
+        {
+          kind: "p",
+          text: "Scammers sometimes send fake breach warnings. Ours come from the same address as our other account emails, never ask for your password or payment details, and the only SecureAI link in them goes to our home page. If you're unsure an email is really from us, don't use its link: open SecureAI yourself, and a genuine notice will be waiting there.",
+        },
+        { kind: "heading", text: "What you can do" },
+        {
+          kind: "list",
+          items: [
+            "Follow the steps in the notice first: they are written for that breach.",
+            "If you think someone else could be using your account, sign out of all devices: in [Security Settings](/enroll) on the website, or on the phone app's dashboard.",
+            "Change your password with \"Forgot?\" on the website's sign-in page. As well as the link we email you, it asks for your face or a passkey, so access to your email alone isn't enough to change it.",
+            "Tell us straight away if you notice anything wrong, such as account activity you don't recognise or a security weakness in SecureAI: contact us (section 13), and never send us your password.",
+          ],
+        },
+        { kind: "heading", text: "Records and complaints" },
+        {
+          kind: "p",
+          text: "We record every suspected breach, including those we didn't have to notify: when we found out, when it was contained and assessed, our reasons, and when you and the OAIC were told. We keep these records as long as the law requires (section 10). Notices you receive also appear in your data download (section 11). If you're not satisfied with how we handle a breach, you can complain to the OAIC, or in the EU or UK to your local data protection authority (section 12).",
         },
       ],
     },
