@@ -1174,10 +1174,49 @@ export interface RegulatorNotificationInput {
   reference: string;
 }
 
+/**
+ * legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07
+ * @nullable
+ */
+export type GovernmentDisclosureRequestType = typeof GovernmentDisclosureRequestType[keyof typeof GovernmentDisclosureRequestType] | null;
+
+
+export const GovernmentDisclosureRequestType = {
+  'legal-demand': 'legal-demand',
+  'enforcement-request': 'enforcement-request',
+  emergency: 'emergency',
+} as const;
+
+/**
+ * account = name, email, date of birth and plan (and a guardian's email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given
+ */
+export type DisclosureCategory = typeof DisclosureCategory[keyof typeof DisclosureCategory];
+
+
+export const DisclosureCategory = {
+  account: 'account',
+  'security-records': 'security-records',
+  payments: 'payments',
+  uploads: 'uploads',
+  'face-template': 'face-template',
+  'ai-challenges': 'ai-challenges',
+  'sign-in-keys': 'sign-in-keys',
+} as const;
+
 export interface GovernmentDisclosure {
   id: number;
   agency: string;
   legalBasis: string;
+  /**
+     * legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07
+     * @nullable
+     */
+  requestType: GovernmentDisclosureRequestType;
+  /**
+     * The kinds of information given. Null for records made before 2026-10-07
+     * @nullable
+     */
+  categories: DisclosureCategory[] | null;
   /** @nullable */
   reference: string | null;
   /** @nullable */
@@ -1192,6 +1231,18 @@ export interface GovernmentDisclosure {
   createdAt: string;
 }
 
+/**
+ * What kind of request it was. Face templates and uploaded files can be given only for a legal-demand
+ */
+export type RecordGovernmentDisclosureInputRequestType = typeof RecordGovernmentDisclosureInputRequestType[keyof typeof RecordGovernmentDisclosureInputRequestType];
+
+
+export const RecordGovernmentDisclosureInputRequestType = {
+  'legal-demand': 'legal-demand',
+  'enforcement-request': 'enforcement-request',
+  emergency: 'emergency',
+} as const;
+
 export interface RecordGovernmentDisclosureInput {
   /**
      * The agency that asked
@@ -1205,6 +1256,14 @@ export interface RecordGovernmentDisclosureInput {
      * @maxLength 500
      */
   legalBasis: string;
+  /** What kind of request it was. Face templates and uploaded files can be given only for a legal-demand */
+  requestType: RecordGovernmentDisclosureInputRequestType;
+  /**
+     * The kinds of information given
+     * @minItems 1
+     * @maxItems 7
+     */
+  categories: DisclosureCategory[];
   /**
      * @maxLength 200
      * @nullable
@@ -1230,6 +1289,80 @@ export interface RecordGovernmentDisclosureInput {
      * @nullable
      */
   notTellingReason?: string | null;
+}
+
+export type LegalHoldCopyCountKind = typeof LegalHoldCopyCountKind[keyof typeof LegalHoldCopyCountKind];
+
+
+export const LegalHoldCopyCountKind = {
+  account: 'account',
+  'face-template': 'face-template',
+  upload: 'upload',
+  passkey: 'passkey',
+  'phone-key': 'phone-key',
+  payment: 'payment',
+  'security-record': 'security-record',
+} as const;
+
+export interface LegalHoldCopyCount {
+  kind: LegalHoldCopyCountKind;
+  count: number;
+}
+
+export interface LegalHold {
+  id: number;
+  subjectEmail: string;
+  /** Whether an account had this email when the hold was placed. Payment and security records are held either way */
+  accountFound: boolean;
+  agency: string;
+  /** @nullable */
+  reference: string | null;
+  reason: string;
+  placedByEmail: string;
+  placedAt: string;
+  /** @nullable */
+  releasedAt: string | null;
+  /** @nullable */
+  releasedByEmail: string | null;
+  /** @nullable */
+  releaseReason: string | null;
+  /** How many copies are kept, by kind of record. Empty once released, because releasing deletes them */
+  copies: LegalHoldCopyCount[];
+  copiesTotal: number;
+}
+
+export interface PlaceLegalHoldInput {
+  /**
+     * The person the request names
+     * @maxLength 320
+     */
+  subjectEmail: string;
+  /**
+     * The agency that asked, or is expected to
+     * @minLength 2
+     * @maxLength 200
+     */
+  agency: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  reference?: string | null;
+  /**
+     * What the request covers, and why the information must be kept
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface ReleaseLegalHoldInput {
+  /**
+     * Why the obligation to keep the information has ended
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
 }
 
 export type ListSecurityLogsParams = {

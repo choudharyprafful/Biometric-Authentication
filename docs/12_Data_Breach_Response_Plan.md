@@ -6,7 +6,9 @@ agency asks for someone's information. It follows Australia's Notifiable Data Br
 
 Written 4 October 2026 for Miifile Pty Ltd's requirements of 2 October 2026 (docs/08, section 5d), and
 updated 7 October 2026 with the privacy policy's section 14 (version 2026-10-07, docs/08 section 5f),
-which tells people what this plan does: change the two together. The app side is the **Privacy
+which tells people what this plan does: change the two together. Section 3 was rewritten the same day,
+with legal holds and rules for what can be given to an agency (policy section 9, version 2026-10-07.2,
+docs/08 section 5g). The app side is the **Privacy
 Compliance** page (security analysts and administrators), the breach notice people see in the web and
 phone apps, and the records behind them. This is a student proof of concept: a real deployment needs a
 named privacy officer and a legal review of this plan.
@@ -90,26 +92,75 @@ with no account are reported back rather than ignored (see "People who deleted t
 
 ## 3. Requests from government agencies
 
-Personal information is given to a government or law-enforcement agency only when the law requires or
-allows it (Australian Privacy Principle 6.2(b) and (e)). Before disclosing:
+Personal information is given to an Australian government or law-enforcement agency only when the law
+requires or allows it, only what the request covers, and only about the person it names (privacy policy
+section 9). When a request arrives:
 
-1. Check the request is genuine, by contacting the agency through its published details.
-2. Identify the law or order relied on (warrant, subpoena, court order, notice under a statute).
-3. Give only what it covers.
-4. Record it on Privacy Compliance: the agency and its reference, the law or order, whose account,
-   what was given and when, and whether the person has been told. This is the written note APP 6.5
-   requires.
-5. Tell the person unless the law forbids it. If they can't be told, the reason is required.
+1. **Place a legal hold first** (below), so nothing the request may cover is lost while it is dealt with.
+2. **Check it is genuine** by contacting the agency through its published details, never through the
+   contact details in the request. Fake urgent requests sent from compromised police email accounts are a
+   known way to steal personal information.
+3. **Decide what kind of request it is.** That decides what can be given:
 
-Only administrators can record a disclosure. A disclosure the person has been told about appears in
-their data download; one they haven't been told about does not, so the download can't tip someone off
-when an order forbids it. The audit event (`GOVERNMENT_DISCLOSURE_RECORDED`) names the agency but not the
-person, because the audit log is read more widely than the disclosure record.
+| Kind (in the app)   | What it is                                                                              | Basis                                                                                      | What can be given                                                                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Required by law     | A warrant, subpoena, court order or statutory notice (for example from the ATO or ASIC) | APP 6.2(b): it must be complied with                                                       | What it covers, including face templates and uploaded files                                                                                      |
+| Enforcement request | A written request from an Australian enforcement body, with no order                    | APP 6.2(e): it may be complied with, if staff reasonably believe it necessary for its work | Account details, security records, payment records, AI challenge records, passkeys and phone keys. Not face templates or files: ask for an order |
+| Emergency           | A serious threat to someone's life, health or safety, or a missing person               | Privacy Act s 16A: it may be complied with                                                 | The minimum needed, from the same list. Not face templates or files                                                                              |
+
+The API refuses to record a face template or uploaded files for anything but "Required by law"
+(`lib/dataBreaches.ts`, `LEGAL_DEMAND_ONLY`), and the form won't let them be ticked, so the rule can't be
+skipped by mistake.
+
+4. **Never give credentials.** Password hashes, sign-in tokens and encryption keys aren't information about
+   a person but the means into accounts, and the record has no category for them. A technical assistance
+   request or notice under the Telecommunications Act 1997, Part 15, can't require a systemic weakness
+   (s 317ZG) and comes with secrecy rules (s 317ZF): take legal advice.
+5. **A foreign government or court** must go through Australia's mutual assistance process (Mutual
+   Assistance in Criminal Matters Act 1987). Don't disclose to it directly.
+6. **Give only what the request covers**, about the person it names, leaving other people's information
+   out.
+7. **Record it** on Privacy Compliance: the agency and its reference, the kind of request, the law or order,
+   the kinds of information given, whose account, what was given and when, and whether the person has been
+   told. This is the written note APP 6.5 requires.
+8. **Tell the person** unless the law forbids it. If they can't be told, the reason is required.
+
+Only administrators can record a disclosure. A disclosure the person has been told about appears in their
+data download, with the kind of request and the kinds of information in plain words; one they haven't been
+told about does not, so the download can't tip someone off when an order forbids it. The audit event
+(`GOVERNMENT_DISCLOSURE_RECORDED`) names the agency, the kind and the categories but not the person, because
+the audit log is read more widely than the disclosure record. Disclosures recorded before 7 October 2026
+show the kind as not recorded.
+
+### Legal holds
+
+A hold (`lib/legalHolds.ts`; Privacy Compliance, administrators only) keeps what a request may need while
+it is dealt with:
+
+- **When it is placed**, the person's account (without the password hash), face template, files, passkeys,
+  phone keys and payment records are copied. A hold can be placed on an email with no account; payment and
+  security records are still held.
+- **While it lasts**, anything of theirs about to be deleted or replaced is copied first. That covers
+  deleting the account, a file or a passkey; removing or re-enrolling a face; a staff MFA reset; and the
+  hourly retention purge of payment and security records, copied when due or within a day of it. The
+  deletion still happens, so the person sees nothing different, which also avoids tipping them off. If the
+  copy fails, the deletion doesn't happen (each pair is one transaction). If the purge's copy fails, nothing
+  is purged that hour.
+- **Copies are kept as stored**: files and face templates stay encrypted, and an unchanged record is kept
+  once. No endpoint returns them, so no account, an administrator's included, can open another person's
+  files or face template in the app. Producing them for an agency is an operator task, with database access
+  and the encryption key, done under legal advice and recorded as a disclosure.
+- **Release** the hold when the obligation ends, for example when the agency confirms or the matter
+  closes. A reason is required, the copies are deleted, and the hold stays on record. A released hold
+  can't be reopened: place a new one.
+- **Who is under a hold is need-to-know**: only administrators can see holds, and the audit events
+  (`LEGAL_HOLD_PLACED`, `LEGAL_HOLD_RELEASED`) name the agency but not the person.
 
 ## 4. How long these records are kept
 
 The breach register and the disclosure record are not deleted by the retention purge (docs/05,
-section 7): they are the evidence that the law was followed. The audit events about them follow the
+section 7): they are the evidence that the law was followed. A legal hold's copies are deleted when the hold
+is released, never by the purge, whose deletions are what a hold exists to stop. The audit events about them follow the
 security log's 12 months. Payment records are kept 7 years, security log entries 12 months, and records
 of challenges to AI decisions 2 years.
 
@@ -127,8 +178,34 @@ of challenges to AI decisions 2 years.
   is the response lead's to watch.
 - People who deleted their account are emailed by hand (section 2). The app records only what staff
   write in the assessment note.
+- Which kind a request is remains staff's judgement. The API enforces only that face templates and files
+  need a legal demand.
+- A hold copies; it doesn't freeze. The person can still change their profile or consents. The copy made
+  when the hold was placed shows how things stood then, and a changed record is copied again when it is
+  deleted.
+- A hold placed after the account was deleted finds payment and security records by email only, so
+  security records that carry only the old account id aren't matched.
+- Copies can't be read through the app. Producing them needs an operator with database access and the
+  encryption key.
 
 ## 6. How it was checked
+
+On 7 October 2026, for section 3's rules and legal holds, against a throwaway local database:
+
+- An API end-to-end run of 46 checks. It covered:
+  - who can use holds;
+  - the disclosure rules, including that the API refuses face templates and files on a police request or
+    in an emergency;
+  - copies when a hold is placed, and before every deletion path, with the deletion still happening;
+  - the retention purge copying the held person's payment and security records first, and nobody
+    else's;
+  - release deleting the copies, and an intact audit chain.
+- A browser run of 17 checks on Privacy Compliance. It covered the form's rules, placing and releasing a
+  hold, no sideways scrolling at phone width, and that an analyst sees no holds and the page never asks
+  for them.
+- CI's adversarial probes, 44 of 44, now including the legal-hold endpoints.
+- `scripts/ops/migrate-legal-holds.mjs`, rehearsed twice on a copy shaped like production. It is
+  idempotent, and Drizzle then found nothing to change.
 
 On 4 October 2026, against a throwaway local database:
 

@@ -1098,6 +1098,107 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /legal-holds:
+    get:
+      operationId: listLegalHolds
+      tags: [privacy]
+      summary: Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+      responses:
+        "200":
+          description: Every hold, active ones first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LegalHold"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: placeLegalHold
+      tags: [privacy]
+      summary: Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaceLegalHoldInput"
+      responses:
+        "201":
+          description: Placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalHold"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /legal-holds/{id}/release:
+    post:
+      operationId: releaseLegalHold
+      tags: [privacy]
+      summary: Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReleaseLegalHoldInput"
+      responses:
+        "200":
+          description: Released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalHold"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such hold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already released
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/me/training-consent:
     post:
       operationId: setTrainingConsent
@@ -3351,6 +3452,8 @@ components:
           id,
           agency,
           legalBasis,
+          requestType,
+          categories,
           reference,
           subjectEmail,
           informationDisclosed,
@@ -3367,6 +3470,15 @@ components:
           type: string
         legalBasis:
           type: string
+        requestType:
+          description: legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07
+          type: ["string", "null"]
+          enum: [legal-demand, enforcement-request, emergency, null]
+        categories:
+          description: The kinds of information given. Null for records made before 2026-10-07
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/DisclosureCategory"
         reference:
           type: ["string", "null"]
         subjectEmail:
@@ -3389,7 +3501,15 @@ components:
 
     RecordGovernmentDisclosureInput:
       type: object
-      required: [agency, legalBasis, informationDisclosed, disclosedAt]
+      required:
+        [
+          agency,
+          legalBasis,
+          requestType,
+          categories,
+          informationDisclosed,
+          disclosedAt,
+        ]
       properties:
         agency:
           description: The agency that asked
@@ -3401,6 +3521,18 @@ components:
           type: string
           minLength: 5
           maxLength: 500
+        requestType:
+          description: What kind of request it was. Face templates and uploaded files can be given only for a legal-demand
+          type: string
+          enum: [legal-demand, enforcement-request, emergency]
+        categories:
+          description: The kinds of information given
+          type: array
+          minItems: 1
+          maxItems: 7
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/DisclosureCategory"
         reference:
           type: ["string", "null"]
           maxLength: 200
@@ -3421,4 +3553,122 @@ components:
         notTellingReason:
           description: Required when the person hasn't been told; the law may forbid telling them
           type: ["string", "null"]
+          maxLength: 1000
+
+    DisclosureCategory:
+      description: account = name, email, date of birth and plan (and a guardian's email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given
+      type: string
+      enum:
+        [
+          account,
+          security-records,
+          payments,
+          uploads,
+          face-template,
+          ai-challenges,
+          sign-in-keys,
+        ]
+
+    LegalHold:
+      type: object
+      required:
+        [
+          id,
+          subjectEmail,
+          accountFound,
+          agency,
+          reference,
+          reason,
+          placedByEmail,
+          placedAt,
+          releasedAt,
+          releasedByEmail,
+          releaseReason,
+          copies,
+          copiesTotal,
+        ]
+      properties:
+        id:
+          type: integer
+        subjectEmail:
+          type: string
+        accountFound:
+          description: Whether an account had this email when the hold was placed. Payment and security records are held either way
+          type: boolean
+        agency:
+          type: string
+        reference:
+          type: ["string", "null"]
+        reason:
+          type: string
+        placedByEmail:
+          type: string
+        placedAt:
+          type: string
+          format: date-time
+        releasedAt:
+          type: ["string", "null"]
+          format: date-time
+        releasedByEmail:
+          type: ["string", "null"]
+        releaseReason:
+          type: ["string", "null"]
+        copies:
+          description: How many copies are kept, by kind of record. Empty once released, because releasing deletes them
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalHoldCopyCount"
+        copiesTotal:
+          type: integer
+
+    LegalHoldCopyCount:
+      type: object
+      required: [kind, count]
+      properties:
+        kind:
+          type: string
+          enum:
+            [
+              account,
+              face-template,
+              upload,
+              passkey,
+              phone-key,
+              payment,
+              security-record,
+            ]
+        count:
+          type: integer
+
+    PlaceLegalHoldInput:
+      type: object
+      required: [subjectEmail, agency, reason]
+      properties:
+        subjectEmail:
+          description: The person the request names
+          type: string
+          format: email
+          maxLength: 320
+        agency:
+          description: The agency that asked, or is expected to
+          type: string
+          minLength: 2
+          maxLength: 200
+        reference:
+          type: ["string", "null"]
+          maxLength: 200
+        reason:
+          description: What the request covers, and why the information must be kept
+          type: string
+          minLength: 5
+          maxLength: 1000
+
+    ReleaseLegalHoldInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          description: Why the obligation to keep the information has ended
+          type: string
+          minLength: 5
           maxLength: 1000

@@ -937,6 +937,8 @@ export const ListGovernmentDisclosuresResponseItem = zod.object({
   "id": zod.number().int(),
   "agency": zod.string(),
   "legalBasis": zod.string(),
+  "requestType": zod.union([zod.literal('legal-demand'),zod.literal('enforcement-request'),zod.literal('emergency'),zod.literal(null)]).nullable().describe('legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone\'s life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07'),
+  "categories": zod.array(zod.enum(['account', 'security-records', 'payments', 'uploads', 'face-template', 'ai-challenges', 'sign-in-keys']).describe('account = name, email, date of birth and plan (and a guardian\'s email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given')).nullable().describe('The kinds of information given. Null for records made before 2026-10-07'),
   "reference": zod.string().nullable(),
   "subjectEmail": zod.string().nullable(),
   "informationDisclosed": zod.string(),
@@ -958,6 +960,8 @@ export const recordGovernmentDisclosureBodyAgencyMax = 200;
 export const recordGovernmentDisclosureBodyLegalBasisMin = 5;
 export const recordGovernmentDisclosureBodyLegalBasisMax = 500;
 
+export const recordGovernmentDisclosureBodyCategoriesMax = 7;
+
 export const recordGovernmentDisclosureBodyReferenceMax = 200;
 
 export const recordGovernmentDisclosureBodySubjectEmailMax = 320;
@@ -972,6 +976,8 @@ export const recordGovernmentDisclosureBodyNotTellingReasonMax = 1000;
 export const RecordGovernmentDisclosureBody = zod.object({
   "agency": zod.string().min(recordGovernmentDisclosureBodyAgencyMin).max(recordGovernmentDisclosureBodyAgencyMax).describe('The agency that asked'),
   "legalBasis": zod.string().min(recordGovernmentDisclosureBodyLegalBasisMin).max(recordGovernmentDisclosureBodyLegalBasisMax).describe('The law or document that required or authorised it (for example a warrant or court order)'),
+  "requestType": zod.enum(['legal-demand', 'enforcement-request', 'emergency']).describe('What kind of request it was. Face templates and uploaded files can be given only for a legal-demand'),
+  "categories": zod.array(zod.enum(['account', 'security-records', 'payments', 'uploads', 'face-template', 'ai-challenges', 'sign-in-keys']).describe('account = name, email, date of birth and plan (and a guardian\'s email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given')).min(1).max(recordGovernmentDisclosureBodyCategoriesMax).describe('The kinds of information given'),
   "reference": zod.string().max(recordGovernmentDisclosureBodyReferenceMax).nullish(),
   "subjectEmail": zod.string().max(recordGovernmentDisclosureBodySubjectEmailMax).nullish().describe('The account whose information was disclosed, if one'),
   "informationDisclosed": zod.string().min(recordGovernmentDisclosureBodyInformationDisclosedMin).max(recordGovernmentDisclosureBodyInformationDisclosedMax),
@@ -984,6 +990,8 @@ export const RecordGovernmentDisclosureResponse = zod.object({
   "id": zod.number().int(),
   "agency": zod.string(),
   "legalBasis": zod.string(),
+  "requestType": zod.union([zod.literal('legal-demand'),zod.literal('enforcement-request'),zod.literal('emergency'),zod.literal(null)]).nullable().describe('legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone\'s life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07'),
+  "categories": zod.array(zod.enum(['account', 'security-records', 'payments', 'uploads', 'face-template', 'ai-challenges', 'sign-in-keys']).describe('account = name, email, date of birth and plan (and a guardian\'s email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given')).nullable().describe('The kinds of information given. Null for records made before 2026-10-07'),
   "reference": zod.string().nullable(),
   "subjectEmail": zod.string().nullable(),
   "informationDisclosed": zod.string(),
@@ -992,6 +1000,112 @@ export const RecordGovernmentDisclosureResponse = zod.object({
   "notTellingReason": zod.string().nullable(),
   "recordedByEmail": zod.string(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+ */
+export const ListLegalHoldsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "subjectEmail": zod.string(),
+  "accountFound": zod.boolean().describe('Whether an account had this email when the hold was placed. Payment and security records are held either way'),
+  "agency": zod.string(),
+  "reference": zod.string().nullable(),
+  "reason": zod.string(),
+  "placedByEmail": zod.string(),
+  "placedAt": zod.coerce.date(),
+  "releasedAt": zod.coerce.date().nullable(),
+  "releasedByEmail": zod.string().nullable(),
+  "releaseReason": zod.string().nullable(),
+  "copies": zod.array(zod.object({
+  "kind": zod.enum(['account', 'face-template', 'upload', 'passkey', 'phone-key', 'payment', 'security-record']),
+  "count": zod.number().int()
+})).describe('How many copies are kept, by kind of record. Empty once released, because releasing deletes them'),
+  "copiesTotal": zod.number().int()
+})
+export const ListLegalHoldsResponse = zod.array(ListLegalHoldsResponseItem)
+
+
+/**
+ * @summary Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+ */
+export const placeLegalHoldBodySubjectEmailMax = 320;
+
+export const placeLegalHoldBodyAgencyMin = 2;
+export const placeLegalHoldBodyAgencyMax = 200;
+
+export const placeLegalHoldBodyReferenceMax = 200;
+
+export const placeLegalHoldBodyReasonMin = 5;
+export const placeLegalHoldBodyReasonMax = 1000;
+
+
+
+export const PlaceLegalHoldBody = zod.object({
+  "subjectEmail": zod.string().email().max(placeLegalHoldBodySubjectEmailMax).describe('The person the request names'),
+  "agency": zod.string().min(placeLegalHoldBodyAgencyMin).max(placeLegalHoldBodyAgencyMax).describe('The agency that asked, or is expected to'),
+  "reference": zod.string().max(placeLegalHoldBodyReferenceMax).nullish(),
+  "reason": zod.string().min(placeLegalHoldBodyReasonMin).max(placeLegalHoldBodyReasonMax).describe('What the request covers, and why the information must be kept')
+})
+
+export const PlaceLegalHoldResponse = zod.object({
+  "id": zod.number().int(),
+  "subjectEmail": zod.string(),
+  "accountFound": zod.boolean().describe('Whether an account had this email when the hold was placed. Payment and security records are held either way'),
+  "agency": zod.string(),
+  "reference": zod.string().nullable(),
+  "reason": zod.string(),
+  "placedByEmail": zod.string(),
+  "placedAt": zod.coerce.date(),
+  "releasedAt": zod.coerce.date().nullable(),
+  "releasedByEmail": zod.string().nullable(),
+  "releaseReason": zod.string().nullable(),
+  "copies": zod.array(zod.object({
+  "kind": zod.enum(['account', 'face-template', 'upload', 'passkey', 'phone-key', 'payment', 'security-record']),
+  "count": zod.number().int()
+})).describe('How many copies are kept, by kind of record. Empty once released, because releasing deletes them'),
+  "copiesTotal": zod.number().int()
+})
+
+
+/**
+ * @summary Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+ */
+export const releaseLegalHoldPathIdMax = 2147483647;
+
+
+
+export const ReleaseLegalHoldParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(releaseLegalHoldPathIdMax)
+})
+
+export const releaseLegalHoldBodyReasonMin = 5;
+export const releaseLegalHoldBodyReasonMax = 1000;
+
+
+
+export const ReleaseLegalHoldBody = zod.object({
+  "reason": zod.string().min(releaseLegalHoldBodyReasonMin).max(releaseLegalHoldBodyReasonMax).describe('Why the obligation to keep the information has ended')
+})
+
+export const ReleaseLegalHoldResponse = zod.object({
+  "id": zod.number().int(),
+  "subjectEmail": zod.string(),
+  "accountFound": zod.boolean().describe('Whether an account had this email when the hold was placed. Payment and security records are held either way'),
+  "agency": zod.string(),
+  "reference": zod.string().nullable(),
+  "reason": zod.string(),
+  "placedByEmail": zod.string(),
+  "placedAt": zod.coerce.date(),
+  "releasedAt": zod.coerce.date().nullable(),
+  "releasedByEmail": zod.string().nullable(),
+  "releaseReason": zod.string().nullable(),
+  "copies": zod.array(zod.object({
+  "kind": zod.enum(['account', 'face-template', 'upload', 'passkey', 'phone-key', 'payment', 'security-record']),
+  "count": zod.number().int()
+})).describe('How many copies are kept, by kind of record. Empty once released, because releasing deletes them'),
+  "copiesTotal": zod.number().int()
 })
 
 

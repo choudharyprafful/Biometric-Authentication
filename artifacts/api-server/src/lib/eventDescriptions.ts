@@ -87,6 +87,8 @@ export const EVENT_DESCRIPTIONS: Record<AuditEventType, string> = {
     "Confirmed you had read a data breach notice",
   GOVERNMENT_DISCLOSURE_RECORDED:
     "Information disclosed to a government agency under the law",
+  LEGAL_HOLD_PLACED: "Legal hold placed by staff",
+  LEGAL_HOLD_RELEASED: "Legal hold released by staff",
 };
 
 export function describeEvent(eventType: string): string {

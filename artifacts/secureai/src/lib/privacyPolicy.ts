@@ -4,8 +4,9 @@
 // retention, government requests, readable data copies and data breaches (docs/08, section 5d);
 // updated on 6 October 2026 for face sign-in in the phone app (docs/08, section 5e); updated on
 // 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID
-// (docs/08, section 5f). Section 14 follows docs/12_Data_Breach_Response_Plan.md: change both
-// together.
+// (docs/08, section 5f); and again that day (version 2026-10-07.2) to set out what is given to
+// government agencies and to keep what the law requires, with legal holds (docs/08, section 5g).
+// Sections 9 and 14 follow docs/12_Data_Breach_Response_Plan.md: change them together.
 // The version must match PRIVACY_POLICY_VERSION in
 // artifacts/api-server/src/lib/privacyPolicy.ts; scripts/check-privacy-policy-version.mjs checks it
 // in CI. Change the version whenever the text changes, and signed-in users are asked to review it.
@@ -25,10 +26,10 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: "2026-10-07",
+  version: "2026-10-07.2",
   effectiveDate: "7 October 2026",
   status:
-    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; and on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID. Pending review by Team 2 and a legal adviser; not legal advice.",
+    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID; and later that day to set out what we give government agencies and what we keep when the law requires it. Pending review by Team 2 and a legal adviser; not legal advice.",
   demoNotice:
     "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead, or in the phone app use your fingerprint, Face ID or Touch ID.",
   contact: "privacy@secureai.example",
@@ -81,7 +82,7 @@ export const PRIVACY_POLICY = {
               "Face template (only if you choose face sign-in)",
               "128 numbers computed on your device from the camera, in your browser or in the SecureAI phone app. The camera image never leaves your device; the template is sent to us and stored encrypted",
               "Very high: biometric information is sensitive information under the Privacy Act 1988, even when encrypted",
-              "Confirming it's you at sign-in and password reset, and nothing else. Collected only with your express consent, and you can use a passkey, or your phone's fingerprint, Face ID or Touch ID, instead. Delete it any time in Security Settings, or in Privacy & Your Data in the phone app",
+              "Confirming it's you at sign-in and password reset, and nothing else, unless the law requires us to give it to an agency (section 9). Collected only with your express consent, and you can use a passkey, or your phone's fingerprint, Face ID or Touch ID, instead. Delete it any time in Security Settings, or in Privacy & Your Data in the phone app",
             ],
             [
               "Passkey or phone key",
@@ -287,8 +288,29 @@ export const PRIVACY_POLICY = {
           text: "Storing data in the United States is a disclosure outside Australia under Australian Privacy Principle 8, and a transfer outside the EU/UK for GDPR purposes. The safeguards for these transfers are being reviewed as part of this draft.",
         },
         {
+          kind: "heading",
+          text: "Requests from government and law enforcement",
+        },
+        {
           kind: "p",
-          text: "Government and law enforcement: we give your personal information to a government or law-enforcement agency only when the law requires or allows it, for example under a warrant, subpoena or court order. We check the request is genuine, give only what it covers, and keep a written record of each disclosure: the agency, the law or order relied on, what was given and when (Australian Privacy Principle 6.5). We tell you unless the law forbids it, and disclosures we have told you about appear in your data download.",
+          text: "We give your personal information to an Australian government or law-enforcement agency only when the law requires or allows it, only what the request covers, and only about the person it names. Before we act on a request, we check with the agency itself that it is genuine.",
+        },
+        {
+          kind: "list",
+          items: [
+            "Your face template and the content of your uploads: only when the law requires it, for example under a warrant, subpoena, court order or statutory notice. Never on a voluntary request, and never in an emergency.",
+            "Your account details, security records, payment records, challenges and sign-in keys: when the law requires it; when an Australian enforcement body asks in writing and we believe it is reasonably necessary for its work; or to lessen a serious threat to someone's life, health or safety, or to help find a missing person.",
+            "Never your password (we hold only a one-way hash of it), and never anything that would let someone else into your account.",
+            "A foreign government or court must ask through Australia's legal process (mutual assistance). We don't respond to it directly.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "We keep a written record of each disclosure: the agency, the kind of request and the law or order relied on, the kinds of information we gave, and when (Australian Privacy Principle 6.5). We tell you unless the law forbids it, and disclosures we have told you about appear in your data download.",
+        },
+        {
+          kind: "p",
+          text: "If a request means we must keep information, we place a legal hold. While it lasts, anything of yours that would otherwise be deleted, including by you, is first copied and kept separately: files and face templates stay encrypted, and the copies are used for nothing else. When the obligation ends we delete the copies. Your own deletions still happen as usual.",
         },
       ],
     },
@@ -327,7 +349,7 @@ export const PRIVACY_POLICY = {
         },
         {
           kind: "p",
-          text: "When a security record is deleted, we keep only its fingerprint (a hash, from which none of your information can be read back), so the remaining records can still be shown not to have been altered. Records of data breaches and of disclosures to government agencies (sections 9 and 14) are kept as long as the law requires.",
+          text: "When a security record is deleted, we keep only its fingerprint (a hash, from which none of your information can be read back), so the remaining records can still be shown not to have been altered. Records of data breaches and of disclosures to government agencies (sections 9 and 14) are kept as long as the law requires. If the law requires us to keep something longer, for example while a court order is dealt with, a legal hold keeps a separate copy until that obligation ends (section 9).",
         },
       ],
     },
@@ -346,7 +368,7 @@ export const PRIVACY_POLICY = {
         },
         {
           kind: "p",
-          text: "Deleting your data means we stop using it and delete the source content from our stores. Because our models are rebuilt from current data on every request, there is no already-trained model left holding it. If that ever changes, we will tell you plainly when removal takes effect.",
+          text: "Deleting your data means we stop using it and delete the source content from our stores, unless a legal hold requires us to keep a copy (section 9). Because our models are rebuilt from current data on every request, there is no already-trained model left holding it. If that ever changes, we will tell you plainly when removal takes effect.",
         },
       ],
     },

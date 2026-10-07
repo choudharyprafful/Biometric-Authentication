@@ -18,6 +18,12 @@ import {
   ListGovernmentDisclosuresResponse,
   RecordGovernmentDisclosureBody,
   RecordGovernmentDisclosureResponse,
+  ListLegalHoldsResponse,
+  PlaceLegalHoldBody,
+  PlaceLegalHoldResponse,
+  ReleaseLegalHoldParams,
+  ReleaseLegalHoldBody,
+  ReleaseLegalHoldResponse,
 } from "@workspace/api-zod";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
@@ -38,10 +44,19 @@ import {
   AlreadyRecordedError,
   RegisterInputError,
 } from "../lib/dataBreaches";
+import {
+  listHolds,
+  placeHold,
+  releaseHold,
+  HoldNotFoundError,
+  HoldAlreadyReleasedError,
+} from "../lib/legalHolds";
 
-// The data breach register and the government disclosure record (docs/12). Security analysts can
-// record and assess a breach; telling people, telling the OAIC and recording a disclosure are for
-// administrators, because each is a decision made for the company.
+// The data breach register, the government disclosure record and legal holds (docs/12). Security
+// analysts can record and assess a breach; telling people, telling the OAIC, recording a disclosure
+// and holding someone's information are for administrators, because each is a decision made for the
+// company. Legal holds are administrators' only, to read too: who is the subject of a government
+// request is need-to-know.
 const router: IRouter = Router();
 
 const STAFF: Role[] = ["security_analyst", "admin"];
@@ -64,6 +79,10 @@ function answered(err: unknown, res: Response): boolean {
     });
   } else if (err instanceof RegisterInputError) {
     res.status(400).json({ error: err.message });
+  } else if (err instanceof HoldNotFoundError) {
+    res.status(404).json({ error: "No such hold" });
+  } else if (err instanceof HoldAlreadyReleasedError) {
+    res.status(409).json({ error: "This hold has already been released" });
   } else {
     return false;
   }
@@ -274,7 +293,7 @@ router.post(
     if (!body.success) {
       res.status(400).json({
         error:
-          "Give the agency, the law or order that required it, what was disclosed and when",
+          "Give the agency, the kind of request, the law or order relied on, what kinds of information were given, what was disclosed and when",
       });
       return;
     }
@@ -286,6 +305,70 @@ router.post(
             await recordDisclosure(body.data, actor),
           ),
         );
+    } catch (err) {
+      if (!answered(err, res)) throw err;
+    }
+  },
+);
+
+// ── Administrators: legal holds ──────────────────────────────────────────────────────────────────
+
+router.get(
+  "/legal-holds",
+  ...staffGates,
+  staffRateLimit,
+  async (req, res): Promise<void> => {
+    if (!(await actorFor(req, res, ADMIN))) return;
+    res.json(ListLegalHoldsResponse.parse(await listHolds()));
+  },
+);
+
+router.post(
+  "/legal-holds",
+  ...staffGates,
+  staffRateLimit,
+  async (req, res): Promise<void> => {
+    const actor = await actorFor(req, res, ADMIN);
+    if (!actor) return;
+    const body = PlaceLegalHoldBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({
+        error:
+          "Give the person's email, the agency, and what the request covers",
+      });
+      return;
+    }
+    res
+      .status(201)
+      .json(PlaceLegalHoldResponse.parse(await placeHold(body.data, actor)));
+  },
+);
+
+router.post(
+  "/legal-holds/:id/release",
+  ...staffGates,
+  staffRateLimit,
+  async (req, res): Promise<void> => {
+    const actor = await actorFor(req, res, ADMIN);
+    if (!actor) return;
+    const params = ReleaseLegalHoldParams.safeParse(idParam(req.params["id"]));
+    const body = ReleaseLegalHoldBody.safeParse(req.body);
+    if (!params.success) {
+      res.status(404).json({ error: "No such hold" });
+      return;
+    }
+    if (!body.success) {
+      res.status(400).json({
+        error: "Say why the information no longer has to be kept",
+      });
+      return;
+    }
+    try {
+      res.json(
+        ReleaseLegalHoldResponse.parse(
+          await releaseHold(params.data.id, body.data.reason, actor),
+        ),
+      );
     } catch (err) {
       if (!answered(err, res)) throw err;
     }

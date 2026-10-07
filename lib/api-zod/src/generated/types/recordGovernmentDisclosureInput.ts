@@ -5,6 +5,8 @@
  * SecureAI - Biometric Security Demo API
  * OpenAPI spec version: 0.1.0
  */
+import type { DisclosureCategory } from './disclosureCategory';
+import type { RecordGovernmentDisclosureInputRequestType } from './recordGovernmentDisclosureInputRequestType';
 
 export interface RecordGovernmentDisclosureInput {
   /**
@@ -19,6 +21,14 @@ export interface RecordGovernmentDisclosureInput {
      * @maxLength 500
      */
   legalBasis: string;
+  /** What kind of request it was. Face templates and uploaded files can be given only for a legal-demand */
+  requestType: RecordGovernmentDisclosureInputRequestType;
+  /**
+     * The kinds of information given
+     * @minItems 1
+     * @maxItems 7
+     */
+  categories: DisclosureCategory[];
   /**
      * @maxLength 200
      * @nullable

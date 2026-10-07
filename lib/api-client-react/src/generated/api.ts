@@ -45,6 +45,7 @@ import type {
   ForgotPasswordResult,
   GovernmentDisclosure,
   HealthStatus,
+  LegalHold,
   ListSecurityLogsParams,
   LogChainVerification,
   LoginCredentials,
@@ -56,12 +57,14 @@ import type {
   PaymentInput,
   PaymentWebhookInput,
   PaymentWebhookResult,
+  PlaceLegalHoldInput,
   Plan,
   PrivacyPolicyAcknowledgeInput,
   PrivacyPolicyStatus,
   RecordDataBreachInput,
   RecordGovernmentDisclosureInput,
   RegulatorNotificationInput,
+  ReleaseLegalHoldInput,
   ResetPasswordFaceInput,
   ResetPasswordResult,
   ResolveAiChallengeInput,
@@ -3066,6 +3069,226 @@ export const useRecordGovernmentDisclosure = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getRecordGovernmentDisclosureMutationOptions(options));
+    }
+
+export const getListLegalHoldsUrl = () => {
+
+
+
+
+  return `/api/legal-holds`
+}
+
+/**
+ * @summary Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+ */
+export const listLegalHolds = async ( options?: Parameters<typeof customFetch>[1]): Promise<LegalHold[]> => {
+
+  return customFetch<LegalHold[]>(getListLegalHoldsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLegalHoldsQueryKey = () => {
+    return [
+    `/api/legal-holds`
+    ] as const;
+    }
+
+
+export const getListLegalHoldsQueryOptions = <TData = Awaited<ReturnType<typeof listLegalHolds>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLegalHolds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLegalHoldsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLegalHolds>>> = ({ signal }) => listLegalHolds({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLegalHolds>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLegalHoldsQueryResult = NonNullable<Awaited<ReturnType<typeof listLegalHolds>>>
+export type ListLegalHoldsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+ */
+
+export function useListLegalHolds<TData = Awaited<ReturnType<typeof listLegalHolds>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLegalHolds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLegalHoldsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPlaceLegalHoldUrl = () => {
+
+
+
+
+  return `/api/legal-holds`
+}
+
+/**
+ * @summary Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+ */
+export const placeLegalHold = async (placeLegalHoldInput: PlaceLegalHoldInput, options?: Parameters<typeof customFetch>[1]): Promise<LegalHold> => {
+
+  return customFetch<LegalHold>(getPlaceLegalHoldUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(placeLegalHoldInput)
+  }
+);}
+
+
+
+
+
+export const getPlaceLegalHoldMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeLegalHold>>, TError,{data: BodyType<PlaceLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof placeLegalHold>>, TError,{data: BodyType<PlaceLegalHoldInput>}, TContext> => {
+
+const mutationKey = ['placeLegalHold'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof placeLegalHold>>, {data: BodyType<PlaceLegalHoldInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  placeLegalHold(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PlaceLegalHoldMutationResult = NonNullable<Awaited<ReturnType<typeof placeLegalHold>>>
+    export type PlaceLegalHoldMutationBody = BodyType<PlaceLegalHoldInput>
+    export type PlaceLegalHoldMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+ */
+export const usePlaceLegalHold = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeLegalHold>>, TError,{data: BodyType<PlaceLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof placeLegalHold>>,
+        TError,
+        {data: BodyType<PlaceLegalHoldInput>},
+        TContext
+      > => {
+      return useMutation(getPlaceLegalHoldMutationOptions(options));
+    }
+
+export const getReleaseLegalHoldUrl = (id: number,) => {
+
+
+
+
+  return `/api/legal-holds/${id}/release`
+}
+
+/**
+ * @summary Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+ */
+export const releaseLegalHold = async (id: number,
+    releaseLegalHoldInput: ReleaseLegalHoldInput, options?: Parameters<typeof customFetch>[1]): Promise<LegalHold> => {
+
+  return customFetch<LegalHold>(getReleaseLegalHoldUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(releaseLegalHoldInput)
+  }
+);}
+
+
+
+
+
+export const getReleaseLegalHoldMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseLegalHold>>, TError,{id: number;data: BodyType<ReleaseLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releaseLegalHold>>, TError,{id: number;data: BodyType<ReleaseLegalHoldInput>}, TContext> => {
+
+const mutationKey = ['releaseLegalHold'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releaseLegalHold>>, {id: number;data: BodyType<ReleaseLegalHoldInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  releaseLegalHold(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReleaseLegalHoldMutationResult = NonNullable<Awaited<ReturnType<typeof releaseLegalHold>>>
+    export type ReleaseLegalHoldMutationBody = BodyType<ReleaseLegalHoldInput>
+    export type ReleaseLegalHoldMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+ */
+export const useReleaseLegalHold = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseLegalHold>>, TError,{id: number;data: BodyType<ReleaseLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof releaseLegalHold>>,
+        TError,
+        {id: number;data: BodyType<ReleaseLegalHoldInput>},
+        TContext
+      > => {
+      return useMutation(getReleaseLegalHoldMutationOptions(options));
     }
 
 export const getSetTrainingConsentUrl = () => {

@@ -25,6 +25,7 @@ import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { getClientIp } from "../lib/clientIp";
 import { enforceSessionLimit } from "../lib/sessionLimit";
+import { activeHoldsFor, keepPasskeys } from "../lib/legalHolds";
 
 // verifyRegistrationResponse/verifyAuthenticationResponse below do the real cryptographic verification of the WebAuthn response — Zod here only types the surrounding fields (bounded deviceName, primitive checks) before that call, so it doesn't duplicate or risk being stricter than the crypto check.
 const WebAuthnResponseShape = z.looseObject({ id: z.string().min(1) });
@@ -284,12 +285,17 @@ router.delete("/auth/passkey/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Passkey not found" });
     return;
   }
-  await db.delete(passkeysTable).where(eq(passkeysTable.id, id));
-
   const [user] = await db
     .select({ email: usersTable.email })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
+  // A legal hold keeps a copy of the passkey's public key (lib/legalHolds.ts).
+  const holds = await activeHoldsFor({ userId, email: user?.email });
+  await db.transaction(async (tx) => {
+    await keepPasskeys(tx, holds, [key]);
+    await tx.delete(passkeysTable).where(eq(passkeysTable.id, id));
+  });
+
   await logEvent({
     eventType: "PASSKEY_REMOVED",
     details: `Passkey removed${key.deviceName ? ` (${key.deviceName})` : ""} for ${user?.email ?? userId}`,

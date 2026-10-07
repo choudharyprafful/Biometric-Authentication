@@ -90,7 +90,8 @@ backup/long-tail account-recovery flows being in scope, see honest-limits §6 be
 
 ## 2. Deletion mechanism
 
-Two independent deletion paths, matching two different real-world "delete" requests:
+Two independent deletion paths, matching two different real-world "delete" requests. Both still delete
+under a legal hold, after a copy is kept for the hold (§8).
 
 ### a) Delete just the biometric data (`DELETE /users/:id/face`)
 
@@ -510,3 +511,12 @@ procedure is in `12_Data_Breach_Response_Plan.md`; the design choices that touch
 - **Both registers are staff-only** (security analysts read; administrators notify and disclose), and every
   step is a hash-chained audit event. The behaviour model ignores these events: they are staff work, not
   behaviour to predict.
+- **What can be disclosed depends on the kind of request** (added 2026-10-07): face templates and uploaded
+  files only when the law requires it, never on a voluntary request or in an emergency; credentials never.
+  The API enforces the face template and file rule (docs/04 R-PRIV-8).
+- **A legal hold overrides deletion, out of sight** (added 2026-10-07). While a government request is open,
+  an administrator's hold copies anything of the person's that would be deleted, by them, by staff or by
+  the retention purge, before it is deleted. The deletion still happens, so withdrawing consent and
+  deleting an account behave as usual and nothing tips the person off. The copies are kept apart from the
+  account, used for nothing else, and deleted when the hold is released (docs/12 §3, docs/04 R-PRIV-7).
+  The privacy policy says so (sections 9 to 11).

@@ -39,6 +39,8 @@ const META_EVENT_TYPES: string[] = [
   "DATA_BREACH_REGULATOR_NOTIFIED",
   "DATA_BREACH_NOTICE_ACKNOWLEDGED",
   "GOVERNMENT_DISCLOSURE_RECORDED",
+  "LEGAL_HOLD_PLACED",
+  "LEGAL_HOLD_RELEASED",
 ];
 
 // Anti-poisoning cap: limits how many of one user's transitions can enter

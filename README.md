@@ -216,7 +216,7 @@ For the mobile app, see [`artifacts/mobile/README.md`](artifacts/mobile/README.m
 | `node scripts/check-privacy-policy-version.mjs`           | Fails if the privacy policy version differs between the web text, the mobile app and the API (runs in CI)                             |
 | `node scripts/ops/check-production-db.mjs`                | Read-only production check: the app's database role has no more rights than it needs, and every encrypted value is on the current key |
 
-Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards).
+Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards). Database changes go first, through the migration scripts in `scripts/ops/` (`migrate-*.mjs`, most recently `migrate-legal-holds.mjs`). Each asks for the RDS master password, can be rehearsed on a throwaway local database with `--rehearse`, and is safe to run twice.
 
 ## Contributing
 

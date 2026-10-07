@@ -382,6 +382,8 @@ router.get(
       governmentDisclosures: data.disclosures.map((d) => ({
         agency: d.agency,
         legalBasis: d.legalBasis,
+        requestType: d.requestType,
+        kindsOfInformation: d.categories,
         informationDisclosed: d.informationDisclosed,
         disclosedAt: iso(d.disclosedAt),
         youWereToldAt: iso(d.personToldAt),
@@ -496,6 +498,8 @@ router.get(
       disclosures: data.disclosures.map((d) => ({
         agency: d.agency,
         legalBasis: d.legalBasis,
+        requestType: d.requestType,
+        categories: d.categories,
         informationDisclosed: d.informationDisclosed,
         disclosedAt: d.disclosedAt.toISOString(),
         personToldAt: iso(d.personToldAt),

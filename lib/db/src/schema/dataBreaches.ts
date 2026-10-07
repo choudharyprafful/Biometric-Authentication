@@ -79,6 +79,15 @@ export const governmentDisclosuresTable = pgTable("government_disclosures", {
   agency: text("agency").notNull(),
   // The law, warrant, subpoena or court order that required or authorised the disclosure.
   legalBasis: text("legal_basis").notNull(),
+  // "legal-demand" (required by law: APP 6.2(b)), "enforcement-request" (a written request from an
+  // Australian enforcement body: APP 6.2(e)) or "emergency" (a serious threat to life, health or
+  // safety, or a missing person: Privacy Act s 16A). Empty for records made before 2026-10-07.
+  requestType: text("request_type", {
+    enum: ["legal-demand", "enforcement-request", "emergency"],
+  }),
+  // The kinds of information given (DISCLOSURE_CATEGORIES in the API's lib/dataBreaches.ts). Face
+  // templates and uploaded files only under a legal demand. Empty for records made before 2026-10-07.
+  categories: text("categories").array(),
   reference: text("reference"),
   // A copy of the email, not a foreign key: the record must outlive the account.
   subjectEmail: text("subject_email"),

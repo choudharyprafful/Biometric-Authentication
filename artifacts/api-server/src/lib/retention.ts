@@ -6,6 +6,7 @@ import {
   paymentsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { keepRecordsDueForPurge } from "./legalHolds";
 
 // Used/expired tokens have no further purpose once the audit log has
 // captured the event, so purge them unconditionally — this isn't a policy
@@ -96,6 +97,24 @@ async function runRetentionPass(): Promise<void> {
     logger.info(
       { count: parentConsentCount },
       "Retention: purged expired/used parent consent tokens",
+    );
+
+  // Records of anyone under a legal hold are copied before anything of theirs is purged
+  // (lib/legalHolds.ts). If the copy fails, nothing is purged this hour: a hold must not lose a record.
+  let held: number;
+  try {
+    held = await keepRecordsDueForPurge(RETENTION);
+  } catch (err) {
+    logger.warn(
+      { err },
+      "Retention: could not copy records under legal hold, so payment and security records are not purged this hour",
+    );
+    return;
+  }
+  if (held > 0)
+    logger.info(
+      { count: held },
+      "Retention: copied records under legal hold before the purge",
     );
 
   const payments = await purgeAgedPayments();

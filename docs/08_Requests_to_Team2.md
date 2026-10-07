@@ -379,3 +379,29 @@ Team 2 may want to confirm two commitments that are new in this version:
 - People who deleted their account are emailed by hand when a breach involves their kept records. The
   app can't show them a notice, and "Tell the people affected" lists their addresses back as having no
   account.
+
+## 5g. 2026-10-07: what is given to government agencies, and legal holds (privacy policy version 2026-10-07.2)
+
+The client's requirement to "disclose the information when asked by the govt" (section 5d) now has rules
+for what is given, and information an agency has asked for can no longer be lost while its request is dealt
+with (docs/04 R-PRIV-7 and R-PRIV-8, docs/12 section 3). Version 2026-10-07.2 changes:
+
+- **Section 9** gets a heading, "Requests from government and law enforcement", and says:
+  - face templates and uploaded files are given only when the law requires it (a warrant, subpoena, court
+    order or statutory notice), never on a voluntary request or in an emergency;
+  - account details, security and payment records, challenges and sign-in keys are given when the law
+    requires it, on a written request from an Australian enforcement body judged reasonably necessary
+    (APP 6.2(e)), or in an emergency (Privacy Act s 16A);
+  - passwords, and anything else that would let someone into an account, are never given;
+  - foreign governments and courts must use Australia's mutual assistance process;
+  - legal holds keep copies apart while a request needs them and delete them afterwards, and the person's
+    own deletions still happen.
+- **Sections 2, 10 and 11** each gain the one exception: the face template is used for nothing else
+  _unless the law requires us to give it to an agency_, and keeping and deleting data are subject to a
+  legal hold.
+
+Team 2 may want to confirm:
+
+- that face templates and files should need a legal demand even in an emergency;
+- that keeping copies through a person's own deletion, without telling them each time, is acceptable. Some
+  orders forbid telling, and the policy says that it happens.

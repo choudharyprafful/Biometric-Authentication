@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { desc, eq } from "drizzle-orm";
-import { db, uploadsTable } from "@workspace/db";
+import { db, uploadsTable, usersTable } from "@workspace/db";
 import {
   CreateUploadBody,
   CreateUploadResponse,
@@ -24,6 +24,7 @@ import {
   type ContentSource,
 } from "../lib/dataProvenance";
 import { getClientIp } from "../lib/clientIp";
+import { activeHoldsFor, keepUpload } from "../lib/legalHolds";
 
 const router: IRouter = Router();
 // Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
@@ -341,7 +342,16 @@ router.delete("/uploads/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.delete(uploadsTable).where(eq(uploadsTable.id, params.data.id));
+  // A legal hold keeps a copy of the file, still encrypted (lib/legalHolds.ts).
+  const [owner] = await db
+    .select({ email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  const holds = await activeHoldsFor({ userId, email: owner?.email });
+  await db.transaction(async (tx) => {
+    await keepUpload(tx, holds, upload);
+    await tx.delete(uploadsTable).where(eq(uploadsTable.id, params.data.id));
+  });
   await logEvent({
     eventType: "UPLOAD_DELETED",
     details: `Upload deleted: ${upload.fileName} (${upload.fileType}, ${upload.mimeType}, ${upload.sizeBytes} bytes)`,

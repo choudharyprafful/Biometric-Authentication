@@ -40,6 +40,12 @@ import { encryptJson } from "../lib/fileEncryption";
 import { hashResetToken, RESET_TOKEN_TTL_MS } from "./auth";
 import { devAuthLinksEnabled } from "../lib/devLinks";
 import { getClientIp } from "../lib/clientIp";
+import {
+  activeHoldsFor,
+  keepAccountBeforeDeletion,
+  keepFaceTemplate,
+  keepPasskeys,
+} from "../lib/legalHolds";
 
 const router: IRouter = Router();
 
@@ -306,10 +312,22 @@ router.delete(
           .where(eq(biometricKeysTable.userId, params.data.id)),
       ]);
 
+    // A legal hold on this person keeps a copy of everything deleted below (lib/legalHolds.ts). The
+    // deletion itself still happens, so the person sees nothing different.
+    const [target] = await db
+      .select({ email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, params.data.id));
+    const holds = await activeHoldsFor({
+      userId: params.data.id,
+      email: target?.email,
+    });
+
     // Passkeys, phone keys and signed-in sessions go in the same transaction as the account. Until
     // 2026-09-26 the two key tables had no foreign key, so deleting an account left its keys behind
     // (and its sessions until they expired) while this event claimed they were cascade-removed.
     const user = await db.transaction(async (tx) => {
+      await keepAccountBeforeDeletion(tx, holds, params.data.id);
       await tx
         .delete(passkeysTable)
         .where(eq(passkeysTable.userId, params.data.id));
@@ -391,18 +409,29 @@ router.post(
     }
 
     const encryptedDescriptor = encryptJson(body.data.descriptor);
-    const [user] = await db
-      .update(usersTable)
-      .set({
-        faceDescriptorCiphertext: encryptedDescriptor.ciphertext,
-        faceDescriptorIv: encryptedDescriptor.iv,
-        faceDescriptorAuthTag: encryptedDescriptor.authTag,
-        faceEnrolled: true,
-        biometricConsentGiven: true,
-        biometricConsentAt: new Date(),
-      })
-      .where(eq(usersTable.id, params.data.id))
-      .returning();
+    // Enrolling again replaces the template; a legal hold keeps the old one (lib/legalHolds.ts).
+    const [current] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, params.data.id));
+    const holds = current
+      ? await activeHoldsFor({ userId: current.id, email: current.email })
+      : [];
+    const [user] = await db.transaction(async (tx) => {
+      if (current) await keepFaceTemplate(tx, holds, current);
+      return tx
+        .update(usersTable)
+        .set({
+          faceDescriptorCiphertext: encryptedDescriptor.ciphertext,
+          faceDescriptorIv: encryptedDescriptor.iv,
+          faceDescriptorAuthTag: encryptedDescriptor.authTag,
+          faceEnrolled: true,
+          biometricConsentGiven: true,
+          biometricConsentAt: new Date(),
+        })
+        .where(eq(usersTable.id, params.data.id))
+        .returning();
+    });
 
     if (!user) {
       res.status(404).json({ error: "User not found" });
@@ -442,18 +471,30 @@ router.delete("/users/:id/face", async (req, res): Promise<void> => {
   }
 
   // Withdrawing consent deletes the data immediately — no "consent withdrawn but data retained" state.
-  const [user] = await db
-    .update(usersTable)
-    .set({
-      faceDescriptorCiphertext: null,
-      faceDescriptorIv: null,
-      faceDescriptorAuthTag: null,
-      faceEnrolled: false,
-      biometricConsentGiven: false,
-      biometricConsentAt: null,
-    })
-    .where(eq(usersTable.id, params.data.id))
-    .returning();
+  // The one exception is the law's: a legal hold keeps a copy, apart from the account and out of every
+  // use (lib/legalHolds.ts; privacy policy section 9).
+  const [current] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, params.data.id));
+  const holds = current
+    ? await activeHoldsFor({ userId: current.id, email: current.email })
+    : [];
+  const [user] = await db.transaction(async (tx) => {
+    if (current) await keepFaceTemplate(tx, holds, current);
+    return tx
+      .update(usersTable)
+      .set({
+        faceDescriptorCiphertext: null,
+        faceDescriptorIv: null,
+        faceDescriptorAuthTag: null,
+        faceEnrolled: false,
+        biometricConsentGiven: false,
+        biometricConsentAt: null,
+      })
+      .where(eq(usersTable.id, params.data.id))
+      .returning();
+  });
 
   if (!user) {
     res.status(404).json({ error: "User not found" });
@@ -547,25 +588,49 @@ router.post(
       return;
     }
 
-    const [user] = await db
-      .update(usersTable)
-      .set({
-        faceDescriptorCiphertext: null,
-        faceDescriptorIv: null,
-        faceDescriptorAuthTag: null,
-        faceEnrolled: false,
-        biometricConsentGiven: false,
-        biometricConsentAt: null,
-      })
-      .where(eq(usersTable.id, params.data.id))
-      .returning();
+    // A legal hold keeps a copy of the face template and passkeys cleared here (lib/legalHolds.ts).
+    const [current] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, params.data.id));
+    const holds = current
+      ? await activeHoldsFor({ userId: current.id, email: current.email })
+      : [];
+    const [user] = await db.transaction(async (tx) => {
+      if (current) {
+        await keepFaceTemplate(tx, holds, current);
+        await keepPasskeys(
+          tx,
+          holds,
+          await tx
+            .select()
+            .from(passkeysTable)
+            .where(eq(passkeysTable.userId, current.id)),
+        );
+      }
+      const updated = await tx
+        .update(usersTable)
+        .set({
+          faceDescriptorCiphertext: null,
+          faceDescriptorIv: null,
+          faceDescriptorAuthTag: null,
+          faceEnrolled: false,
+          biometricConsentGiven: false,
+          biometricConsentAt: null,
+        })
+        .where(eq(usersTable.id, params.data.id))
+        .returning();
+      if (updated[0])
+        await tx
+          .delete(passkeysTable)
+          .where(eq(passkeysTable.userId, updated[0].id));
+      return updated;
+    });
 
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
-
-    await db.delete(passkeysTable).where(eq(passkeysTable.userId, user.id));
 
     await logEvent({
       eventType: "MFA_RESET_BY_STAFF",
