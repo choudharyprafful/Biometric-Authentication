@@ -39,6 +39,20 @@ Built as a student deliverable for **Team 1 (Technical Security)**, per the cour
 | [12 — Data Breach Response Plan](docs/12_Data_Breach_Response_Plan.md)                     | Breach register, deadlines and notification, requests from government agencies                    |
 | [Team 1 Technical Scope](docs/Team1_Technical_Scope.pdf)                                   | The assignment brief these documents answer                                                       |
 
+### The brief's seven deliverables
+
+Checked in Week 10 (issue #7, 2026-10-07):
+
+| Deliverable (brief §8)                                                     | Where                                                                                                                                                   | Status                                                                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Security architecture diagram                                              | [docs/01](docs/01_Security_Architecture.md)                                                                                                             | Done; the live deployment described as of 2026-10-07                                                                   |
+| Authentication flow, including biometric MFA                               | [docs/02](docs/02_Authentication_Flow.md)                                                                                                               | Done; web, Android and iOS                                                                                             |
+| Data flow, including the training pipeline                                 | [docs/03](docs/03_Data_Flow.md)                                                                                                                         | Done                                                                                                                   |
+| Threat model and risk assessment                                           | [docs/04](docs/04_Threat_Model_Risk_Assessment.md)                                                                                                      | Done; open risks re-checked on 2026-10-07                                                                              |
+| Consent-enforcement and deletion design                                    | [docs/05](docs/05_Consent_and_Deletion_Design.md), [docs/12](docs/12_Data_Breach_Response_Plan.md)                                                      | Done                                                                                                                   |
+| Proof of concept with dummy data: all Core areas, one Important or Stretch | This repository, and the [live site](https://d2zb1uxt99m5ks.cloudfront.net)                                                                             | All Core areas and all three Important areas are built. One deviation from the dummy-data rule is recorded as R-PRIV-9 |
+| Documentation of decisions and assumptions                                 | docs/04 §0, [docs/08](docs/08_Requests_to_Team2.md), [docs/10](docs/10_Production_Launch_Readiness.md), [docs/11](docs/11_Responsible_AI_Governance.md) | Done                                                                                                                   |
+
 ## Quick start
 
 Runs the whole project on your own computer: the API, the web app, and a local database with demo

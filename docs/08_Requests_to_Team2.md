@@ -20,6 +20,13 @@ policy/enforcement split on both sides. Nothing to resolve here; noted only so i
 
 ## 1. For the Privacy & Consent Framework
 
+**Update 2026-10-07: partly addressed since this was written.** Every upload now records where it came
+from: the person's own work, another person's, published work, social media or other people's
+intellectual property. Anything not the person's own is never used by an AI feature, and photos, video and
+audio aren't used by any AI feature at all (privacy policy section 5, `lib/dataProvenance.ts`, docs/09).
+There is still no mechanism for the bystanders themselves: neither their consent nor redaction, for a
+photo or video that shows them. That policy call is on the §6 agenda.
+
 The gap that matters most: third-party consent has no technical mechanism at all yet, not even a
 placeholder. This is explicitly in scope for Team 2 twice over — both as one of the three things that
 make the app _ethically tricky_ ("a user can only consent to their own data... your consent and
@@ -405,3 +412,26 @@ Team 2 may want to confirm:
 - that face templates and files should need a legal demand even in an emergency;
 - that keeping copies through a person's own deletion, without telling them each time, is acceptable. Some
   orders forbid telling, and the policy says that it happens.
+
+## 6. Week 10: agenda for the final sync with Team 2
+
+Everything still open for Team 2, from the sections above, in one place (issue #7):
+
+1. **Third-party consent** (§1): what should the app ask, or refuse, when an upload shows people who never
+   agreed to anything? The AI features already exclude such content, but storage still holds it.
+2. **A real privacy contact, and legal review** (§5c). `privacy@secureai.example` is a placeholder. The
+   APP 8 safeguards for storing Australians' data in the United States, and a legal review of the policy,
+   are still needed (docs/10).
+3. **"Challenge the records (2 years)"** (§5d): read as records of challenges to AI decisions. Confirm, or
+   say what the client meant.
+4. **Face sign-in in the phone app** (§5e): is the app's consent wording acceptable as express consent for
+   biometric information, and does collecting the template through the app need anything beyond policy
+   section 2?
+5. **Data breaches** (§5f): the GDPR's 72 hours for EU and UK users, and emailing by hand the people who
+   deleted their account.
+6. **Government requests** (§5g): face templates and files only under a legal demand, even in an
+   emergency; and keeping copies through a person's own deletion without telling them each time.
+7. **The dummy-data rule** (docs/04 R-PRIV-9): the project owner's own face was used in live testing. Team 2
+   may want it recorded in the ethics record, as Team 1 has in the risk register.
+8. **The coordination interface** (§0, docs/05): confirmed aligned in September. Confirm nothing changed in
+   Team 2's final documents.

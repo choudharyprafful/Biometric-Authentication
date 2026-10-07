@@ -5,11 +5,13 @@ withdrawal work; Team 1 enforces it, blocks non-consented data from training" / 
 decides what 'delete my profile' means; Team 1 builds the deletion mechanism + its limits" / "Retention
 — Team 2 sets retention/disposal policy; Team 1 implements retention limits and secure disposal").
 
-Team 2's actual policy documents don't exist yet in this joint project. The design below states the
-assumptions this implementation makes about that policy, so they're falsifiable/reviewable rather than
-silently baked in. Every open question below (and elsewhere in these docs) that's actually Team 2's call
-to make is collected in one place, organized against Team 2's own deliverables, in
-`08_Requests_to_Team2.md`.
+When this was written, Team 2's policy documents didn't exist yet. The design below therefore states the
+assumptions it makes about that policy, so they can be checked rather than silently baked in. Team 2's
+documents have since arrived (`08_Requests_to_Team2.md` §5b and §5c, and the Acceptability Matrix in
+`09_Team2_Data_Source_Acceptability_Matrix.md`); where one confirmed an assumption, the section says so.
+Every open question below (and elsewhere in these docs) that's actually Team 2's call to make is collected
+in one place, organized against Team 2's own deliverables, in `08_Requests_to_Team2.md`. Its §6 is the
+agenda for the final sync.
 
 ## 1. Consent model
 

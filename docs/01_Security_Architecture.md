@@ -95,7 +95,7 @@ flowchart TB
   signature verification path is real and independently testable (`lib/webhookSignature.ts`), but nothing
   in this PoC actually calls out to a payment network.
 
-## Where it runs (live site, as of 2026-09-30)
+## Where it runs (live site, as of 2026-10-07)
 
 All in AWS `us-east-1` (N. Virginia), one CloudFront domain: <https://d2zb1uxt99m5ks.cloudfront.net>.
 
@@ -104,9 +104,11 @@ All in AWS `us-east-1` (N. Virginia), one CloudFront domain: <https://d2zb1uxt99
   defined once in `scripts/ops/web-security-headers.mjs` and applied by `scripts/ops/deploy-web.mjs`,
   which also refuses a build that loads fonts from elsewhere and checks the live headers after deploying
   (R-SC-4). Fonts are self-hosted.
-- **API:** Elastic Beanstalk (`secureai-api-env2`, Node.js 24 on Amazon Linux 2023, API v21), reached
+- **API:** Elastic Beanstalk (`secureai-api-env2`, Node.js 24 on Amazon Linux 2023, API v26), reached
   through the same CloudFront domain, so the session and CSRF cookies are same-site (`SameSite=Lax`,
-  R-SC-5). The API believes a forwarded client IP only from CloudFront's published ranges
+  R-SC-5). CloudFront reaches it over plain HTTP, because the single-instance environment has no HTTPS
+  listener. So traffic is encrypted from the browser or phone to CloudFront but not from CloudFront to the
+  API, and the instance also answers HTTP requests sent to it directly (R-SC-6, open). The API believes a forwarded client IP only from CloudFront's published ranges
   (`lib/cloudfrontRanges.ts`). ClamAV runs on the same instance (R-DP-2).
 - **Database:** RDS PostgreSQL (`secureai2`). The API connects as the restricted `secureai_app` role over
   TLS, checking the server certificate against Amazon's bundle (R-AC-2);
