@@ -1,0 +1,155 @@
+SecureAI release notes
+======================
+
+Release: main at commit 5c1970f (9 October 2026); live API v26, deployed 7 October 2026 from commit 9b5796e.
+Live site: https://d2zb1uxt99m5ks.cloudfront.net
+
+This file lists the bugs and issues left in this release. Section 9 of the document
+"SecureAI - Test Planning and Results" lists the same issues with the same IDs; change
+both together. IDs starting R- are rows of the risk register,
+docs/04_Threat_Model_Risk_Assessment.md, which has the full detail of each.
+
+Open issues (7)
+---------------
+Not yet fixed.
+
+R-DP-5: The production database's disk is not encrypted, and it has no automated backups or
+    deletion protection.
+    Impact: A copy of the disk would expose data that the app doesn't encrypt itself; a lost
+    database can't be restored.
+    Plan: Restore an encrypted copy of a snapshot (KMS), then turn on 7-day backups and deletion
+    protection. Needs the project owner's decision, as it replaces the production database.
+
+R-SC-6: CloudFront forwards requests to the API over plain HTTP, and the API server also accepts
+    direct requests on port 80.
+    Impact: Traffic is encrypted from the browser or phone to CloudFront, but not from
+    CloudFront to the API.
+    Plan: A custom domain with a certificate on the API, then an HTTPS-only origin; meanwhile,
+    allow port 80 only from CloudFront's origin-facing addresses.
+
+R-SC-7: CloudFront still accepts TLS 1.0 and 1.1.
+    Impact: Old clients can connect with outdated protocols.
+    Plan: The custom domain from R-SC-6, with an ACM certificate and the TLSv1.2_2021 security
+    policy.
+
+R-AC-6: The production database is still flagged as publicly accessible, although its firewall
+    admits only the API.
+    Impact: One mistaken firewall rule would expose it to the internet again.
+    Plan: Turn public accessibility off and run migrations from inside the network.
+
+R-AUTH-10: New passwords are not checked against lists of breached passwords.
+    Impact: A password already known to attackers can be chosen.
+    Plan: Check new passwords at sign-up and reset against a breached-password list.
+
+R-LOG-6: Audit-log messages contain email addresses, including parents' emails for under-18
+    accounts.
+    Impact: The logs hold more personal information than they need.
+    Plan: Decide: record the account id instead, or accept and record the reason.
+
+R-PRIV-9: Real biometric data was used in testing: the project owner's own face, on their
+    account and one throwaway test account.
+    Impact: A deviation from the brief's dummy-data rule.
+    Plan: Delete the throwaway account, decide whether the owner's account keeps its face
+    template, and test with synthetic images only.
+
+Partly fixed (8)
+----------------
+Fixed in part; the remainder is described.
+
+R-BIO-1: The face liveness check does not stop a replayed video of the person blinking, a mask,
+    or well-shaped image noise.
+    Impact: Face sign-in is weaker than a passkey or the phone's key.
+    Plan: Passkeys and phone keys remain the recommended factors; a cryptographic liveness check
+    would need dedicated hardware.
+
+R-AUTH-9: The demo admin password was published on the live sign-in page before the fix and is
+    still in the repository's history.
+    Impact: Anyone who saw it could sign in as that admin.
+    Plan: The project owner changes the demo admin password (left to them because assessors may
+    use it).
+
+R-PAY-3: Self-service refunds check the 14-day window and status, but not whether the paid plan
+    was used.
+    Impact: Someone could use a plan and then refund it within 14 days.
+    Plan: Add usage metering if real payments are introduced.
+
+R-ML-10: Face-matching accuracy and fairness across groups of people have not been measured.
+    Impact: Face sign-in may work less well for some people; a passkey is always offered
+    instead.
+    Plan: Measure with a demographically labelled set of consented faces before any real launch.
+
+R-SUPPLY-5: The phone app's build tooling still has 30 dependency advisories (down from 48).
+    Impact: Risk in the tools that build the app, not in the code the app runs.
+    Plan: Remaining fixes need a newer Expo SDK; upgrade before a real release.
+
+R-SUPPLY-2: The phone app is outside the main workspace, so CI does not audit its dependencies
+    or build the Android app (the iPhone build runs in ios.yml).
+    Impact: A broken Android build or a vulnerable mobile dependency is noticed only when
+    someone builds it.
+    Plan: Add an Android build and a mobile dependency audit to CI.
+
+R-MOBILE-1: The passkey ceremony on real phones has not been verified.
+    Impact: Passkey sign-in in the phone apps may fail on some devices.
+    Plan: Verify on Android and iPhone hardware with the site's Digital Asset Links and
+    associated domains.
+
+R-MOBILE-4: On iPhone, the sign-in key is an RSA-2048 key in the Keychain, not in the Secure
+    Enclave (which holds only P-256 keys).
+    Impact: The key is protected by the Keychain and biometrics, but not by the Secure Enclave
+    hardware.
+    Plan: Move to a P-256 key in the Secure Enclave, with the server's verification updated to
+    match.
+
+Accepted limitations (5)
+------------------------
+Known and accepted for this proof of concept, with the reason recorded in the risk register.
+
+R-AC-4: Administrators can see the audit trail of their own actions.
+    Impact: The log is a weaker check on administrators themselves.
+    Plan: Accepted by decision; reversing it is a one-line change (routes/security.ts,
+    canSeeAuditLogs).
+
+R-SUPPLY-4: One logger release, pino 9.14.0, is installed although it lacks the provenance
+    signature of earlier releases.
+    Impact: Its contents were reviewed; later pino releases are still checked.
+    Plan: Accepted with a scoped exception for exactly that version.
+
+R-LOG-1: The rate limiter, the audit-log write queue and the alert cooldown are held in one
+    server's memory.
+    Impact: Correct for the single production instance; several instances would need a shared
+    store.
+    Plan: Use a shared store such as Redis if the API runs on more than one instance.
+
+R-ML-6: Data cannot be removed from a model that has already learned from it.
+    Impact: The live models are rebuilt from current data on every request, so withdrawn or
+    deleted data stops counting at once; this would not hold for a model trained once and kept.
+    Plan: Accepted as stated in the brief: limitations stated, not solved.
+
+R-ADV-1: Adversarial images crafted against the face model are detected, not prevented.
+    Impact: A probing pattern raises an alert for staff; the attack itself is not blocked.
+    Plan: Passkeys are the backstop; prevention needs anti-spoofing hardware.
+
+Other known issues (4)
+----------------------
+Not risk-register rows.
+
+OTH-1: A high-severity advisory in build tooling: source-map-js below 1.2.2
+    (GHSA-68fv-2mgg-jv7q), reached through @tailwindcss/vite.
+    Impact: Build time only; it is not part of the deployed site.
+    Plan: Add an override to 1.2.2, which is now past the 7-day minimum package age.
+
+OTH-2: Differential privacy for the behaviour model is built and tested, but switched off in
+    production (BEHAVIOR_MODEL_DP_EPSILON is not set).
+    Impact: Suggestions are protected by the three-account threshold only.
+    Plan: Set the variable once there are enough consenting users: verify:dp shows that at
+    epsilon 1 a suggestion needs about 150 of them.
+
+OTH-3: Phone builds made before privacy policy version 2026-10-07.2 cannot acknowledge it.
+    Impact: On those builds the policy notice stays until the app is updated.
+    Plan: Build and install new phone apps.
+
+OTH-4: Team 2's Bystander Consent Policy (other people shown in uploads) is not implemented in
+    this release; it is in progress.
+    Impact: Uploads are not flagged for the other people they show. Photos, video and audio are
+    not used by any AI feature in any case.
+    Plan: In progress: the people question at upload, a public report page and a staff queue.
