@@ -65,3 +65,9 @@ Thumbs.db
 
 # Python bytecode (artifacts/ai-model)
 __pycache__/
+
+# Local HTTPS certificates
+artifacts/mobile/.certs/
+
+# Local dependency backup
+artifacts/mobile/node_modules-backup/

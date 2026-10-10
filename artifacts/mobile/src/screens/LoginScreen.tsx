@@ -20,6 +20,7 @@ import {
 } from "../components/ui";
 import { colors, fonts } from "../theme";
 import { PRIVACY_POLICY_URL } from "../config";
+import { FaceCameraScreen } from "./FaceCameraScreen";
 
 type LoginStep = "password" | "biometric" | "link";
 
@@ -34,6 +35,7 @@ export function LoginScreen({
   const [linkCode, setLinkCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   // 'biometric' is step 2 of ordinary login (password succeeded, a device
   // biometric-key ceremony is needed) — mirrors the web app's two-step flow
   // (Login.tsx): password alone never grants a full session. 'link' is the
@@ -70,7 +72,12 @@ export function LoginScreen({
     setError("");
     setBusy(true);
     try {
-      await loginWithBiometricKey();
+      const result = await loginWithBiometricKey();
+
+      if (!result.verified) {
+        throw new Error("Biometric verification failed.");
+      }
+
       await refetchUser();
     } catch (err: any) {
       setError(err?.message || "Biometric verification failed.");
@@ -92,6 +99,8 @@ export function LoginScreen({
     }
   };
 
+  if (showCamera)
+    return <FaceCameraScreen onBack={() => setShowCamera(false)} />;
   return (
     <ScrollView
       contentContainerStyle={styles.container}
@@ -166,6 +175,9 @@ export function LoginScreen({
         {view === "biometric" && (
           <View style={styles.verifyStep}>
             <ShieldBadge size={48} />
+            <Button onPress={() => setShowCamera(true)}>
+              Open Front Camera
+            </Button>
             <Text style={styles.verifyTitle}>Verify It's You</Text>
             <Text style={styles.verifySubtitle}>
               Password confirmed. Complete sign-in with your device biometric.
@@ -192,6 +204,9 @@ export function LoginScreen({
         {view === "link" && (
           <View style={styles.verifyStep}>
             <ShieldBadge size={48} />
+            <Button onPress={() => setShowCamera(true)}>
+              Open Front Camera
+            </Button>
             <Text style={styles.verifyTitle}>Link This Device</Text>
             <Text style={styles.verifySubtitle}>
               Enter the code shown on an already signed-in session (web →

@@ -189,6 +189,16 @@ export async function login(
   return request("/auth/login", { method: "POST", body: { email, password } });
 }
 
+export async function verifyFaceLogin(
+  descriptor: number[],
+  tempToken: string,
+): Promise<{ user: AppUser; token: string }> {
+  return request("/auth/face-verify", {
+    method: "POST",
+    body: { descriptor, tempToken },
+  });
+}
+
 export async function getMe(): Promise<AppUser | null> {
   try {
     return await request<AppUser>("/auth/me");
