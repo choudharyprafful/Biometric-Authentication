@@ -10,8 +10,24 @@ import {
   useListGovernmentDisclosures,
   getListGovernmentDisclosuresQueryKey,
   useRecordGovernmentDisclosure,
+  useListLegalHolds,
+  getListLegalHoldsQueryKey,
+  usePlaceLegalHold,
+  useReleaseLegalHold,
+  useListBystanderReports,
+  getListBystanderReportsQueryKey,
+  findUploadsForBystanderReport,
+  usePauseUploadForBystanderReport,
+  useResolveBystanderReport,
+  type BystanderCandidateUpload,
+  type BystanderReport,
+  type ResolveBystanderReportInputOutcome,
   type DataBreach,
+  type DisclosureCategory,
+  type LegalHold,
+  type LegalHoldCopyCountKind,
   type NotifyDataBreachUsersResult,
+  type RecordGovernmentDisclosureInputRequestType,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -28,12 +44,22 @@ import {
 } from "../components/ui";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../contexts/AuthContext";
-import { FileWarning, Landmark, Loader2, Plus, Scale } from "lucide-react";
+import { peopleSummary } from "../components/PeopleInFile";
+import {
+  Archive,
+  FileWarning,
+  Landmark,
+  Loader2,
+  Plus,
+  Scale,
+  UserX,
+} from "lucide-react";
 
-// The data breach register and the government disclosure record (docs/12_Data_Breach_Response_Plan.md).
-// Under the Notifiable Data Breaches scheme a suspected breach is assessed within 30 days; if serious
-// harm is likely, the people affected and the OAIC are told as soon as practicable. Security analysts
-// record and assess; administrators tell people and the OAIC, and record disclosures.
+// The data breach register, reports from people in uploads, the government disclosure record and
+// legal holds (docs/12_Data_Breach_Response_Plan.md). Under the Notifiable Data Breaches scheme a suspected breach
+// is assessed within 30 days; if serious harm is likely, the people affected and the OAIC are told as
+// soon as practicable. Security analysts record and assess; administrators tell people and the OAIC,
+// record disclosures and manage legal holds.
 
 // <input type="datetime-local"> works in the browser's local time, without a zone.
 const toLocalInput = (d: Date) =>
@@ -50,6 +76,56 @@ const day = (iso: string) =>
     year: "numeric",
   });
 const errorText = (err: any, fallback: string) => err?.data?.error || fallback;
+
+// Privacy policy section 9: why information can be given, and what.
+const REQUEST_TYPES: {
+  value: RecordGovernmentDisclosureInputRequestType;
+  label: string;
+  help: string;
+}[] = [
+  {
+    value: "legal-demand",
+    label: "Required by law",
+    help: "A warrant, subpoena, court order or statutory notice (APP 6.2(b))",
+  },
+  {
+    value: "enforcement-request",
+    label: "Enforcement request",
+    help: "A written request from an Australian enforcement body, with no order, that you judge reasonably necessary for its work (APP 6.2(e))",
+  },
+  {
+    value: "emergency",
+    label: "Emergency",
+    help: "A serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A)",
+  },
+];
+const REQUEST_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  REQUEST_TYPES.map((t) => [t.value, t.label]),
+);
+const CATEGORIES: { value: DisclosureCategory; label: string }[] = [
+  { value: "account", label: "Account details" },
+  { value: "security-records", label: "Security records" },
+  { value: "payments", label: "Payment records" },
+  { value: "uploads", label: "Uploaded files" },
+  { value: "face-template", label: "Face template" },
+  { value: "ai-challenges", label: "AI challenge records" },
+  { value: "sign-in-keys", label: "Passkeys and phone keys" },
+];
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.value, c.label]),
+);
+// Given only when the law requires it; the API refuses them for any other kind of request.
+const LEGAL_DEMAND_ONLY: DisclosureCategory[] = ["uploads", "face-template"];
+
+const COPY_LABEL: Record<LegalHoldCopyCountKind, [string, string]> = {
+  account: ["account", "accounts"],
+  "face-template": ["face template", "face templates"],
+  upload: ["file", "files"],
+  passkey: ["passkey", "passkeys"],
+  "phone-key": ["phone key", "phone keys"],
+  payment: ["payment record", "payment records"],
+  "security-record": ["security record", "security records"],
+};
 
 function useRefreshBreaches() {
   const queryClient = useQueryClient();
@@ -436,7 +512,10 @@ function NotifyForm({
           </p>
           {result.unknownEmails.length > 0 && (
             <p className="text-destructive">
-              No account for: {result.unknownEmails.join(", ")}
+              No account for: {result.unknownEmails.join(", ")}. If any of them
+              deleted their account and their kept payment or security records
+              are involved, email them the same statement yourself (privacy
+              policy section 14).
             </p>
           )}
         </div>
@@ -633,19 +712,36 @@ function DisclosureForm({ onDone }: { onDone: () => void }) {
     notTellingReason: "",
   });
   const [told, setTold] = useState<boolean | null>(null);
+  const [requestType, setRequestType] =
+    useState<RecordGovernmentDisclosureInputRequestType | null>(null);
+  const [categories, setCategories] = useState<DisclosureCategory[]>([]);
   const [error, setError] = useState("");
   const set =
     (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm({ ...form, [key]: e.target.value });
+  const chooseType = (value: RecordGovernmentDisclosureInputRequestType) => {
+    setRequestType(value);
+    if (value !== "legal-demand")
+      setCategories(categories.filter((c) => !LEGAL_DEMAND_ONLY.includes(c)));
+  };
+  const toggleCategory = (value: DisclosureCategory) =>
+    setCategories(
+      categories.includes(value)
+        ? categories.filter((c) => c !== value)
+        : [...categories, value],
+    );
 
   const submit = async () => {
+    if (!requestType) return;
     setError("");
     try {
       await record.mutateAsync({
         data: {
           agency: form.agency,
           legalBasis: form.legalBasis,
+          requestType,
+          categories,
           reference: form.reference || null,
           subjectEmail: form.subjectEmail || null,
           informationDisclosed: form.informationDisclosed,
@@ -669,10 +765,71 @@ function DisclosureForm({ onDone }: { onDone: () => void }) {
   return (
     <Card className="space-y-3" data-testid="form-record-disclosure">
       <p className="text-sm text-muted-foreground">
-        Only disclose when a law, warrant, subpoena or court order requires or
-        allows it, and only what it covers. Check the request is genuine with
-        the agency first.
+        Only disclose when Australian law requires or allows it, only what the
+        request covers, and only about the person it names. Check the request is
+        genuine through the agency's published contact details first, and place
+        a legal hold below before anything else. A foreign government or court
+        must go through Australia's mutual assistance process: don't disclose to
+        it directly. Never give passwords (only a hash is held), sign-in tokens
+        or encryption keys.
       </p>
+      <fieldset className="space-y-2">
+        <legend className="text-sm text-foreground">
+          What kind of request is it?
+        </legend>
+        {REQUEST_TYPES.map((t) => (
+          <label
+            key={t.value}
+            className="flex items-start gap-2 text-sm text-foreground"
+          >
+            <input
+              type="radio"
+              name="disclosure-type"
+              className="mt-1"
+              checked={requestType === t.value}
+              onChange={() => chooseType(t.value)}
+              data-testid={`disclosure-type-${t.value}`}
+            />
+            <span>
+              {t.label}
+              <span className="block text-xs text-muted-foreground">
+                {t.help}
+              </span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className="space-y-2">
+        <legend className="text-sm text-foreground">
+          What kinds of information were given?
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {CATEGORIES.map((c) => {
+            const blocked =
+              LEGAL_DEMAND_ONLY.includes(c.value) &&
+              requestType !== "legal-demand";
+            return (
+              <label
+                key={c.value}
+                className={`flex items-center gap-2 text-sm ${blocked ? "text-muted-foreground" : "text-foreground"}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={categories.includes(c.value)}
+                  disabled={blocked}
+                  onChange={() => toggleCategory(c.value)}
+                  data-testid={`disclosure-category-${c.value}`}
+                />
+                {c.label}
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Face templates and uploaded files only when the law requires it, never
+          on an enforcement request or in an emergency.
+        </p>
+      </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="disclosure-agency">Agency</Label>
@@ -783,6 +940,8 @@ function DisclosureForm({ onDone }: { onDone: () => void }) {
           onClick={submit}
           isLoading={record.isPending}
           disabled={
+            !requestType ||
+            categories.length === 0 ||
             form.agency.trim().length < 2 ||
             form.legalBasis.trim().length < 5 ||
             form.informationDisclosed.trim().length < 5 ||
@@ -800,6 +959,683 @@ function DisclosureForm({ onDone }: { onDone: () => void }) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+function PlaceHoldForm({ onDone }: { onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const place = usePlaceLegalHold();
+  const [form, setForm] = useState({
+    subjectEmail: "",
+    agency: "",
+    reference: "",
+    reason: "",
+  });
+  const [error, setError] = useState("");
+  const set =
+    (key: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm({ ...form, [key]: e.target.value });
+
+  const submit = async () => {
+    setError("");
+    try {
+      await place.mutateAsync({
+        data: {
+          subjectEmail: form.subjectEmail.trim(),
+          agency: form.agency,
+          reference: form.reference || null,
+          reason: form.reason,
+        },
+      });
+      await queryClient.invalidateQueries({
+        queryKey: getListLegalHoldsQueryKey(),
+      });
+      onDone();
+    } catch (err) {
+      setError(errorText(err, "Could not place the hold."));
+    }
+  };
+
+  return (
+    <Card className="space-y-3" data-testid="form-place-hold">
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="hold-subject">The person's email</Label>
+          <Input
+            id="hold-subject"
+            type="email"
+            value={form.subjectEmail}
+            onChange={set("subjectEmail")}
+            maxLength={320}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="hold-agency">Agency</Label>
+          <Input
+            id="hold-agency"
+            value={form.agency}
+            onChange={set("agency")}
+            maxLength={200}
+          />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="hold-reference">Their reference</Label>
+        <Input
+          id="hold-reference"
+          value={form.reference}
+          onChange={set("reference")}
+          maxLength={200}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="hold-reason">What the request covers</Label>
+        <Textarea
+          id="hold-reason"
+          value={form.reason}
+          onChange={set("reason")}
+          rows={2}
+          maxLength={1000}
+          placeholder="For example: preservation request for account and payment records, 1 Jan to 30 Jun 2026"
+        />
+      </div>
+      {error && <p className="text-destructive text-xs">{error}</p>}
+      <div className="flex gap-2">
+        <Button
+          onClick={submit}
+          isLoading={place.isPending}
+          disabled={
+            !/^[^@\s]+@[^@\s]+$/.test(form.subjectEmail.trim()) ||
+            form.agency.trim().length < 2 ||
+            form.reason.trim().length < 5
+          }
+          data-testid="button-place-hold"
+        >
+          Place hold
+        </Button>
+        <Button variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function HoldItem({ hold }: { hold: LegalHold }) {
+  const queryClient = useQueryClient();
+  const release = useReleaseLegalHold();
+  const [releasing, setReleasing] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setError("");
+    try {
+      await release.mutateAsync({ id: hold.id, data: { reason } });
+      await queryClient.invalidateQueries({
+        queryKey: getListLegalHoldsQueryKey(),
+      });
+      setReleasing(false);
+    } catch (err) {
+      setError(errorText(err, "Could not release the hold."));
+    }
+  };
+
+  const copies = hold.copies
+    .map((c) => `${c.count} ${COPY_LABEL[c.kind][c.count === 1 ? 0 : 1]}`)
+    .join(", ");
+
+  return (
+    <li data-testid={`hold-${hold.id}`}>
+      <Card className="space-y-2 [overflow-wrap:anywhere]">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-sm text-foreground">
+            {hold.subjectEmail}
+          </span>
+          {hold.releasedAt ? (
+            <Badge variant="outline">Released</Badge>
+          ) : (
+            <Badge variant="warning">Active</Badge>
+          )}
+          {!hold.accountFound && (
+            <Badge variant="outline">No account with this email</Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {hold.agency}
+          {hold.reference && ` · ${hold.reference}`} · placed{" "}
+          {day(hold.placedAt)} by {hold.placedByEmail}
+        </p>
+        <p className="text-sm text-foreground">{hold.reason}</p>
+        {hold.releasedAt ? (
+          <p className="text-xs text-muted-foreground">
+            Released {day(hold.releasedAt)} by {hold.releasedByEmail}:{" "}
+            {hold.releaseReason}. Its copies were deleted.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {hold.copiesTotal === 0 ? "No copies yet." : `Kept: ${copies}.`}
+          </p>
+        )}
+        {!hold.releasedAt && !releasing && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setReleasing(true)}
+            data-testid={`button-release-hold-${hold.id}`}
+          >
+            Release hold
+          </Button>
+        )}
+        {releasing && (
+          <div className="space-y-2">
+            <Textarea
+              aria-label="Why the information no longer has to be kept"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              maxLength={1000}
+              placeholder="Why the information no longer has to be kept, for example: matter closed, agency confirmed on 1 Nov"
+            />
+            <p className="text-xs text-muted-foreground">
+              Releasing deletes the copies this hold kept.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={submit}
+                isLoading={release.isPending}
+                disabled={reason.trim().length < 5}
+                data-testid={`button-confirm-release-${hold.id}`}
+              >
+                Release and delete copies
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setReleasing(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        {error && <p className="text-destructive text-xs">{error}</p>}
+      </Card>
+    </li>
+  );
+}
+
+// Administrators only, to read too: who is the subject of a government request is need-to-know.
+function LegalHolds() {
+  const holds = useListLegalHolds({
+    query: { queryKey: getListLegalHoldsQueryKey() },
+  });
+  const [placing, setPlacing] = useState(false);
+  const active = (holds.data ?? []).filter((h) => !h.releasedAt).length;
+
+  let list: React.ReactNode;
+  if (holds.isLoading) {
+    list = <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+  } else if (!holds.data) {
+    list = (
+      <Card>
+        <p className="text-sm text-destructive">Could not load legal holds.</p>
+      </Card>
+    );
+  } else if (holds.data.length === 0) {
+    list = (
+      <Card>
+        <p className="text-sm text-muted-foreground">No legal holds.</p>
+      </Card>
+    );
+  } else {
+    list = (
+      <ul className="space-y-3">
+        {holds.data.map((h) => (
+          <HoldItem key={h.id} hold={h} />
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-mono font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
+          <Archive className="w-5 h-5 text-primary" /> Legal holds{" "}
+          <Badge variant={active > 0 ? "warning" : "outline"}>
+            {active} active
+          </Badge>
+        </h2>
+        {!placing && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPlacing(true)}
+            data-testid="button-new-hold"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Place a hold
+          </Button>
+        )}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        When a government or law-enforcement request arrives, place a hold on
+        the person it names first. Their account, face template, files, sign-in
+        keys and payment records are copied now, and while the hold lasts
+        anything of theirs that would be deleted, by them, by staff or by the
+        retention purge, is copied first. They see no difference. Files and face
+        templates stay encrypted in the copies, and no copy can be opened in the
+        app: producing them for an agency is an operator task (docs/12). Release
+        the hold when the obligation ends; its copies are then deleted.
+      </p>
+      {placing && <PlaceHoldForm onDone={() => setPlacing(false)} />}
+      {list}
+    </section>
+  );
+}
+
+// Reports from people who appear in someone else's upload (Team 2's Bystander Consent Policy,
+// section 6; the public form is pages/ReportContent.tsx). Analysts can read the queue; administrators
+// match a report to a file, pause it and close the report, as with the other registers here.
+const REPORT_STATUS: Record<
+  BystanderReport["status"],
+  { label: string; variant: "warning" | "outline" }
+> = {
+  open: { label: "Open: find the file", variant: "warning" },
+  paused: { label: "File paused, under review", variant: "warning" },
+  removed: { label: "File removed", variant: "outline" },
+  "not-upheld": { label: "Not upheld", variant: "outline" },
+  "no-match": { label: "No file found", variant: "outline" },
+};
+
+function useRefreshReports() {
+  const queryClient = useQueryClient();
+  return () =>
+    queryClient.invalidateQueries({
+      queryKey: getListBystanderReportsQueryKey(),
+    });
+}
+
+/** Finds the uploader's files, then pauses the one the report is about. */
+function MatchReportForm({
+  report,
+  onDone,
+}: {
+  report: BystanderReport;
+  onDone: () => void;
+}) {
+  const refresh = useRefreshReports();
+  const pause = usePauseUploadForBystanderReport();
+  const hint = report.uploaderHint?.trim() ?? "";
+  const [email, setEmail] = useState(
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hint) ? hint : "",
+  );
+  const [files, setFiles] = useState<BystanderCandidateUpload[] | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [uploadId, setUploadId] = useState<number | null>(null);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+
+  const lookUp = async () => {
+    setError("");
+    setLooking(true);
+    setUploadId(null);
+    try {
+      setFiles(await findUploadsForBystanderReport({ email: email.trim() }));
+    } catch (err) {
+      setError(errorText(err, "Could not look up that account."));
+    } finally {
+      setLooking(false);
+    }
+  };
+
+  const submit = async () => {
+    if (uploadId === null) return;
+    setError("");
+    try {
+      await pause.mutateAsync({ id: report.id, data: { uploadId, note } });
+      await refresh();
+      onDone();
+    } catch (err) {
+      setError(errorText(err, "Could not pause the file."));
+    }
+  };
+
+  return (
+    <div className="space-y-3 border border-border p-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1 flex-1 min-w-[14rem]">
+          <Label htmlFor={`match-email-${report.id}`}>Uploader's email</Label>
+          <Input
+            id={`match-email-${report.id}`}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={320}
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={lookUp}
+          isLoading={looking}
+          disabled={!email.trim()}
+          data-testid={`button-find-files-${report.id}`}
+        >
+          Show their files
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Names and dates only. Open a file only if the description isn't enough
+        to tell which one it is.
+      </p>
+      {files && files.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No account with that email, or it has no files.
+        </p>
+      )}
+      {files && files.length > 0 && (
+        <ul className="space-y-1 max-h-64 overflow-y-auto">
+          {files.map((f) => (
+            <li key={f.id}>
+              <label className="flex items-start gap-2 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name={`match-file-${report.id}`}
+                  className="mt-1"
+                  checked={uploadId === f.id}
+                  onChange={() => setUploadId(f.id)}
+                  data-testid={`match-file-${report.id}-${f.id}`}
+                />
+                <span>
+                  <span className="font-mono">
+                    #{f.id} {f.fileName}
+                  </span>{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {f.fileType}, uploaded {day(f.createdAt)} ·{" "}
+                    {peopleSummary(f.bystanders)}
+                    {f.pausedForReviewAt && " · already paused"}
+                  </span>
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      {uploadId !== null && (
+        <>
+          <Textarea
+            aria-label="Why this file matches the report"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            placeholder="Why this file matches the report, for example: party photo uploaded 12 Sep, description matches"
+          />
+          <p className="text-xs text-muted-foreground">
+            Pausing stops every feature using the file and emails its uploader
+            that someone in it asked for a review. The reporter isn't named.
+          </p>
+        </>
+      )}
+      {error && <p className="text-destructive text-xs">{error}</p>}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          onClick={submit}
+          isLoading={pause.isPending}
+          disabled={uploadId === null || note.trim().length < 5}
+          data-testid={`button-pause-file-${report.id}`}
+        >
+          Pause this file
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function CloseReportForm({
+  report,
+  onDone,
+}: {
+  report: BystanderReport;
+  onDone: () => void;
+}) {
+  const refresh = useRefreshReports();
+  const resolve = useResolveBystanderReport();
+  const outcomes: {
+    value: ResolveBystanderReportInputOutcome;
+    label: string;
+  }[] =
+    report.status === "paused"
+      ? [
+          { value: "removed", label: "Remove the file" },
+          { value: "not-upheld", label: "Not upheld: use the file again" },
+        ]
+      : [{ value: "no-match", label: "No file found" }];
+  const [outcome, setOutcome] = useState<ResolveBystanderReportInputOutcome>(
+    outcomes[0]!.value,
+  );
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setError("");
+    try {
+      await resolve.mutateAsync({ id: report.id, data: { outcome, note } });
+      await refresh();
+      onDone();
+    } catch (err) {
+      setError(errorText(err, "Could not close the report."));
+    }
+  };
+
+  return (
+    <div className="space-y-3 border border-border p-3">
+      {outcomes.length > 1 && (
+        <div className="flex flex-wrap gap-4">
+          {outcomes.map((o) => (
+            <label
+              key={o.value}
+              className="flex items-center gap-2 text-sm text-foreground"
+            >
+              <input
+                type="radio"
+                name={`outcome-${report.id}`}
+                checked={outcome === o.value}
+                onChange={() => setOutcome(o.value)}
+                data-testid={`outcome-${report.id}-${o.value}`}
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      )}
+      <Textarea
+        aria-label="The decision and why"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={2}
+        maxLength={1000}
+        placeholder="The decision and why. Reply to the reporter by email yourself; this form doesn't."
+      />
+      <p className="text-xs text-muted-foreground">
+        {outcome === "removed" &&
+          "Deletes the file and emails its uploader. If they are under a legal hold, a copy is kept first."}
+        {outcome === "not-upheld" &&
+          "Features can use the file again, unless another report about it is still under review. Its uploader is emailed."}
+        {outcome === "no-match" &&
+          "Closes the report without touching any file."}
+      </p>
+      {error && <p className="text-destructive text-xs">{error}</p>}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          onClick={submit}
+          isLoading={resolve.isPending}
+          disabled={note.trim().length < 5}
+          data-testid={`button-close-report-${report.id}`}
+        >
+          Close the report
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ReportItem({
+  report,
+  isAdmin,
+}: {
+  report: BystanderReport;
+  isAdmin: boolean;
+}) {
+  const [action, setAction] = useState<"match" | "close" | null>(null);
+  const status = REPORT_STATUS[report.status];
+  const closed = report.resolvedAt !== null;
+  return (
+    <li data-testid={`bystander-report-${report.id}`}>
+      <Card className="space-y-2 [overflow-wrap:anywhere]">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-sm text-foreground">
+            #{report.id}
+          </span>
+          <Badge variant={status.variant}>{status.label}</Badge>
+          <Badge variant="outline">
+            {report.request === "removal"
+              ? "Asks for removal"
+              : "Asks for review"}
+          </Badge>
+          {report.relationship === "parent-or-guardian" && (
+            <Badge variant="outline">For their child</Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Received {when(report.receivedAt)} from{" "}
+          <span className="font-mono">{report.reporterEmail}</span>
+          {report.reporterName && ` (${report.reporterName})`}
+        </p>
+        <p className="text-sm text-foreground whitespace-pre-wrap">
+          {report.contentDescription}
+        </p>
+        {report.uploaderHint && (
+          <p className="text-xs text-muted-foreground">
+            Thinks it was uploaded by: {report.uploaderHint}
+          </p>
+        )}
+        {report.uploadId !== null && (
+          <p className="text-xs text-muted-foreground">
+            File #{report.uploadId}
+            {report.uploaderEmail && `, uploaded by ${report.uploaderEmail}`}
+            {report.pausedAt && `; paused ${when(report.pausedAt)}`}
+          </p>
+        )}
+        {report.staffNote && (
+          <p className="text-xs text-muted-foreground">
+            {closed ? "Decision" : "Note"}: {report.staffNote}
+            {report.handledByEmail && ` (${report.handledByEmail})`}
+          </p>
+        )}
+        {closed && (
+          <p className="text-xs text-muted-foreground">
+            Closed {when(report.resolvedAt)}
+          </p>
+        )}
+        {isAdmin && !closed && action === null && (
+          <div className="flex flex-wrap gap-2">
+            {report.status === "open" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAction("match")}
+                data-testid={`button-match-report-${report.id}`}
+              >
+                Find the file
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAction("close")}
+              data-testid={`button-start-close-${report.id}`}
+            >
+              {report.status === "open" ? "Close: no file found" : "Decide"}
+            </Button>
+          </div>
+        )}
+        {action === "match" && (
+          <MatchReportForm report={report} onDone={() => setAction(null)} />
+        )}
+        {action === "close" && (
+          <CloseReportForm report={report} onDone={() => setAction(null)} />
+        )}
+      </Card>
+    </li>
+  );
+}
+
+function BystanderReports({ isAdmin }: { isAdmin: boolean }) {
+  const reports = useListBystanderReports({
+    query: { queryKey: getListBystanderReportsQueryKey() },
+  });
+  const waiting = (reports.data ?? []).filter((r) => r.resolvedAt === null);
+
+  let list: React.ReactNode;
+  if (reports.isLoading) {
+    list = <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+  } else if (!reports.data) {
+    list = (
+      <Card>
+        <p className="text-sm text-destructive">Could not load the reports.</p>
+      </Card>
+    );
+  } else if (reports.data.length === 0) {
+    list = (
+      <Card>
+        <p className="text-sm text-muted-foreground">No reports.</p>
+      </Card>
+    );
+  } else {
+    // Waiting ones first, newest first within each.
+    const ordered = [...reports.data].sort(
+      (a, b) => Number(a.resolvedAt !== null) - Number(b.resolvedAt !== null),
+    );
+    list = (
+      <ul className="space-y-3">
+        {ordered.map((r) => (
+          <ReportItem key={r.id} report={r} isAdmin={isAdmin} />
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="space-y-3">
+      <h2 className="font-mono font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
+        <UserX className="w-5 h-5 text-primary" /> Reports from people in
+        uploads{" "}
+        <Badge variant={waiting.length > 0 ? "warning" : "outline"}>
+          {waiting.length} need action
+        </Badge>
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Anyone who appears in someone else's upload can report it, without an
+        account, on the Report Content page. Find the file and pause it, then
+        decide: remove it, or let features use it again. The uploader is emailed
+        at each step and never told who reported. The person who reported gets
+        no automatic email, so reply to them yourself.
+        {!isAdmin && " Administrators handle reports."}
+      </p>
+      {list}
+    </section>
   );
 }
 
@@ -855,7 +1691,8 @@ export default function PrivacyCompliance() {
           Privacy Compliance
         </h1>
         <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">
-          Data breaches and disclosures to government agencies
+          Data breaches, reports from people in uploads, and disclosures to
+          government agencies
         </p>
       </div>
 
@@ -900,6 +1737,8 @@ export default function PrivacyCompliance() {
         )}
       </section>
 
+      <BystanderReports isAdmin={isAdmin} />
+
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-mono font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
@@ -920,7 +1759,8 @@ export default function PrivacyCompliance() {
         <p className="text-sm text-muted-foreground">
           The written record Australian Privacy Principle 6.5 requires each time
           personal information is given to an agency under the law.
-          {!isAdmin && " Administrators record disclosures."}
+          {!isAdmin &&
+            " Administrators record disclosures and manage legal holds."}
         </p>
         {disclosing && <DisclosureForm onDone={() => setDisclosing(false)} />}
         <Card className="overflow-x-auto">
@@ -954,11 +1794,25 @@ export default function PrivacyCompliance() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs">{d.legalBasis}</TableCell>
+                    <TableCell className="text-xs">
+                      <span className="block font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {d.requestType
+                          ? REQUEST_TYPE_LABEL[d.requestType]
+                          : "Kind not recorded"}
+                      </span>
+                      {d.legalBasis}
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {d.subjectEmail ?? "—"}
                     </TableCell>
                     <TableCell className="text-xs">
+                      {d.categories && d.categories.length > 0 && (
+                        <span className="block font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {d.categories
+                            .map((c) => CATEGORY_LABEL[c] ?? c)
+                            .join(", ")}
+                        </span>
+                      )}
                       {d.informationDisclosed}
                     </TableCell>
                     <TableCell className="text-xs">
@@ -977,6 +1831,7 @@ export default function PrivacyCompliance() {
           )}
         </Card>
       </section>
+      {isAdmin && <LegalHolds />}
     </div>
   );
 }

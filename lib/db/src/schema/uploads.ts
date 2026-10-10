@@ -37,6 +37,19 @@ export const uploadsTable = pgTable("uploads", {
   })
     .notNull()
     .default("unspecified"),
+  // Team 2's Bystander Consent Policy (docs/08 section 5h): whether the file shows or names anyone
+  // besides the uploader. Null = never asked (uploads before 2026-10-07, or an older phone app);
+  // empty = no one else; otherwise who: "minor", "deceased", "reachable" (someone the uploader has
+  // told, who doesn't object) and/or "unreachable" (someone they can't contact). The rules that read
+  // it are in api-server/src/lib/dataProvenance.ts.
+  bystanders: text("bystanders").array(),
+  // The uploader's statement for a "reachable" person, kept with when it was made.
+  bystanderStatement: text("bystander_statement"),
+  bystandersDeclaredAt: timestamp("bystanders_declared_at", {
+    withTimezone: true,
+  }),
+  // Set while a report from someone in the file is reviewed: the file is kept, and used by nothing.
+  pausedForReviewAt: timestamp("paused_for_review_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

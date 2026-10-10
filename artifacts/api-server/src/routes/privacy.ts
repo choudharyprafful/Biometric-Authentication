@@ -213,6 +213,11 @@ async function collectExport(userId: number, withFileContents: boolean) {
       fileType: u.fileType,
       sizeBytes: u.sizeBytes,
       declaredSource: u.contentSource,
+      // Team 2's Bystander Consent Policy: who else the file shows or names, as declared (null when
+      // never asked), and whether a report from someone in it is being reviewed.
+      otherPeople: u.bystanders,
+      otherPeopleStatement: u.bystanderStatement,
+      pausedForReviewSince: iso(u.pausedForReviewAt),
       uploadedAt: iso(u.createdAt),
     };
     if (!withFileContents) return entry;
@@ -382,6 +387,8 @@ router.get(
       governmentDisclosures: data.disclosures.map((d) => ({
         agency: d.agency,
         legalBasis: d.legalBasis,
+        requestType: d.requestType,
+        kindsOfInformation: d.categories,
         informationDisclosed: d.informationDisclosed,
         disclosedAt: iso(d.disclosedAt),
         youWereToldAt: iso(d.personToldAt),
@@ -466,6 +473,8 @@ router.get(
         fileType: u.fileType,
         sizeBytes: u.sizeBytes,
         declaredSource: u.declaredSource,
+        otherPeople: u.otherPeople,
+        pausedForReviewSince: u.pausedForReviewSince,
         uploadedAt: u.uploadedAt,
       })),
       payments: data.payments.map((p) => ({
@@ -496,6 +505,8 @@ router.get(
       disclosures: data.disclosures.map((d) => ({
         agency: d.agency,
         legalBasis: d.legalBasis,
+        requestType: d.requestType,
+        categories: d.categories,
         informationDisclosed: d.informationDisclosed,
         disclosedAt: d.disclosedAt.toISOString(),
         personToldAt: iso(d.personToldAt),

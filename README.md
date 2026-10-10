@@ -1,6 +1,6 @@
 # SecureAI — Biometric Security Demo
 
-A security proof-of-concept demonstrating biometric multi-factor authentication (face and/or WebAuthn passkey on web, a device-biometric key on Android and iOS), secure session management, role-based access control, encryption at rest with key rotation, hardened transit/API security, audit logging, and simulated subscription payments — plus a standalone AI/ML training-pipeline security PoC.
+A security proof-of-concept demonstrating biometric multi-factor authentication (face and/or WebAuthn passkey on web; on Android and iOS, a device-biometric key (fingerprint, Face ID or Touch ID) or the same face check, the person's choice), secure session management, role-based access control, encryption at rest with key rotation, hardened transit/API security, audit logging, and simulated subscription payments — plus a standalone AI/ML training-pipeline security PoC.
 
 Built as a student deliverable for **Team 1 (Technical Security)**, per the course brief. A parallel **Team 2 (Ethics & Governance)** brief covers the policy/consent side of the same system; their inputs and the questions still open for them are in [`docs/08`](docs/08_Requests_to_Team2.md).
 
@@ -37,6 +37,21 @@ Built as a student deliverable for **Team 1 (Technical Security)**, per the cour
 | [10 — Production Launch Readiness](docs/10_Production_Launch_Readiness.md)                 | What a real Australian public launch would still need                                             |
 | [11 — Responsible AI Governance](docs/11_Responsible_AI_Governance.md)                     | The AI system register and Team 2's 20 Responsible AI elements, element by element                |
 | [12 — Data Breach Response Plan](docs/12_Data_Breach_Response_Plan.md)                     | Breach register, deadlines and notification, requests from government agencies                    |
+| [Team 1 Technical Scope](docs/Team1_Technical_Scope.pdf)                                   | The assignment brief these documents answer                                                       |
+
+### The brief's seven deliverables
+
+Checked in Week 10 (issue #7, 2026-10-07):
+
+| Deliverable (brief §8)                                                     | Where                                                                                                                                                   | Status                                                                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Security architecture diagram                                              | [docs/01](docs/01_Security_Architecture.md)                                                                                                             | Done; the live deployment described as of 2026-10-07                                                                   |
+| Authentication flow, including biometric MFA                               | [docs/02](docs/02_Authentication_Flow.md)                                                                                                               | Done; web, Android and iOS                                                                                             |
+| Data flow, including the training pipeline                                 | [docs/03](docs/03_Data_Flow.md)                                                                                                                         | Done                                                                                                                   |
+| Threat model and risk assessment                                           | [docs/04](docs/04_Threat_Model_Risk_Assessment.md)                                                                                                      | Done; open risks re-checked on 2026-10-07                                                                              |
+| Consent-enforcement and deletion design                                    | [docs/05](docs/05_Consent_and_Deletion_Design.md), [docs/12](docs/12_Data_Breach_Response_Plan.md)                                                      | Done                                                                                                                   |
+| Proof of concept with dummy data: all Core areas, one Important or Stretch | This repository, and the [live site](https://d2zb1uxt99m5ks.cloudfront.net)                                                                             | All Core areas and all three Important areas are built. One deviation from the dummy-data rule is recorded as R-PRIV-9 |
+| Documentation of decisions and assumptions                                 | docs/04 §0, [docs/08](docs/08_Requests_to_Team2.md), [docs/10](docs/10_Production_Launch_Readiness.md), [docs/11](docs/11_Responsible_AI_Governance.md) | Done                                                                                                                   |
 
 ## Quick start
 
@@ -215,7 +230,7 @@ For the mobile app, see [`artifacts/mobile/README.md`](artifacts/mobile/README.m
 | `node scripts/check-privacy-policy-version.mjs`           | Fails if the privacy policy version differs between the web text, the mobile app and the API (runs in CI)                             |
 | `node scripts/ops/check-production-db.mjs`                | Read-only production check: the app's database role has no more rights than it needs, and every encrypted value is on the current key |
 
-Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards).
+Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards). Database changes go first, through the migration scripts in `scripts/ops/` (`migrate-*.mjs`, most recently `migrate-legal-holds.mjs`). Each asks for the RDS master password, can be rehearsed on a throwaway local database with `--rehearse`, and is safe to run twice.
 
 ## Contributing
 
@@ -250,16 +265,16 @@ Biometric information is sensitive information under the Privacy Act 1988 (confi
 
 ## AI/ML Data Flow
 
-How a face sign-in reaches a decision on the web app (the mobile app and passkeys verify a signature instead and send no face data):
+How a face sign-in reaches a decision, on the website and in the phone app's face check, which shows the same page (fingerprint sign-in and passkeys verify a signature instead and send no face data):
 
 ```text
-Camera image (browser only, never uploaded)
+Camera image (on the device only, never uploaded)
       |
       v
-Face detection and landmarks (face-api.js, in the browser)
+Face detection and landmarks (face-api.js, in the browser or the app's WebView)
       |
       v
-Face embedding: 128 numbers (in the browser)
+Face embedding: 128 numbers (on the device)
       |
       v
 Sent to the API; compared with the enrolled template, which is stored encrypted

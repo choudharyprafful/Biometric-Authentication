@@ -31,6 +31,10 @@ import type {
   AssessDataBreachInput,
   AuthResponse,
   BreachNotice,
+  BystanderCandidateUpload,
+  BystanderReport,
+  BystanderReportInput,
+  BystanderReportReceipt,
   ChainRepairResult,
   ChainRestoreResult,
   ContentProfileResult,
@@ -41,10 +45,12 @@ import type {
   ErrorResponse,
   FaceEnrollment,
   FaceVerifyInput,
+  FindUploadsForBystanderReportParams,
   ForgotPasswordInput,
   ForgotPasswordResult,
   GovernmentDisclosure,
   HealthStatus,
+  LegalHold,
   ListSecurityLogsParams,
   LogChainVerification,
   LoginCredentials,
@@ -52,19 +58,23 @@ import type {
   LogoutAllResult,
   NotifyDataBreachUsersInput,
   NotifyDataBreachUsersResult,
+  PauseForBystanderReportInput,
   Payment,
   PaymentInput,
   PaymentWebhookInput,
   PaymentWebhookResult,
+  PlaceLegalHoldInput,
   Plan,
   PrivacyPolicyAcknowledgeInput,
   PrivacyPolicyStatus,
   RecordDataBreachInput,
   RecordGovernmentDisclosureInput,
   RegulatorNotificationInput,
+  ReleaseLegalHoldInput,
   ResetPasswordFaceInput,
   ResetPasswordResult,
   ResolveAiChallengeInput,
+  ResolveBystanderReportInput,
   SecurityDashboard,
   SecurityLog,
   SetAiSystemStateInput,
@@ -77,6 +87,7 @@ import type {
   UploadContent,
   UploadInput,
   UploadMeta,
+  UploadPeopleInput,
   User,
   UserRegistration,
   UserUpdate,
@@ -3068,6 +3079,226 @@ export const useRecordGovernmentDisclosure = <TError = ErrorType<ErrorResponse>,
       return useMutation(getRecordGovernmentDisclosureMutationOptions(options));
     }
 
+export const getListLegalHoldsUrl = () => {
+
+
+
+
+  return `/api/legal-holds`
+}
+
+/**
+ * @summary Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+ */
+export const listLegalHolds = async ( options?: Parameters<typeof customFetch>[1]): Promise<LegalHold[]> => {
+
+  return customFetch<LegalHold[]>(getListLegalHoldsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLegalHoldsQueryKey = () => {
+    return [
+    `/api/legal-holds`
+    ] as const;
+    }
+
+
+export const getListLegalHoldsQueryOptions = <TData = Awaited<ReturnType<typeof listLegalHolds>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLegalHolds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLegalHoldsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLegalHolds>>> = ({ signal }) => listLegalHolds({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLegalHolds>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLegalHoldsQueryResult = NonNullable<Awaited<ReturnType<typeof listLegalHolds>>>
+export type ListLegalHoldsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+ */
+
+export function useListLegalHolds<TData = Awaited<ReturnType<typeof listLegalHolds>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLegalHolds>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLegalHoldsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPlaceLegalHoldUrl = () => {
+
+
+
+
+  return `/api/legal-holds`
+}
+
+/**
+ * @summary Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+ */
+export const placeLegalHold = async (placeLegalHoldInput: PlaceLegalHoldInput, options?: Parameters<typeof customFetch>[1]): Promise<LegalHold> => {
+
+  return customFetch<LegalHold>(getPlaceLegalHoldUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(placeLegalHoldInput)
+  }
+);}
+
+
+
+
+
+export const getPlaceLegalHoldMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeLegalHold>>, TError,{data: BodyType<PlaceLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof placeLegalHold>>, TError,{data: BodyType<PlaceLegalHoldInput>}, TContext> => {
+
+const mutationKey = ['placeLegalHold'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof placeLegalHold>>, {data: BodyType<PlaceLegalHoldInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  placeLegalHold(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PlaceLegalHoldMutationResult = NonNullable<Awaited<ReturnType<typeof placeLegalHold>>>
+    export type PlaceLegalHoldMutationBody = BodyType<PlaceLegalHoldInput>
+    export type PlaceLegalHoldMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+ */
+export const usePlaceLegalHold = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeLegalHold>>, TError,{data: BodyType<PlaceLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof placeLegalHold>>,
+        TError,
+        {data: BodyType<PlaceLegalHoldInput>},
+        TContext
+      > => {
+      return useMutation(getPlaceLegalHoldMutationOptions(options));
+    }
+
+export const getReleaseLegalHoldUrl = (id: number,) => {
+
+
+
+
+  return `/api/legal-holds/${id}/release`
+}
+
+/**
+ * @summary Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+ */
+export const releaseLegalHold = async (id: number,
+    releaseLegalHoldInput: ReleaseLegalHoldInput, options?: Parameters<typeof customFetch>[1]): Promise<LegalHold> => {
+
+  return customFetch<LegalHold>(getReleaseLegalHoldUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(releaseLegalHoldInput)
+  }
+);}
+
+
+
+
+
+export const getReleaseLegalHoldMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseLegalHold>>, TError,{id: number;data: BodyType<ReleaseLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releaseLegalHold>>, TError,{id: number;data: BodyType<ReleaseLegalHoldInput>}, TContext> => {
+
+const mutationKey = ['releaseLegalHold'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releaseLegalHold>>, {id: number;data: BodyType<ReleaseLegalHoldInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  releaseLegalHold(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReleaseLegalHoldMutationResult = NonNullable<Awaited<ReturnType<typeof releaseLegalHold>>>
+    export type ReleaseLegalHoldMutationBody = BodyType<ReleaseLegalHoldInput>
+    export type ReleaseLegalHoldMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+ */
+export const useReleaseLegalHold = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseLegalHold>>, TError,{id: number;data: BodyType<ReleaseLegalHoldInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof releaseLegalHold>>,
+        TError,
+        {id: number;data: BodyType<ReleaseLegalHoldInput>},
+        TContext
+      > => {
+      return useMutation(getReleaseLegalHoldMutationOptions(options));
+    }
+
 export const getSetTrainingConsentUrl = () => {
 
 
@@ -4855,5 +5086,453 @@ export const useDeleteUpload = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getDeleteUploadMutationOptions(options));
+    }
+
+export const getDeclareUploadPeopleUrl = (id: number,) => {
+
+
+
+
+  return `/api/uploads/${id}/people`
+}
+
+/**
+ * @summary Say who else a file shows or names, or change the answer later (the uploader only)
+ */
+export const declareUploadPeople = async (id: number,
+    uploadPeopleInput: UploadPeopleInput, options?: Parameters<typeof customFetch>[1]): Promise<UploadMeta> => {
+
+  return customFetch<UploadMeta>(getDeclareUploadPeopleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(uploadPeopleInput)
+  }
+);}
+
+
+
+
+
+export const getDeclareUploadPeopleMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declareUploadPeople>>, TError,{id: number;data: BodyType<UploadPeopleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof declareUploadPeople>>, TError,{id: number;data: BodyType<UploadPeopleInput>}, TContext> => {
+
+const mutationKey = ['declareUploadPeople'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof declareUploadPeople>>, {id: number;data: BodyType<UploadPeopleInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  declareUploadPeople(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeclareUploadPeopleMutationResult = NonNullable<Awaited<ReturnType<typeof declareUploadPeople>>>
+    export type DeclareUploadPeopleMutationBody = BodyType<UploadPeopleInput>
+    export type DeclareUploadPeopleMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Say who else a file shows or names, or change the answer later (the uploader only)
+ */
+export const useDeclareUploadPeople = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declareUploadPeople>>, TError,{id: number;data: BodyType<UploadPeopleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof declareUploadPeople>>,
+        TError,
+        {id: number;data: BodyType<UploadPeopleInput>},
+        TContext
+      > => {
+      return useMutation(getDeclareUploadPeopleMutationOptions(options));
+    }
+
+export const getReportContentShowingMeUrl = () => {
+
+
+
+
+  return `/api/bystander-reports`
+}
+
+/**
+ * @summary Report a file that shows or names you, without an account (Team 2's Bystander Consent Policy, section 6)
+ */
+export const reportContentShowingMe = async (bystanderReportInput: BystanderReportInput, options?: Parameters<typeof customFetch>[1]): Promise<BystanderReportReceipt> => {
+
+  return customFetch<BystanderReportReceipt>(getReportContentShowingMeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bystanderReportInput)
+  }
+);}
+
+
+
+
+
+export const getReportContentShowingMeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportContentShowingMe>>, TError,{data: BodyType<BystanderReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportContentShowingMe>>, TError,{data: BodyType<BystanderReportInput>}, TContext> => {
+
+const mutationKey = ['reportContentShowingMe'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportContentShowingMe>>, {data: BodyType<BystanderReportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reportContentShowingMe(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportContentShowingMeMutationResult = NonNullable<Awaited<ReturnType<typeof reportContentShowingMe>>>
+    export type ReportContentShowingMeMutationBody = BodyType<BystanderReportInput>
+    export type ReportContentShowingMeMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Report a file that shows or names you, without an account (Team 2's Bystander Consent Policy, section 6)
+ */
+export const useReportContentShowingMe = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportContentShowingMe>>, TError,{data: BodyType<BystanderReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportContentShowingMe>>,
+        TError,
+        {data: BodyType<BystanderReportInput>},
+        TContext
+      > => {
+      return useMutation(getReportContentShowingMeMutationOptions(options));
+    }
+
+export const getListBystanderReportsUrl = () => {
+
+
+
+
+  return `/api/bystander-reports`
+}
+
+/**
+ * @summary Reports from people who appear in uploads, newest first (security analysts and administrators)
+ */
+export const listBystanderReports = async ( options?: Parameters<typeof customFetch>[1]): Promise<BystanderReport[]> => {
+
+  return customFetch<BystanderReport[]>(getListBystanderReportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBystanderReportsQueryKey = () => {
+    return [
+    `/api/bystander-reports`
+    ] as const;
+    }
+
+
+export const getListBystanderReportsQueryOptions = <TData = Awaited<ReturnType<typeof listBystanderReports>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBystanderReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBystanderReportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBystanderReports>>> = ({ signal }) => listBystanderReports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBystanderReports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBystanderReportsQueryResult = NonNullable<Awaited<ReturnType<typeof listBystanderReports>>>
+export type ListBystanderReportsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Reports from people who appear in uploads, newest first (security analysts and administrators)
+ */
+
+export function useListBystanderReports<TData = Awaited<ReturnType<typeof listBystanderReports>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBystanderReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBystanderReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getFindUploadsForBystanderReportUrl = (params: FindUploadsForBystanderReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/bystander-reports/candidate-uploads?${stringifiedParams}` : `/api/bystander-reports/candidate-uploads`
+}
+
+/**
+ * @summary An uploader's files, as metadata only, to match a report to the file it is about (administrators)
+ */
+export const findUploadsForBystanderReport = async (params: FindUploadsForBystanderReportParams, options?: Parameters<typeof customFetch>[1]): Promise<BystanderCandidateUpload[]> => {
+
+  return customFetch<BystanderCandidateUpload[]>(getFindUploadsForBystanderReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getFindUploadsForBystanderReportQueryKey = (params?: FindUploadsForBystanderReportParams,) => {
+    return [
+    `/api/bystander-reports/candidate-uploads`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getFindUploadsForBystanderReportQueryOptions = <TData = Awaited<ReturnType<typeof findUploadsForBystanderReport>>, TError = ErrorType<ErrorResponse>>(params: FindUploadsForBystanderReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof findUploadsForBystanderReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getFindUploadsForBystanderReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof findUploadsForBystanderReport>>> = ({ signal }) => findUploadsForBystanderReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof findUploadsForBystanderReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type FindUploadsForBystanderReportQueryResult = NonNullable<Awaited<ReturnType<typeof findUploadsForBystanderReport>>>
+export type FindUploadsForBystanderReportQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary An uploader's files, as metadata only, to match a report to the file it is about (administrators)
+ */
+
+export function useFindUploadsForBystanderReport<TData = Awaited<ReturnType<typeof findUploadsForBystanderReport>>, TError = ErrorType<ErrorResponse>>(
+ params: FindUploadsForBystanderReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof findUploadsForBystanderReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getFindUploadsForBystanderReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPauseUploadForBystanderReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/bystander-reports/${id}/pause`
+}
+
+/**
+ * @summary Match a report to a file, pause the file while the report is reviewed, and tell its uploader (administrators)
+ */
+export const pauseUploadForBystanderReport = async (id: number,
+    pauseForBystanderReportInput: PauseForBystanderReportInput, options?: Parameters<typeof customFetch>[1]): Promise<BystanderReport> => {
+
+  return customFetch<BystanderReport>(getPauseUploadForBystanderReportUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pauseForBystanderReportInput)
+  }
+);}
+
+
+
+
+
+export const getPauseUploadForBystanderReportMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseUploadForBystanderReport>>, TError,{id: number;data: BodyType<PauseForBystanderReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pauseUploadForBystanderReport>>, TError,{id: number;data: BodyType<PauseForBystanderReportInput>}, TContext> => {
+
+const mutationKey = ['pauseUploadForBystanderReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pauseUploadForBystanderReport>>, {id: number;data: BodyType<PauseForBystanderReportInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  pauseUploadForBystanderReport(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PauseUploadForBystanderReportMutationResult = NonNullable<Awaited<ReturnType<typeof pauseUploadForBystanderReport>>>
+    export type PauseUploadForBystanderReportMutationBody = BodyType<PauseForBystanderReportInput>
+    export type PauseUploadForBystanderReportMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Match a report to a file, pause the file while the report is reviewed, and tell its uploader (administrators)
+ */
+export const usePauseUploadForBystanderReport = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseUploadForBystanderReport>>, TError,{id: number;data: BodyType<PauseForBystanderReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pauseUploadForBystanderReport>>,
+        TError,
+        {id: number;data: BodyType<PauseForBystanderReportInput>},
+        TContext
+      > => {
+      return useMutation(getPauseUploadForBystanderReportMutationOptions(options));
+    }
+
+export const getResolveBystanderReportUrl = (id: number,) => {
+
+
+
+
+  return `/api/bystander-reports/${id}/resolve`
+}
+
+/**
+ * @summary Close a report. Removed deletes the file; not upheld un-pauses it; no match closes it. The uploader is told (administrators)
+ */
+export const resolveBystanderReport = async (id: number,
+    resolveBystanderReportInput: ResolveBystanderReportInput, options?: Parameters<typeof customFetch>[1]): Promise<BystanderReport> => {
+
+  return customFetch<BystanderReport>(getResolveBystanderReportUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resolveBystanderReportInput)
+  }
+);}
+
+
+
+
+
+export const getResolveBystanderReportMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveBystanderReport>>, TError,{id: number;data: BodyType<ResolveBystanderReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveBystanderReport>>, TError,{id: number;data: BodyType<ResolveBystanderReportInput>}, TContext> => {
+
+const mutationKey = ['resolveBystanderReport'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveBystanderReport>>, {id: number;data: BodyType<ResolveBystanderReportInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  resolveBystanderReport(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveBystanderReportMutationResult = NonNullable<Awaited<ReturnType<typeof resolveBystanderReport>>>
+    export type ResolveBystanderReportMutationBody = BodyType<ResolveBystanderReportInput>
+    export type ResolveBystanderReportMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Close a report. Removed deletes the file; not upheld un-pauses it; no match closes it. The uploader is told (administrators)
+ */
+export const useResolveBystanderReport = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveBystanderReport>>, TError,{id: number;data: BodyType<ResolveBystanderReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveBystanderReport>>,
+        TError,
+        {id: number;data: BodyType<ResolveBystanderReportInput>},
+        TContext
+      > => {
+      return useMutation(getResolveBystanderReportMutationOptions(options));
     }
 

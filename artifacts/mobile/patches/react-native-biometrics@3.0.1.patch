@@ -1,0 +1,15 @@
+diff --git a/ios/ReactNativeBiometrics.m b/ios/ReactNativeBiometrics.m
+index 03ec3884e227df39f58792bbe6670936d9d666b8..2731cacceb68cb7d04cf1031f745d1bd7fcc21e6 100644
+--- a/ios/ReactNativeBiometrics.m
++++ b/ios/ReactNativeBiometrics.m
+@@ -49,7 +49,9 @@ RCT_EXPORT_METHOD(createKeys: (NSDictionary *)params resolver:(RCTPromiseResolve
+     CFErrorRef error = NULL;
+     BOOL allowDeviceCredentials = [RCTConvert BOOL:params[@"allowDeviceCredentials"]];
+ 
+-    SecAccessControlCreateFlags secCreateFlag = kSecAccessControlBiometryAny;
++    // SecureAI patch: the key stops working when a fingerprint or face is added to or removed from
++    // the device, as on Android, so a newly enrolled biometric can't use it (docs/04 R-MOBILE-4).
++    SecAccessControlCreateFlags secCreateFlag = kSecAccessControlBiometryCurrentSet;
+ 
+     if (allowDeviceCredentials == TRUE) {
+       secCreateFlag = kSecAccessControlUserPresence;

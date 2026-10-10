@@ -3,6 +3,7 @@ import {
   useListUploads,
   useCreateUpload,
   useDeleteUpload,
+  useDeclareUploadPeople,
   getUpload,
   getListUploadsQueryKey,
   UploadMeta,
@@ -30,10 +31,19 @@ import {
   Download,
   Trash2,
   Eye,
+  Users as PeopleIcon,
   X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { AiLabel } from "../components/AiLabel";
+import {
+  NO_ANSWER,
+  PeopleQuestion,
+  answerFrom,
+  peopleSummary,
+  toRequest,
+  type PeopleAnswer,
+} from "../components/PeopleInFile";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // must match artifacts/api-server/src/routes/uploads.ts
 const ACCEPTED_TYPES = "image/*,video/*,audio/*,text/plain";
@@ -138,6 +148,12 @@ export default function Uploads() {
   // still defaults to "unspecified" when the field is absent entirely; that
   // fail-closed path covers API callers and every pre-existing row.
   const [contentSource, setContentSource] = useState<ContentSource>("own_work");
+  // Asked afresh for every upload (Team 2's Bystander Consent Policy): no default answer.
+  const [people, setPeople] = useState<PeopleAnswer>(NO_ANSWER);
+  const peopleRequest = toRequest(people);
+  const declareMutation = useDeclareUploadPeople();
+  const [editingPeopleId, setEditingPeopleId] = useState<number | null>(null);
+  const [editPeople, setEditPeople] = useState<PeopleAnswer>(NO_ANSWER);
   const [error, setError] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [previewingId, setPreviewingId] = useState<number | null>(null);
@@ -154,6 +170,10 @@ export default function Uploads() {
       return;
     }
 
+    if (!peopleRequest) {
+      setError("Say whether the file shows or names anyone else.");
+      return;
+    }
     try {
       const dataBase64 = await readAsBase64(file);
       await createMutation.mutateAsync({
@@ -162,11 +182,31 @@ export default function Uploads() {
           mimeType: file.type || "text/plain",
           dataBase64,
           contentSource,
+          ...peopleRequest,
         },
       });
+      setPeople(NO_ANSWER);
       queryClient.invalidateQueries({ queryKey: getListUploadsQueryKey() });
     } catch (err: any) {
       setError(err?.data?.error || "Upload failed.");
+    }
+  };
+
+  const startEditingPeople = (upload: UploadMeta) => {
+    setEditingPeopleId(upload.id);
+    setEditPeople(answerFrom(upload.bystanders, upload.bystanderStatement));
+  };
+
+  const savePeople = async (id: number) => {
+    const request = toRequest(editPeople);
+    if (!request) return;
+    setError("");
+    try {
+      await declareMutation.mutateAsync({ id, data: request });
+      setEditingPeopleId(null);
+      queryClient.invalidateQueries({ queryKey: getListUploadsQueryKey() });
+    } catch (err: any) {
+      setError(err?.data?.error || "Could not save who the file shows.");
     }
   };
 
@@ -280,12 +320,20 @@ export default function Uploads() {
           <Button
             onClick={() => fileInputRef.current?.click()}
             isLoading={createMutation.isPending}
+            disabled={!peopleRequest}
+            title={
+              peopleRequest
+                ? undefined
+                : "First say whether the file shows or names anyone else"
+            }
             data-testid="button-upload"
           >
             <UploadIcon className="w-4 h-4 mr-2" /> Upload File
           </Button>
         </div>
       </div>
+
+      <PeopleQuestion value={people} onChange={setPeople} idPrefix="upload" />
 
       {error && (
         <p className="text-destructive font-mono text-xs uppercase tracking-wider">
@@ -314,63 +362,116 @@ export default function Uploads() {
                 {uploads?.map((upload) => {
                   const Icon = fileTypeIcon(upload.fileType);
                   return (
-                    <TableRow key={upload.id}>
-                      <TableCell className="font-mono text-sm text-foreground flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-primary/70 shrink-0" />
-                        {upload.fileName}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{upload.fileType}</Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {formatBytes(upload.sizeBytes)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                        {format(
-                          new Date(upload.createdAt),
-                          "MMM dd, yyyy HH:mm",
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            isLoading={previewingId === upload.id}
-                            onClick={() => handlePreview(upload)}
-                            title="View"
-                            data-testid={`button-preview-upload-${upload.id}`}
+                    <React.Fragment key={upload.id}>
+                      <TableRow>
+                        <TableCell className="font-mono text-sm text-foreground">
+                          <div className="flex items-center gap-2">
+                            <Icon className="w-4 h-4 text-primary/70 shrink-0" />
+                            {upload.fileName}
+                          </div>
+                          <div
+                            className="font-sans text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2"
+                            data-testid={`upload-people-${upload.id}`}
                           >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            isLoading={downloadingId === upload.id}
-                            onClick={() =>
-                              handleDownload(
-                                upload.id,
-                                upload.fileName,
-                                upload.mimeType,
-                              )
-                            }
-                            title="Download"
-                            data-testid={`button-download-upload-${upload.id}`}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(upload.id)}
-                            title="Delete"
-                            data-testid={`button-delete-upload-${upload.id}`}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive/70" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                            {peopleSummary(upload.bystanders)}
+                            {upload.pausedForReviewAt && (
+                              <Badge variant="warning">
+                                Paused: someone in it asked us to review it
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{upload.fileType}</Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {formatBytes(upload.sizeBytes)}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+                          {format(
+                            new Date(upload.createdAt),
+                            "MMM dd, yyyy HH:mm",
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              isLoading={previewingId === upload.id}
+                              onClick={() => handlePreview(upload)}
+                              title="View"
+                              data-testid={`button-preview-upload-${upload.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              isLoading={downloadingId === upload.id}
+                              onClick={() =>
+                                handleDownload(
+                                  upload.id,
+                                  upload.fileName,
+                                  upload.mimeType,
+                                )
+                              }
+                              title="Download"
+                              data-testid={`button-download-upload-${upload.id}`}
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => startEditingPeople(upload)}
+                              title="Who else it shows"
+                              data-testid={`button-people-upload-${upload.id}`}
+                            >
+                              <PeopleIcon className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(upload.id)}
+                              title="Delete"
+                              data-testid={`button-delete-upload-${upload.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive/70" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {editingPeopleId === upload.id && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="space-y-3">
+                            <PeopleQuestion
+                              value={editPeople}
+                              onChange={setEditPeople}
+                              idPrefix={`edit-${upload.id}`}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => savePeople(upload.id)}
+                                isLoading={declareMutation.isPending}
+                                disabled={!toRequest(editPeople)}
+                                data-testid={`button-save-people-${upload.id}`}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingPeopleId(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
                   );
                 })}
                 {(!uploads || uploads.length === 0) && (

@@ -260,6 +260,14 @@ export default function Login() {
                   Privacy Policy
                 </span>
               </Link>
+              <Link href="/report-content">
+                <span
+                  className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
+                  data-testid="link-report-content"
+                >
+                  Report content that shows you
+                </span>
+              </Link>
             </div>
           </form>
         ) : (

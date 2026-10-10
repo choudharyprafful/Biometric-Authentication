@@ -87,6 +87,13 @@ export const EVENT_DESCRIPTIONS: Record<AuditEventType, string> = {
     "Confirmed you had read a data breach notice",
   GOVERNMENT_DISCLOSURE_RECORDED:
     "Information disclosed to a government agency under the law",
+  LEGAL_HOLD_PLACED: "Legal hold placed by staff",
+  LEGAL_HOLD_RELEASED: "Legal hold released by staff",
+  BYSTANDERS_DECLARED: "Said who else a file shows or names",
+  BYSTANDER_REPORT_RECEIVED:
+    "Report received from someone who appears in an upload",
+  BYSTANDER_REPORT_PAUSED: "File paused while a report about it is reviewed",
+  BYSTANDER_REPORT_RESOLVED: "Report about a file closed by staff",
 };
 
 export function describeEvent(eventType: string): string {

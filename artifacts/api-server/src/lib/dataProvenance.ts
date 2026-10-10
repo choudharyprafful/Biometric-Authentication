@@ -299,3 +299,75 @@ export function trainableCombinations(): Array<{
   }
   return combos;
 }
+
+// ── People in the file: Team 2's Bystander Consent Policy (docs/08 section 5h) ──────────────────
+
+/**
+ * Who else a file shows or names, as the uploader declares it (policy section 3): someone under 18,
+ * someone who has died, someone the uploader has told who doesn't object, or someone they can't
+ * contact. The uploader's declaration is the detection method: the policy rules out scanning uploads
+ * with face or voice recognition, which would itself collect more about those people.
+ */
+export const BYSTANDER_KINDS = [
+  "minor",
+  "deceased",
+  "reachable",
+  "unreachable",
+] as const;
+export type BystanderKind = (typeof BYSTANDER_KINDS)[number];
+
+export function isBystanderKind(value: unknown): value is BystanderKind {
+  return (
+    typeof value === "string" &&
+    (BYSTANDER_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/** Each kind once, in BYSTANDER_KINDS order, so a stored answer reads the same however it was sent. */
+export function canonicalBystanders(kinds: readonly string[]): BystanderKind[] {
+  return BYSTANDER_KINDS.filter((k) => kinds.includes(k));
+}
+
+export interface PeopleRules {
+  /** The uploader's own personalised features (the private topic profile). */
+  personalisationAllowed: boolean;
+  /**
+   * Anything shared across accounts. Nothing shared learns from file content today; the answer is
+   * stored with the file so that anything that ever does has to honour it (policy section 5).
+   */
+  sharedTrainingAllowed: boolean;
+  /** Set when personalisation is refused: one sentence for the uploader. */
+  reason: string | null;
+}
+
+/**
+ * Policy section 4. Whoever the other people are, their content stays out of anything shared
+ * ("personalisation-only, excluded from central training"). Someone under 18 keeps it out of the
+ * uploader's own personalisation too, whatever the uploader says. Section 6: while a report from
+ * someone in the file is reviewed, nothing uses it. A file never asked about (null) keeps the source
+ * and file-type rules alone, but stays out of anything shared, since nobody said it shows no one.
+ */
+export function assessPeopleRules(
+  bystanders: readonly string[] | null,
+  pausedForReview: boolean,
+): PeopleRules {
+  if (pausedForReview)
+    return {
+      personalisationAllowed: false,
+      sharedTrainingAllowed: false,
+      reason:
+        "Someone in this file has asked us to review it; until that's done, no feature uses it.",
+    };
+  if (bystanders?.includes("minor"))
+    return {
+      personalisationAllowed: false,
+      sharedTrainingAllowed: false,
+      reason:
+        "It shows or names someone under 18, so no feature uses it (Team 2's Bystander Consent Policy).",
+    };
+  return {
+    personalisationAllowed: true,
+    sharedTrainingAllowed: bystanders !== null && bystanders.length === 0,
+    reason: null,
+  };
+}

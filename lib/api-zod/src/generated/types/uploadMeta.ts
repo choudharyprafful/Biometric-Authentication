@@ -5,6 +5,7 @@
  * SecureAI - Biometric Security Demo API
  * OpenAPI spec version: 0.1.0
  */
+import type { BystanderKind } from './bystanderKind';
 import type { UploadMetaContentSource } from './uploadMetaContentSource';
 import type { UploadMetaFileType } from './uploadMetaFileType';
 
@@ -18,8 +19,25 @@ export interface UploadMeta {
   createdAt: string;
   /** Declared origin of the file's content, per Team 2's Data Source Acceptability Matrix. "unspecified" is the fail-closed default for an upload that never declared one. */
   contentSource: UploadMetaContentSource;
-  /** Whether the matrix admits this file into a training corpus, given its source and file type together. Returned so the consequence of a provenance declaration is visible to the uploader rather than only enforced server-side. */
+  /** Whether the matrix admits this file into the uploader's own personalisation, given its source, its file type and who else it shows (Team 2's Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side. */
   trainingEligible: boolean;
-  /** Present only when trainingEligible is false; the matrix's own reasoning. */
+  /** Present only when trainingEligible is false; the matrix's or the policy's own reasoning. */
   trainingExclusionReason?: string;
+  /**
+     * Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.
+     * @nullable
+     */
+  bystanders: BystanderKind[] | null;
+  /**
+     * The uploader's statement about a person they have told, who doesn't object
+     * @nullable
+     */
+  bystanderStatement: string | null;
+  /** @nullable */
+  bystandersDeclaredAt: Date | null;
+  /**
+     * Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile
+     * @nullable
+     */
+  pausedForReviewAt: Date | null;
 }

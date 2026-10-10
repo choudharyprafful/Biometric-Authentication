@@ -5,11 +5,13 @@ withdrawal work; Team 1 enforces it, blocks non-consented data from training" / 
 decides what 'delete my profile' means; Team 1 builds the deletion mechanism + its limits" / "Retention
 — Team 2 sets retention/disposal policy; Team 1 implements retention limits and secure disposal").
 
-Team 2's actual policy documents don't exist yet in this joint project. The design below states the
-assumptions this implementation makes about that policy, so they're falsifiable/reviewable rather than
-silently baked in. Every open question below (and elsewhere in these docs) that's actually Team 2's call
-to make is collected in one place, organized against Team 2's own deliverables, in
-`08_Requests_to_Team2.md`.
+When this was written, Team 2's policy documents didn't exist yet. The design below therefore states the
+assumptions it makes about that policy, so they can be checked rather than silently baked in. Team 2's
+documents have since arrived (`08_Requests_to_Team2.md` §5b and §5c, and the Acceptability Matrix in
+`09_Team2_Data_Source_Acceptability_Matrix.md`); where one confirmed an assumption, the section says so.
+Every open question below (and elsewhere in these docs) that's actually Team 2's call to make is collected
+in one place, organized against Team 2's own deliverables, in `08_Requests_to_Team2.md`. Its §6 is the
+agenda for the final sync.
 
 ## 1. Consent model
 
@@ -41,6 +43,11 @@ consent is rejected before any encryption or database write happens.
 Withdrawal is deletion, not a separate state: there is no "consent withdrawn, data retained" state —
 `DELETE /users/:id/face` clears the ciphertext, IV, auth tag, `faceEnrolled`, AND
 `biometricConsentGiven`/`biometricConsentAt` in the same database update.
+
+Where it is asked (updated 2026-10-06): on the website's Security Settings (`Enroll.tsx`) and, since
+the phone app offers face sign-in (Android 2026-10-06, iPhone 2026-10-07; docs/04 R-AUTH-1, R-MOBILE-5), on the app's set-up screen and in
+Privacy & Your Data. Both show the same wording as an unticked box, and the camera opens only after it
+is ticked; removing face sign-in in either place calls the same `DELETE /users/:id/face`.
 
 ## 1b. Minor / parental consent
 
@@ -85,7 +92,8 @@ backup/long-tail account-recovery flows being in scope, see honest-limits §6 be
 
 ## 2. Deletion mechanism
 
-Two independent deletion paths, matching two different real-world "delete" requests:
+Two independent deletion paths, matching two different real-world "delete" requests. Both still delete
+under a legal hold, after a copy is kept for the hold (§8).
 
 ### a) Delete just the biometric data (`DELETE /users/:id/face`)
 
@@ -505,3 +513,12 @@ procedure is in `12_Data_Breach_Response_Plan.md`; the design choices that touch
 - **Both registers are staff-only** (security analysts read; administrators notify and disclose), and every
   step is a hash-chained audit event. The behaviour model ignores these events: they are staff work, not
   behaviour to predict.
+- **What can be disclosed depends on the kind of request** (added 2026-10-07): face templates and uploaded
+  files only when the law requires it, never on a voluntary request or in an emergency; credentials never.
+  The API enforces the face template and file rule (docs/04 R-PRIV-8).
+- **A legal hold overrides deletion, out of sight** (added 2026-10-07). While a government request is open,
+  an administrator's hold copies anything of the person's that would be deleted, by them, by staff or by
+  the retention purge, before it is deleted. The deletion still happens, so withdrawing consent and
+  deleting an account behave as usual and nothing tips the person off. The copies are kept apart from the
+  account, used for nothing else, and deleted when the hold is released (docs/12 §3, docs/04 R-PRIV-7).
+  The privacy policy says so (sections 9 to 11).

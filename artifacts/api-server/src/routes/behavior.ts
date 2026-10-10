@@ -15,6 +15,7 @@ import {
   buildTrainingCorpus,
   train,
   predictNext,
+  releasableModel,
   getRecentEventTypes,
 } from "../lib/behaviorModel";
 import { getClientIp } from "../lib/clientIp";
@@ -118,7 +119,12 @@ router.get(
 
     const corpus = await buildTrainingCorpus();
     const model = train(corpus);
-    const prediction = predictNext(model, previousEvent, lastEvent);
+    // Noised when BEHAVIOR_MODEL_DP_EPSILON is set (lib/behaviorModel.ts releasableModel).
+    const prediction = predictNext(
+      releasableModel(model),
+      previousEvent,
+      lastEvent,
+    );
 
     await logQuery(
       req,
@@ -130,7 +136,8 @@ router.get(
     res.json(
       GetSuggestedActionResponse.parse({
         suggestion: prediction?.eventType ?? null,
-        distinctUsersSupporting: prediction?.distinctUsers ?? 0,
+        // A noisy count when differential privacy is on; a whole number either way.
+        distinctUsersSupporting: Math.round(prediction?.distinctUsers ?? 0),
         modelTrainedFromUsers: model.usersIncluded,
         contextDepth: prediction?.contextDepth ?? null,
         disabled: false,

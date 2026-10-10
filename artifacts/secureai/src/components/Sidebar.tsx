@@ -24,6 +24,7 @@ import {
   X,
   FileText,
   Scale,
+  UserX,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -67,6 +68,7 @@ const navItems = [
   },
   { href: "/enroll", label: "Security Settings", icon: Settings },
   { href: "/privacy", label: "Privacy Policy", icon: FileText },
+  { href: "/report-content", label: "Report Content", icon: UserX },
 ];
 
 export function Sidebar() {

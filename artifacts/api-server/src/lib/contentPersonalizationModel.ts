@@ -21,7 +21,7 @@
  * removal, so a surfaced phrase reflects real adjacency in the source.
  */
 
-import { and, eq, desc, or } from "drizzle-orm";
+import { and, eq, desc, or, isNull, sql } from "drizzle-orm";
 import { trainableCombinations } from "./dataProvenance";
 import { db, uploadsTable, usersTable } from "@workspace/db";
 import { decryptFile } from "./fileEncryption";
@@ -217,6 +217,10 @@ export async function buildContentProfile(
     .where(
       and(
         eq(uploadsTable.userId, userId),
+        // Team 2's Bystander Consent Policy (dataProvenance.ts assessPeopleRules): a file that shows
+        // someone under 18, or that someone in it has asked us to review, is used by no feature.
+        sql`NOT (coalesce(${uploadsTable.bystanders}, '{}'::text[]) @> ARRAY['minor']::text[])`,
+        isNull(uploadsTable.pausedForReviewAt),
         or(
           ...eligible.map((combo) =>
             and(

@@ -600,6 +600,19 @@ export const UploadMetaContentSource = {
   unspecified: 'unspecified',
 } as const;
 
+/**
+ * minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
+ */
+export type BystanderKind = typeof BystanderKind[keyof typeof BystanderKind];
+
+
+export const BystanderKind = {
+  minor: 'minor',
+  deceased: 'deceased',
+  reachable: 'reachable',
+  unreachable: 'unreachable',
+} as const;
+
 export interface UploadMeta {
   id: number;
   userId: number;
@@ -610,10 +623,27 @@ export interface UploadMeta {
   createdAt: string;
   /** Declared origin of the file's content, per Team 2's Data Source Acceptability Matrix. "unspecified" is the fail-closed default for an upload that never declared one. */
   contentSource: UploadMetaContentSource;
-  /** Whether the matrix admits this file into a training corpus, given its source and file type together. Returned so the consequence of a provenance declaration is visible to the uploader rather than only enforced server-side. */
+  /** Whether the matrix admits this file into the uploader's own personalisation, given its source, its file type and who else it shows (Team 2's Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side. */
   trainingEligible: boolean;
-  /** Present only when trainingEligible is false; the matrix's own reasoning. */
+  /** Present only when trainingEligible is false; the matrix's or the policy's own reasoning. */
   trainingExclusionReason?: string;
+  /**
+     * Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.
+     * @nullable
+     */
+  bystanders: BystanderKind[] | null;
+  /**
+     * The uploader's statement about a person they have told, who doesn't object
+     * @nullable
+     */
+  bystanderStatement: string | null;
+  /** @nullable */
+  bystandersDeclaredAt: string | null;
+  /**
+     * Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile
+     * @nullable
+     */
+  pausedForReviewAt: string | null;
 }
 
 export type UploadContentFileType = typeof UploadContentFileType[keyof typeof UploadContentFileType];
@@ -668,6 +698,17 @@ export interface UploadInput {
   dataBase64: string;
   /** Declared origin of the content, per Team 2's Data Source Acceptability Matrix. Optional: omitting it stores the upload as "unspecified", which keeps the file fully usable by its owner but excludes it from every training corpus until a source is declared. */
   contentSource?: UploadInputContentSource;
+  /**
+     * Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.
+     * @maxItems 4
+     */
+  bystanders?: BystanderKind[];
+  /**
+     * Required with "reachable"; the uploader's statement that they told the person and the person doesn't object
+     * @maxLength 500
+     * @nullable
+     */
+  bystanderStatement?: string | null;
 }
 
 export interface AiValidationOutcome {
@@ -824,10 +865,40 @@ export interface AiPocMemorisation {
   console: string;
 }
 
+export interface AiBehavioralRiskLogin {
+  riskScore: number;
+  level: string;
+}
+
+export interface AiBehavioralRisk {
+  script: string;
+  author: string;
+  sha256: string;
+  normalLogin: AiBehavioralRiskLogin;
+  suspiciousLogin: AiBehavioralRiskLogin;
+}
+
+export interface AiPromptInjectionExample {
+  prompt: string;
+  riskScore: number;
+  level: string;
+  categories: string[];
+}
+
+export interface AiPromptInjectionRisk {
+  script: string;
+  author: string;
+  maxRiskScore: number;
+  overallLevel: string;
+  examples: AiPromptInjectionExample[];
+}
+
 export interface AiPocReport {
   generator: string;
   starterKit: AiPocStarterKit;
   memorisation: AiPocMemorisation;
+  behavioralRisk: AiBehavioralRisk;
+  promptInjectionRisk: AiPromptInjectionRisk;
 }
 
 export interface AiSecurityReport {
@@ -1174,10 +1245,49 @@ export interface RegulatorNotificationInput {
   reference: string;
 }
 
+/**
+ * legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07
+ * @nullable
+ */
+export type GovernmentDisclosureRequestType = typeof GovernmentDisclosureRequestType[keyof typeof GovernmentDisclosureRequestType] | null;
+
+
+export const GovernmentDisclosureRequestType = {
+  'legal-demand': 'legal-demand',
+  'enforcement-request': 'enforcement-request',
+  emergency: 'emergency',
+} as const;
+
+/**
+ * account = name, email, date of birth and plan (and a guardian's email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given
+ */
+export type DisclosureCategory = typeof DisclosureCategory[keyof typeof DisclosureCategory];
+
+
+export const DisclosureCategory = {
+  account: 'account',
+  'security-records': 'security-records',
+  payments: 'payments',
+  uploads: 'uploads',
+  'face-template': 'face-template',
+  'ai-challenges': 'ai-challenges',
+  'sign-in-keys': 'sign-in-keys',
+} as const;
+
 export interface GovernmentDisclosure {
   id: number;
   agency: string;
   legalBasis: string;
+  /**
+     * legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07
+     * @nullable
+     */
+  requestType: GovernmentDisclosureRequestType;
+  /**
+     * The kinds of information given. Null for records made before 2026-10-07
+     * @nullable
+     */
+  categories: DisclosureCategory[] | null;
   /** @nullable */
   reference: string | null;
   /** @nullable */
@@ -1192,6 +1302,18 @@ export interface GovernmentDisclosure {
   createdAt: string;
 }
 
+/**
+ * What kind of request it was. Face templates and uploaded files can be given only for a legal-demand
+ */
+export type RecordGovernmentDisclosureInputRequestType = typeof RecordGovernmentDisclosureInputRequestType[keyof typeof RecordGovernmentDisclosureInputRequestType];
+
+
+export const RecordGovernmentDisclosureInputRequestType = {
+  'legal-demand': 'legal-demand',
+  'enforcement-request': 'enforcement-request',
+  emergency: 'emergency',
+} as const;
+
 export interface RecordGovernmentDisclosureInput {
   /**
      * The agency that asked
@@ -1205,6 +1327,14 @@ export interface RecordGovernmentDisclosureInput {
      * @maxLength 500
      */
   legalBasis: string;
+  /** What kind of request it was. Face templates and uploaded files can be given only for a legal-demand */
+  requestType: RecordGovernmentDisclosureInputRequestType;
+  /**
+     * The kinds of information given
+     * @minItems 1
+     * @maxItems 7
+     */
+  categories: DisclosureCategory[];
   /**
      * @maxLength 200
      * @nullable
@@ -1232,6 +1362,256 @@ export interface RecordGovernmentDisclosureInput {
   notTellingReason?: string | null;
 }
 
+export type LegalHoldCopyCountKind = typeof LegalHoldCopyCountKind[keyof typeof LegalHoldCopyCountKind];
+
+
+export const LegalHoldCopyCountKind = {
+  account: 'account',
+  'face-template': 'face-template',
+  upload: 'upload',
+  passkey: 'passkey',
+  'phone-key': 'phone-key',
+  payment: 'payment',
+  'security-record': 'security-record',
+} as const;
+
+export interface LegalHoldCopyCount {
+  kind: LegalHoldCopyCountKind;
+  count: number;
+}
+
+export interface LegalHold {
+  id: number;
+  subjectEmail: string;
+  /** Whether an account had this email when the hold was placed. Payment and security records are held either way */
+  accountFound: boolean;
+  agency: string;
+  /** @nullable */
+  reference: string | null;
+  reason: string;
+  placedByEmail: string;
+  placedAt: string;
+  /** @nullable */
+  releasedAt: string | null;
+  /** @nullable */
+  releasedByEmail: string | null;
+  /** @nullable */
+  releaseReason: string | null;
+  /** How many copies are kept, by kind of record. Empty once released, because releasing deletes them */
+  copies: LegalHoldCopyCount[];
+  copiesTotal: number;
+}
+
+export interface PlaceLegalHoldInput {
+  /**
+     * The person the request names
+     * @maxLength 320
+     */
+  subjectEmail: string;
+  /**
+     * The agency that asked, or is expected to
+     * @minLength 2
+     * @maxLength 200
+     */
+  agency: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  reference?: string | null;
+  /**
+     * What the request covers, and why the information must be kept
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface ReleaseLegalHoldInput {
+  /**
+     * Why the obligation to keep the information has ended
+     * @minLength 5
+     * @maxLength 1000
+     */
+  reason: string;
+}
+
+export interface UploadPeopleInput {
+  /**
+     * Empty for no one else
+     * @maxItems 4
+     */
+  bystanders: BystanderKind[];
+  /**
+     * Required with "reachable"
+     * @maxLength 500
+     * @nullable
+     */
+  bystanderStatement?: string | null;
+}
+
+/**
+ * self = the person shown or named; parent-or-guardian = for someone under 18
+ */
+export type BystanderReportInputRelationship = typeof BystanderReportInputRelationship[keyof typeof BystanderReportInputRelationship];
+
+
+export const BystanderReportInputRelationship = {
+  self: 'self',
+  'parent-or-guardian': 'parent-or-guardian',
+} as const;
+
+export type BystanderReportInputRequest = typeof BystanderReportInputRequest[keyof typeof BystanderReportInputRequest];
+
+
+export const BystanderReportInputRequest = {
+  review: 'review',
+  removal: 'removal',
+} as const;
+
+export interface BystanderReportInput {
+  /**
+     * Where we reply
+     * @maxLength 320
+     */
+  reporterEmail: string;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  reporterName?: string | null;
+  /** self = the person shown or named; parent-or-guardian = for someone under 18 */
+  relationship: BystanderReportInputRelationship;
+  request: BystanderReportInputRequest;
+  /**
+     * What the content shows, and where it was seen
+     * @minLength 10
+     * @maxLength 2000
+     */
+  contentDescription: string;
+  /**
+     * Whatever is known about who uploaded it
+     * @maxLength 500
+     * @nullable
+     */
+  uploaderHint?: string | null;
+}
+
+export interface BystanderReportReceipt {
+  reference: number;
+  receivedAt: string;
+}
+
+export type BystanderReportRelationship = typeof BystanderReportRelationship[keyof typeof BystanderReportRelationship];
+
+
+export const BystanderReportRelationship = {
+  self: 'self',
+  'parent-or-guardian': 'parent-or-guardian',
+} as const;
+
+export type BystanderReportRequest = typeof BystanderReportRequest[keyof typeof BystanderReportRequest];
+
+
+export const BystanderReportRequest = {
+  review: 'review',
+  removal: 'removal',
+} as const;
+
+export type BystanderReportStatus = typeof BystanderReportStatus[keyof typeof BystanderReportStatus];
+
+
+export const BystanderReportStatus = {
+  open: 'open',
+  paused: 'paused',
+  removed: 'removed',
+  'not-upheld': 'not-upheld',
+  'no-match': 'no-match',
+} as const;
+
+export interface BystanderReport {
+  id: number;
+  reporterEmail: string;
+  /** @nullable */
+  reporterName: string | null;
+  relationship: BystanderReportRelationship;
+  request: BystanderReportRequest;
+  contentDescription: string;
+  /** @nullable */
+  uploaderHint: string | null;
+  status: BystanderReportStatus;
+  /** @nullable */
+  uploadId: number | null;
+  /** @nullable */
+  uploaderEmail: string | null;
+  /** @nullable */
+  staffNote: string | null;
+  receivedAt: string;
+  /** @nullable */
+  pausedAt: string | null;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @nullable */
+  handledByEmail: string | null;
+}
+
+export type BystanderCandidateUploadFileType = typeof BystanderCandidateUploadFileType[keyof typeof BystanderCandidateUploadFileType];
+
+
+export const BystanderCandidateUploadFileType = {
+  image: 'image',
+  video: 'video',
+  text: 'text',
+  audio: 'audio',
+} as const;
+
+export interface BystanderCandidateUpload {
+  id: number;
+  fileName: string;
+  fileType: BystanderCandidateUploadFileType;
+  createdAt: string;
+  /** @nullable */
+  bystanders: BystanderKind[] | null;
+  /** @nullable */
+  pausedForReviewAt: string | null;
+}
+
+export interface PauseForBystanderReportInput {
+  /**
+     * @minimum 1
+     * @maximum 2147483647
+     */
+  uploadId: number;
+  /**
+     * Why this file matches the report
+     * @minLength 5
+     * @maxLength 1000
+     */
+  note: string;
+}
+
+/**
+ * removed = the file is deleted; not-upheld = it is un-paused; no-match = no file was found
+ */
+export type ResolveBystanderReportInputOutcome = typeof ResolveBystanderReportInputOutcome[keyof typeof ResolveBystanderReportInputOutcome];
+
+
+export const ResolveBystanderReportInputOutcome = {
+  removed: 'removed',
+  'not-upheld': 'not-upheld',
+  'no-match': 'no-match',
+} as const;
+
+export interface ResolveBystanderReportInput {
+  /** removed = the file is deleted; not-upheld = it is un-paused; no-match = no file was found */
+  outcome: ResolveBystanderReportInputOutcome;
+  /**
+     * @minLength 5
+     * @maxLength 1000
+     */
+  note: string;
+}
+
 export type ListSecurityLogsParams = {
 limit?: number;
 offset?: number;
@@ -1252,5 +1632,12 @@ fromDate?: string;
  * ISO 8601 timestamp — only logs at or before this time
  */
 toDate?: string;
+};
+
+export type FindUploadsForBystanderReportParams = {
+/**
+ * @maxLength 320
+ */
+email: string;
 };
 

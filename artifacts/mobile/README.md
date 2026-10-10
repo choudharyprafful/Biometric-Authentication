@@ -1,15 +1,41 @@
 # SecureAI Mobile
 
-**iOS:** the native iOS project was added on 2026-09-29 (PR #18, Sadhakshi) and has been tested in the
-iPhone Simulator against the local API. It runs the same code; where it is weaker than Android
-(no certificate pinning, key not invalidated by new biometrics, Keychain rather than Secure Enclave) is
-recorded in `docs/04` R-MOBILE-4 and `docs/06`. Building it needs macOS with Xcode and CocoaPods.
+**iOS:** the native iOS project was added on 2026-09-29 (PR #18, Sadhakshi) and runs the same code. On
+2026-10-07 it caught up with Android:
+
+- certificate pinning (`NSPinnedDomains` in `ios/SecureAI/Info.plist`);
+- a device key that adding or removing a face or fingerprint switches off
+  (`patches/react-native-biometrics@3.0.1.patch`);
+- no plain HTTP to local addresses in Release builds (a build phase);
+- the face scan option.
+
+What is still weaker (the key isn't in the Secure Enclave) is in `docs/04` R-MOBILE-4 and `docs/06`.
+
+Building it needs macOS with Xcode 16 and CocoaPods: `pnpm install` here, then `pod install` in `ios/`.
+Because the team works on Windows, `.github/workflows/ios.yml` builds it on a GitHub-hosted Mac for every
+change under `artifacts/mobile/`. It runs the app in the Simulator against the live API and keeps two
+files in the run's `ios-simulator-build` artifact:
+
+- the built app: install it on a Mac's Simulator with `xcrun simctl install booted SecureAI.app`;
+- the `Podfile.lock` that `pod install` produced: commit it when it differs from the one here.
+
+`ios/` is maintained by hand like `android/`: `expo prebuild --clean` would drop the pins and the build
+phase.
 
 Device-native biometric MFA on Android/iOS, following the brief's actual design (decision #1):
 password (first factor) + a device biometric (second factor) that unlocks a key held in the device's
-secure storage (Android Keystore; the Keychain on iOS), which signs a server-issued challenge. No app-captured face factor
-exists here — that's a deliberate difference from the web app, which keeps an additional face-descriptor
-factor as a documented departure from this same decision. Mobile follows the brief's design as-written.
+secure storage (Android Keystore; the Keychain on iOS), which signs a server-issued challenge.
+
+**Fingerprint or face (Android, added 2026-10-06).** After the password the app asks which to use. Android
+can't be asked for face rather than fingerprint, and many phones' face unlock is too weak for apps to use,
+so the Face option is the website's own face check: `src/components/FaceCapture.tsx` opens the site's
+`/app-face` page in a WebView locked to the site's origin, and sends the descriptor the page posts back to
+`/auth/face-verify` or `/users/:id/enroll-face`. That carries the web app's documented departure from
+decision #1 (docs/04 R-AUTH-1; the WebView's risks are R-MOBILE-5), so fingerprint is listed first and
+marked recommended. The camera permission is asked only when someone chooses face. Locally, set
+`EXPO_PUBLIC_WEB_BASE_URL` to the Vite site (`http://localhost:5173`, with `adb reverse tcp:5173 tcp:5173`);
+a release build derives it from `EXPO_PUBLIC_API_BASE_URL`. The iPhone app offers it too since 2026-10-07, as
+"Face scan" next to Face ID or Touch ID; iOS asks for the camera itself.
 
 **This is not WebAuthn/passkeys — it's Android Keystore + `BiometricPrompt` directly**, talking to a
 dedicated `/auth/biometric-key/*` route family (`artifacts/api-server/src/routes/biometricKey.ts`), not
@@ -41,9 +67,10 @@ that signs a server challenge; the biometric itself never leaves the device or r
 ## Cross-device linking (accounts enrolled elsewhere, e.g. web)
 
 A device biometric key is per-device — Android Keystore keys never leave the phone they're created on.
-So an account enrolled via the **web** app (face and/or a WebAuthn passkey) has no biometric key on any
-given phone yet, and mobile has no camera-based face-capture step to fall back on. Without a bootstrap
-path, that account could **never** complete login on mobile — password succeeds, but there's no factor
+So an account enrolled via the **web** app (a WebAuthn passkey) has no biometric key on any given phone
+yet; a face enrolled on the web works in the app too, but an account without one has no other factor to
+fall back on. Without a bootstrap path, that account could **never**
+complete login on mobile — password succeeds, but there's no factor
 mobile can use to finish MFA. Solved with a short-lived linking code:
 
 1. **Web, already fully authenticated** (Security Settings → "Link Mobile Device" → `Enroll.tsx`'s

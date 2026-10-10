@@ -12,7 +12,8 @@
  *
  * Section [3] is the one that matters: it asserts the exact set of
  * (source, fileType) pairs admitted into training, so ANY widening of that
- * surface fails here and has to be a deliberate, reviewed change.
+ * surface fails here and has to be a deliberate, reviewed change. Section [7]
+ * does the same for the people in a file (Team 2's Bystander Consent Policy).
  *
  * Run: pnpm --filter @workspace/api-server run verify:provenance
  * Needs no server and no database — the rules are pure functions.
@@ -25,6 +26,9 @@ const {
   assessTrainingEligibility,
   trainableCombinations,
   isContentSource,
+  assessPeopleRules,
+  canonicalBystanders,
+  isBystanderKind,
 } = await import("./dataProvenance");
 
 type ContentSource = Awaited<
@@ -197,6 +201,63 @@ console.log("\n[6] Full decision matrix");
   const total = CONTENT_SOURCES.length * FILE_TYPES.length;
   console.log(
     `\n        ${trainableCombinations().length} of ${total} combinations admitted into training.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+console.log("\n[7] People in the file (Team 2's Bystander Consent Policy)");
+{
+  const none = assessPeopleRules([], false);
+  check(
+    "a file showing no one else: personal use and shared training both allowed",
+    none.personalisationAllowed && none.sharedTrainingAllowed,
+    JSON.stringify(none),
+  );
+  const notAsked = assessPeopleRules(null, false);
+  check(
+    "never asked: personal use as before, never shared training (nobody said it shows no one)",
+    notAsked.personalisationAllowed && !notAsked.sharedTrainingAllowed,
+    JSON.stringify(notAsked),
+  );
+  for (const kinds of [["reachable"], ["unreachable"], ["deceased"]]) {
+    const r = assessPeopleRules(kinds, false);
+    check(
+      `${kinds[0]}: personalisation only, never shared training (section 4)`,
+      r.personalisationAllowed && !r.sharedTrainingAllowed,
+      JSON.stringify(r),
+    );
+  }
+  const minor = assessPeopleRules(["reachable", "minor"], false);
+  check(
+    "someone under 18: no use at all, whatever else is declared (section 4)",
+    !minor.personalisationAllowed &&
+      !minor.sharedTrainingAllowed &&
+      /under 18/.test(minor.reason ?? ""),
+    JSON.stringify(minor),
+  );
+  const paused = assessPeopleRules([], true);
+  check(
+    "a file under review: no use at all, even showing no one else (section 6)",
+    !paused.personalisationAllowed && !paused.sharedTrainingAllowed,
+    JSON.stringify(paused),
+  );
+  const ordered = canonicalBystanders([
+    "unreachable",
+    "minor",
+    "minor",
+    "bogus",
+  ]);
+  check(
+    "declarations are stored in one order, each kind once",
+    JSON.stringify(ordered) === JSON.stringify(["minor", "unreachable"]),
+    JSON.stringify(ordered),
+  );
+  check(
+    "only the policy's four kinds are recognised",
+    ["minor", "deceased", "reachable", "unreachable"].every(isBystanderKind) &&
+      !isBystanderKind("public-figure") &&
+      !isBystanderKind(""),
+    "minor, deceased, reachable, unreachable",
   );
 }
 

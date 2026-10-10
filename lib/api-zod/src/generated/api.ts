@@ -937,6 +937,8 @@ export const ListGovernmentDisclosuresResponseItem = zod.object({
   "id": zod.number().int(),
   "agency": zod.string(),
   "legalBasis": zod.string(),
+  "requestType": zod.union([zod.literal('legal-demand'),zod.literal('enforcement-request'),zod.literal('emergency'),zod.literal(null)]).nullable().describe('legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone\'s life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07'),
+  "categories": zod.array(zod.enum(['account', 'security-records', 'payments', 'uploads', 'face-template', 'ai-challenges', 'sign-in-keys']).describe('account = name, email, date of birth and plan (and a guardian\'s email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given')).nullable().describe('The kinds of information given. Null for records made before 2026-10-07'),
   "reference": zod.string().nullable(),
   "subjectEmail": zod.string().nullable(),
   "informationDisclosed": zod.string(),
@@ -958,6 +960,8 @@ export const recordGovernmentDisclosureBodyAgencyMax = 200;
 export const recordGovernmentDisclosureBodyLegalBasisMin = 5;
 export const recordGovernmentDisclosureBodyLegalBasisMax = 500;
 
+export const recordGovernmentDisclosureBodyCategoriesMax = 7;
+
 export const recordGovernmentDisclosureBodyReferenceMax = 200;
 
 export const recordGovernmentDisclosureBodySubjectEmailMax = 320;
@@ -972,6 +976,8 @@ export const recordGovernmentDisclosureBodyNotTellingReasonMax = 1000;
 export const RecordGovernmentDisclosureBody = zod.object({
   "agency": zod.string().min(recordGovernmentDisclosureBodyAgencyMin).max(recordGovernmentDisclosureBodyAgencyMax).describe('The agency that asked'),
   "legalBasis": zod.string().min(recordGovernmentDisclosureBodyLegalBasisMin).max(recordGovernmentDisclosureBodyLegalBasisMax).describe('The law or document that required or authorised it (for example a warrant or court order)'),
+  "requestType": zod.enum(['legal-demand', 'enforcement-request', 'emergency']).describe('What kind of request it was. Face templates and uploaded files can be given only for a legal-demand'),
+  "categories": zod.array(zod.enum(['account', 'security-records', 'payments', 'uploads', 'face-template', 'ai-challenges', 'sign-in-keys']).describe('account = name, email, date of birth and plan (and a guardian\'s email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given')).min(1).max(recordGovernmentDisclosureBodyCategoriesMax).describe('The kinds of information given'),
   "reference": zod.string().max(recordGovernmentDisclosureBodyReferenceMax).nullish(),
   "subjectEmail": zod.string().max(recordGovernmentDisclosureBodySubjectEmailMax).nullish().describe('The account whose information was disclosed, if one'),
   "informationDisclosed": zod.string().min(recordGovernmentDisclosureBodyInformationDisclosedMin).max(recordGovernmentDisclosureBodyInformationDisclosedMax),
@@ -984,6 +990,8 @@ export const RecordGovernmentDisclosureResponse = zod.object({
   "id": zod.number().int(),
   "agency": zod.string(),
   "legalBasis": zod.string(),
+  "requestType": zod.union([zod.literal('legal-demand'),zod.literal('enforcement-request'),zod.literal('emergency'),zod.literal(null)]).nullable().describe('legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone\'s life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07'),
+  "categories": zod.array(zod.enum(['account', 'security-records', 'payments', 'uploads', 'face-template', 'ai-challenges', 'sign-in-keys']).describe('account = name, email, date of birth and plan (and a guardian\'s email for under-18s); security-records = sign-ins, IP addresses, devices and activity; payments = payment records; uploads = the content of uploaded files; face-template; ai-challenges = challenges to AI decisions; sign-in-keys = passkeys and phone keys (public keys). Passwords, sign-in tokens and encryption keys are not a category, because they are never given')).nullable().describe('The kinds of information given. Null for records made before 2026-10-07'),
   "reference": zod.string().nullable(),
   "subjectEmail": zod.string().nullable(),
   "informationDisclosed": zod.string(),
@@ -992,6 +1000,112 @@ export const RecordGovernmentDisclosureResponse = zod.object({
   "notTellingReason": zod.string().nullable(),
   "recordedByEmail": zod.string(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Legal holds placed when a government or law-enforcement request arrives, newest first (administrators)
+ */
+export const ListLegalHoldsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "subjectEmail": zod.string(),
+  "accountFound": zod.boolean().describe('Whether an account had this email when the hold was placed. Payment and security records are held either way'),
+  "agency": zod.string(),
+  "reference": zod.string().nullable(),
+  "reason": zod.string(),
+  "placedByEmail": zod.string(),
+  "placedAt": zod.coerce.date(),
+  "releasedAt": zod.coerce.date().nullable(),
+  "releasedByEmail": zod.string().nullable(),
+  "releaseReason": zod.string().nullable(),
+  "copies": zod.array(zod.object({
+  "kind": zod.enum(['account', 'face-template', 'upload', 'passkey', 'phone-key', 'payment', 'security-record']),
+  "count": zod.number().int()
+})).describe('How many copies are kept, by kind of record. Empty once released, because releasing deletes them'),
+  "copiesTotal": zod.number().int()
+})
+export const ListLegalHoldsResponse = zod.array(ListLegalHoldsResponseItem)
+
+
+/**
+ * @summary Place a legal hold on a person. Until it is released, anything of theirs that would be deleted is first copied, and what exists now is copied straight away (administrators)
+ */
+export const placeLegalHoldBodySubjectEmailMax = 320;
+
+export const placeLegalHoldBodyAgencyMin = 2;
+export const placeLegalHoldBodyAgencyMax = 200;
+
+export const placeLegalHoldBodyReferenceMax = 200;
+
+export const placeLegalHoldBodyReasonMin = 5;
+export const placeLegalHoldBodyReasonMax = 1000;
+
+
+
+export const PlaceLegalHoldBody = zod.object({
+  "subjectEmail": zod.string().email().max(placeLegalHoldBodySubjectEmailMax).describe('The person the request names'),
+  "agency": zod.string().min(placeLegalHoldBodyAgencyMin).max(placeLegalHoldBodyAgencyMax).describe('The agency that asked, or is expected to'),
+  "reference": zod.string().max(placeLegalHoldBodyReferenceMax).nullish(),
+  "reason": zod.string().min(placeLegalHoldBodyReasonMin).max(placeLegalHoldBodyReasonMax).describe('What the request covers, and why the information must be kept')
+})
+
+export const PlaceLegalHoldResponse = zod.object({
+  "id": zod.number().int(),
+  "subjectEmail": zod.string(),
+  "accountFound": zod.boolean().describe('Whether an account had this email when the hold was placed. Payment and security records are held either way'),
+  "agency": zod.string(),
+  "reference": zod.string().nullable(),
+  "reason": zod.string(),
+  "placedByEmail": zod.string(),
+  "placedAt": zod.coerce.date(),
+  "releasedAt": zod.coerce.date().nullable(),
+  "releasedByEmail": zod.string().nullable(),
+  "releaseReason": zod.string().nullable(),
+  "copies": zod.array(zod.object({
+  "kind": zod.enum(['account', 'face-template', 'upload', 'passkey', 'phone-key', 'payment', 'security-record']),
+  "count": zod.number().int()
+})).describe('How many copies are kept, by kind of record. Empty once released, because releasing deletes them'),
+  "copiesTotal": zod.number().int()
+})
+
+
+/**
+ * @summary Release a legal hold once the obligation to keep the information has ended. Its copies are deleted (administrators)
+ */
+export const releaseLegalHoldPathIdMax = 2147483647;
+
+
+
+export const ReleaseLegalHoldParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(releaseLegalHoldPathIdMax)
+})
+
+export const releaseLegalHoldBodyReasonMin = 5;
+export const releaseLegalHoldBodyReasonMax = 1000;
+
+
+
+export const ReleaseLegalHoldBody = zod.object({
+  "reason": zod.string().min(releaseLegalHoldBodyReasonMin).max(releaseLegalHoldBodyReasonMax).describe('Why the obligation to keep the information has ended')
+})
+
+export const ReleaseLegalHoldResponse = zod.object({
+  "id": zod.number().int(),
+  "subjectEmail": zod.string(),
+  "accountFound": zod.boolean().describe('Whether an account had this email when the hold was placed. Payment and security records are held either way'),
+  "agency": zod.string(),
+  "reference": zod.string().nullable(),
+  "reason": zod.string(),
+  "placedByEmail": zod.string(),
+  "placedAt": zod.coerce.date(),
+  "releasedAt": zod.coerce.date().nullable(),
+  "releasedByEmail": zod.string().nullable(),
+  "releaseReason": zod.string().nullable(),
+  "copies": zod.array(zod.object({
+  "kind": zod.enum(['account', 'face-template', 'upload', 'passkey', 'phone-key', 'payment', 'security-record']),
+  "count": zod.number().int()
+})).describe('How many copies are kept, by kind of record. Empty once released, because releasing deletes them'),
+  "copiesTotal": zod.number().int()
 })
 
 
@@ -1142,7 +1256,32 @@ export const GetAiSecurityReportResponse = zod.object({
 }),
   "verdict": zod.enum(['PASS', 'REVIEW']),
   "console": zod.string().describe('The script\'s own console output, captured verbatim')
-}).describe('Sadhakshi\'s memorisation_leakage_model.py, run unmodified')
+}).describe('Sadhakshi\'s memorisation_leakage_model.py, run unmodified'),
+  "behavioralRisk": zod.object({
+  "script": zod.string(),
+  "author": zod.string(),
+  "sha256": zod.string(),
+  "normalLogin": zod.object({
+  "riskScore": zod.number().int(),
+  "level": zod.string()
+}),
+  "suspiciousLogin": zod.object({
+  "riskScore": zod.number().int(),
+  "level": zod.string()
+})
+}),
+  "promptInjectionRisk": zod.object({
+  "script": zod.string(),
+  "author": zod.string(),
+  "maxRiskScore": zod.number().int(),
+  "overallLevel": zod.string(),
+  "examples": zod.array(zod.object({
+  "prompt": zod.string(),
+  "riskScore": zod.number().int(),
+  "level": zod.string(),
+  "categories": zod.array(zod.string())
+}))
+})
 })
 })
 
@@ -1656,8 +1795,12 @@ export const ListUploadsResponseItem = zod.object({
   "sizeBytes": zod.number(),
   "createdAt": zod.string(),
   "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).describe('Declared origin of the file\'s content, per Team 2\'s Data Source Acceptability Matrix. \"unspecified\" is the fail-closed default for an upload that never declared one.'),
-  "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into a training corpus, given its source and file type together. Returned so the consequence of a provenance declaration is visible to the uploader rather than only enforced server-side.'),
-  "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s own reasoning.')
+  "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into the uploader\'s own personalisation, given its source, its file type and who else it shows (Team 2\'s Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side.'),
+  "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s or the policy\'s own reasoning.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
+  "bystanderStatement": zod.string().nullable().describe('The uploader\'s statement about a person they have told, who doesn\'t object'),
+  "bystandersDeclaredAt": zod.coerce.date().nullable(),
+  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile')
 })
 export const ListUploadsResponse = zod.array(ListUploadsResponseItem)
 
@@ -1669,13 +1812,19 @@ export const createUploadBodyFileNameMax = 255;
 
 
 
+export const createUploadBodyBystandersMax = 4;
+
+export const createUploadBodyBystanderStatementMax = 500;
+
 
 
 export const CreateUploadBody = zod.object({
   "fileName": zod.string().min(1).max(createUploadBodyFileNameMax),
   "mimeType": zod.string().min(1),
   "dataBase64": zod.string().min(1).describe('Raw file bytes, base64-encoded'),
-  "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).optional().describe('Declared origin of the content, per Team 2\'s Data Source Acceptability Matrix. Optional: omitting it stores the upload as \"unspecified\", which keeps the file fully usable by its owner but excludes it from every training corpus until a source is declared.')
+  "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).optional().describe('Declared origin of the content, per Team 2\'s Data Source Acceptability Matrix. Optional: omitting it stores the upload as \"unspecified\", which keeps the file fully usable by its owner but excludes it from every training corpus until a source is declared.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).max(createUploadBodyBystandersMax).optional().describe('Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.'),
+  "bystanderStatement": zod.string().max(createUploadBodyBystanderStatementMax).nullish().describe('Required with \"reachable\"; the uploader\'s statement that they told the person and the person doesn\'t object')
 })
 
 export const CreateUploadResponse = zod.object({
@@ -1687,8 +1836,12 @@ export const CreateUploadResponse = zod.object({
   "sizeBytes": zod.number(),
   "createdAt": zod.string(),
   "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).describe('Declared origin of the file\'s content, per Team 2\'s Data Source Acceptability Matrix. \"unspecified\" is the fail-closed default for an upload that never declared one.'),
-  "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into a training corpus, given its source and file type together. Returned so the consequence of a provenance declaration is visible to the uploader rather than only enforced server-side.'),
-  "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s own reasoning.')
+  "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into the uploader\'s own personalisation, given its source, its file type and who else it shows (Team 2\'s Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side.'),
+  "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s or the policy\'s own reasoning.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
+  "bystanderStatement": zod.string().nullable().describe('The uploader\'s statement about a person they have told, who doesn\'t object'),
+  "bystandersDeclaredAt": zod.coerce.date().nullable(),
+  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile')
 })
 
 
@@ -1727,5 +1880,201 @@ export const DeleteUploadParams = zod.object({
 })
 
 export const DeleteUploadResponse = zod.void()
+
+
+/**
+ * @summary Say who else a file shows or names, or change the answer later (the uploader only)
+ */
+export const declareUploadPeoplePathIdMax = 2147483647;
+
+
+
+export const DeclareUploadPeopleParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(declareUploadPeoplePathIdMax)
+})
+
+export const declareUploadPeopleBodyBystandersMax = 4;
+
+export const declareUploadPeopleBodyBystanderStatementMax = 500;
+
+
+
+export const DeclareUploadPeopleBody = zod.object({
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).max(declareUploadPeopleBodyBystandersMax).describe('Empty for no one else'),
+  "bystanderStatement": zod.string().max(declareUploadPeopleBodyBystanderStatementMax).nullish().describe('Required with \"reachable\"')
+})
+
+export const DeclareUploadPeopleResponse = zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "fileName": zod.string(),
+  "mimeType": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "sizeBytes": zod.number(),
+  "createdAt": zod.string(),
+  "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).describe('Declared origin of the file\'s content, per Team 2\'s Data Source Acceptability Matrix. \"unspecified\" is the fail-closed default for an upload that never declared one.'),
+  "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into the uploader\'s own personalisation, given its source, its file type and who else it shows (Team 2\'s Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side.'),
+  "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s or the policy\'s own reasoning.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
+  "bystanderStatement": zod.string().nullable().describe('The uploader\'s statement about a person they have told, who doesn\'t object'),
+  "bystandersDeclaredAt": zod.coerce.date().nullable(),
+  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile')
+})
+
+
+/**
+ * @summary Report a file that shows or names you, without an account (Team 2's Bystander Consent Policy, section 6)
+ */
+export const reportContentShowingMeBodyReporterEmailMax = 320;
+
+export const reportContentShowingMeBodyReporterNameMax = 200;
+
+export const reportContentShowingMeBodyContentDescriptionMin = 10;
+export const reportContentShowingMeBodyContentDescriptionMax = 2000;
+
+export const reportContentShowingMeBodyUploaderHintMax = 500;
+
+
+
+export const ReportContentShowingMeBody = zod.object({
+  "reporterEmail": zod.string().email().max(reportContentShowingMeBodyReporterEmailMax).describe('Where we reply'),
+  "reporterName": zod.string().max(reportContentShowingMeBodyReporterNameMax).nullish(),
+  "relationship": zod.enum(['self', 'parent-or-guardian']).describe('self = the person shown or named; parent-or-guardian = for someone under 18'),
+  "request": zod.enum(['review', 'removal']),
+  "contentDescription": zod.string().min(reportContentShowingMeBodyContentDescriptionMin).max(reportContentShowingMeBodyContentDescriptionMax).describe('What the content shows, and where it was seen'),
+  "uploaderHint": zod.string().max(reportContentShowingMeBodyUploaderHintMax).nullish().describe('Whatever is known about who uploaded it')
+})
+
+export const ReportContentShowingMeResponse = zod.object({
+  "reference": zod.number().int(),
+  "receivedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Reports from people who appear in uploads, newest first (security analysts and administrators)
+ */
+export const ListBystanderReportsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "reporterEmail": zod.string(),
+  "reporterName": zod.string().nullable(),
+  "relationship": zod.enum(['self', 'parent-or-guardian']),
+  "request": zod.enum(['review', 'removal']),
+  "contentDescription": zod.string(),
+  "uploaderHint": zod.string().nullable(),
+  "status": zod.enum(['open', 'paused', 'removed', 'not-upheld', 'no-match']),
+  "uploadId": zod.number().int().nullable(),
+  "uploaderEmail": zod.string().nullable(),
+  "staffNote": zod.string().nullable(),
+  "receivedAt": zod.coerce.date(),
+  "pausedAt": zod.coerce.date().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "handledByEmail": zod.string().nullable()
+})
+export const ListBystanderReportsResponse = zod.array(ListBystanderReportsResponseItem)
+
+
+/**
+ * @summary An uploader's files, as metadata only, to match a report to the file it is about (administrators)
+ */
+export const findUploadsForBystanderReportQueryEmailMax = 320;
+
+
+
+export const FindUploadsForBystanderReportQueryParams = zod.object({
+  "email": zod.coerce.string().email().max(findUploadsForBystanderReportQueryEmailMax)
+})
+
+export const FindUploadsForBystanderReportResponseItem = zod.object({
+  "id": zod.number().int(),
+  "fileName": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "createdAt": zod.coerce.date(),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable(),
+  "pausedForReviewAt": zod.coerce.date().nullable()
+})
+export const FindUploadsForBystanderReportResponse = zod.array(FindUploadsForBystanderReportResponseItem)
+
+
+/**
+ * @summary Match a report to a file, pause the file while the report is reviewed, and tell its uploader (administrators)
+ */
+export const pauseUploadForBystanderReportPathIdMax = 2147483647;
+
+
+
+export const PauseUploadForBystanderReportParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(pauseUploadForBystanderReportPathIdMax)
+})
+
+export const pauseUploadForBystanderReportBodyUploadIdMax = 2147483647;
+
+export const pauseUploadForBystanderReportBodyNoteMin = 5;
+export const pauseUploadForBystanderReportBodyNoteMax = 1000;
+
+
+
+export const PauseUploadForBystanderReportBody = zod.object({
+  "uploadId": zod.number().int().min(1).max(pauseUploadForBystanderReportBodyUploadIdMax),
+  "note": zod.string().min(pauseUploadForBystanderReportBodyNoteMin).max(pauseUploadForBystanderReportBodyNoteMax).describe('Why this file matches the report')
+})
+
+export const PauseUploadForBystanderReportResponse = zod.object({
+  "id": zod.number().int(),
+  "reporterEmail": zod.string(),
+  "reporterName": zod.string().nullable(),
+  "relationship": zod.enum(['self', 'parent-or-guardian']),
+  "request": zod.enum(['review', 'removal']),
+  "contentDescription": zod.string(),
+  "uploaderHint": zod.string().nullable(),
+  "status": zod.enum(['open', 'paused', 'removed', 'not-upheld', 'no-match']),
+  "uploadId": zod.number().int().nullable(),
+  "uploaderEmail": zod.string().nullable(),
+  "staffNote": zod.string().nullable(),
+  "receivedAt": zod.coerce.date(),
+  "pausedAt": zod.coerce.date().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "handledByEmail": zod.string().nullable()
+})
+
+
+/**
+ * @summary Close a report. Removed deletes the file; not upheld un-pauses it; no match closes it. The uploader is told (administrators)
+ */
+export const resolveBystanderReportPathIdMax = 2147483647;
+
+
+
+export const ResolveBystanderReportParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(resolveBystanderReportPathIdMax)
+})
+
+export const resolveBystanderReportBodyNoteMin = 5;
+export const resolveBystanderReportBodyNoteMax = 1000;
+
+
+
+export const ResolveBystanderReportBody = zod.object({
+  "outcome": zod.enum(['removed', 'not-upheld', 'no-match']).describe('removed = the file is deleted; not-upheld = it is un-paused; no-match = no file was found'),
+  "note": zod.string().min(resolveBystanderReportBodyNoteMin).max(resolveBystanderReportBodyNoteMax)
+})
+
+export const ResolveBystanderReportResponse = zod.object({
+  "id": zod.number().int(),
+  "reporterEmail": zod.string(),
+  "reporterName": zod.string().nullable(),
+  "relationship": zod.enum(['self', 'parent-or-guardian']),
+  "request": zod.enum(['review', 'removal']),
+  "contentDescription": zod.string(),
+  "uploaderHint": zod.string().nullable(),
+  "status": zod.enum(['open', 'paused', 'removed', 'not-upheld', 'no-match']),
+  "uploadId": zod.number().int().nullable(),
+  "uploaderEmail": zod.string().nullable(),
+  "staffNote": zod.string().nullable(),
+  "receivedAt": zod.coerce.date(),
+  "pausedAt": zod.coerce.date().nullable(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "handledByEmail": zod.string().nullable()
+})
 
 

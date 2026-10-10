@@ -41,6 +41,8 @@ export interface ReadableExportInput {
     fileType: string;
     sizeBytes: number;
     declaredSource: string;
+    otherPeople: string[] | null;
+    pausedForReviewSince: string | null;
     uploadedAt: string | null;
   }[];
   payments: {
@@ -75,6 +77,8 @@ export interface ReadableExportInput {
   disclosures: {
     agency: string;
     legalBasis: string;
+    requestType: string | null;
+    categories: string[] | null;
     informationDisclosed: string;
     disclosedAt: string;
     personToldAt: string | null;
@@ -158,6 +162,32 @@ const PAYMENT_STATUS: Record<string, string> = {
   disputed: "Disputed",
   charged_back: "Charged back",
 };
+
+// lib/dataBreaches.ts DISCLOSURE_REQUEST_TYPES and DISCLOSURE_CATEGORIES, in plain words.
+const REQUEST_TYPE_WORDS: Record<string, string> = {
+  "legal-demand": "Required by law",
+  "enforcement-request":
+    "A written request from an Australian enforcement body",
+  emergency: "To protect someone's life, health or safety",
+};
+const CATEGORY_WORDS: Record<string, string> = {
+  account: "account details",
+  "security-records": "security records",
+  payments: "payment records",
+  uploads: "uploaded files",
+  "face-template": "face template",
+  "ai-challenges": "challenges to AI decisions",
+  "sign-in-keys": "passkeys and phone keys",
+};
+// lib/dataProvenance.ts BYSTANDER_KINDS, in plain words.
+const PEOPLE_WORDS: Record<string, string> = {
+  minor: "someone under 18",
+  deceased: "someone who has died",
+  reachable: "someone you told, who doesn't object",
+  unreachable: "someone you can't contact",
+};
+const sentenceCase = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
 
 function size(bytes: number): string {
   if (bytes < 1024) return `${bytes} bytes`;
@@ -313,6 +343,7 @@ export function renderReadableExport(input: ReadableExportInput): string {
         "Size",
         "Uploaded",
         "Where it came from (as you told us)",
+        "Who else it shows (as you told us)",
       ],
       input.uploads.map((u) => [
         esc(u.fileName),
@@ -320,6 +351,18 @@ export function renderReadableExport(input: ReadableExportInput): string {
         esc(size(u.sizeBytes)),
         esc(when(u.uploadedAt)),
         esc(SOURCES[u.declaredSource] ?? u.declaredSource),
+        esc(
+          (u.otherPeople === null
+            ? "Not asked"
+            : u.otherPeople.length === 0
+              ? "No one else"
+              : sentenceCase(
+                  u.otherPeople.map((k) => PEOPLE_WORDS[k] ?? k).join(", "),
+                )) +
+            (u.pausedForReviewSince
+              ? `. Paused since ${when(u.pausedForReviewSince)}: someone in it asked us to review it`
+              : ""),
+        ),
       ]),
       "You haven't uploaded any files.",
     )}</section>`,
@@ -355,18 +398,26 @@ export function renderReadableExport(input: ReadableExportInput): string {
             )
             .join("")
     }</section>`,
-    `<section id="disclosures"><h2>Information given to government agencies</h2><p>We only give your information to a government or law-enforcement agency when the law requires or allows it, for example under a warrant or court order, and we keep a written record each time. These are the times we have told you about.</p>${table(
+    `<section id="disclosures"><h2>Information given to government agencies</h2><p>We only give your information to an Australian government or law-enforcement agency when the law requires or allows it, and your face template and files only when the law requires it, for example under a warrant or court order. We keep a written record each time. These are the times we have told you about.</p>${table(
       ["When", "Agency", "Why (the law or order)", "What was given"],
       input.disclosures.map((d) => [
         esc(when(d.disclosedAt)),
         esc(d.agency),
-        esc(d.legalBasis),
-        esc(d.informationDisclosed),
+        esc(
+          d.requestType && REQUEST_TYPE_WORDS[d.requestType]
+            ? `${REQUEST_TYPE_WORDS[d.requestType]}: ${d.legalBasis}`
+            : d.legalBasis,
+        ),
+        esc(
+          d.categories?.length
+            ? `${sentenceCase(d.categories.map((c) => CATEGORY_WORDS[c] ?? c).join(", "))}. ${d.informationDisclosed}`
+            : d.informationDisclosed,
+        ),
       ]),
       "None.",
     )}</section>`,
     `<section id="policy"><h2>Privacy policy</h2><p>${policyLine}</p></section>`,
-    `<section id="keeping"><h2>How long we keep your information</h2><p>If you delete your account, we delete your profile, face template, passkeys and phone keys, files and sign-in sessions straight away.</p><p>Some records are kept for a set time whether or not you delete your account, and are then deleted automatically: payment records for ${r.paymentRecordsYears} years after the payment, security records for ${r.securityLogMonths} months, and records of challenges to AI decisions for ${r.aiChallengeRecordYears} years.</p></section>`,
+    `<section id="keeping"><h2>How long we keep your information</h2><p>If you delete your account, we delete your profile, face template, passkeys and phone keys, files and sign-in sessions straight away.</p><p>Some records are kept for a set time whether or not you delete your account, and are then deleted automatically: payment records for ${r.paymentRecordsYears} years after the payment, security records for ${r.securityLogMonths} months, and records of challenges to AI decisions for ${r.aiChallengeRecordYears} years.</p><p>The one exception is the law's: if a court order or another legal requirement means we must keep something, we keep a separate copy until that obligation ends, and use it for nothing else.</p></section>`,
   ];
 
   return `<!doctype html>

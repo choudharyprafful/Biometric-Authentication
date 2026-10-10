@@ -82,6 +82,57 @@ sequenceDiagram
     end
 ```
 
+## Mobile: fingerprint or face (added 2026-10-06)
+
+The phone app asks which second step to use (Android since 2026-10-06, iPhone since 2026-10-07).
+Android can't be asked for face rather than fingerprint (`BiometricPrompt` uses whichever strong
+biometric the phone has), and many phones' face unlock is Class 1, which apps can't use at all, so the
+app's Face option is the website's own face check, shown in a WebView. On an iPhone the device key opens
+with Face ID or Touch ID, so the same option is called "Face scan" there. Both options use the same
+endpoints as the website.
+
+```mermaid
+sequenceDiagram
+    participant U as Person
+    participant App as Phone app
+    participant W as WebView (the site's /app-face page)
+    participant A as API server
+
+    U->>App: Email + password
+    App->>A: POST /auth/login
+    A-->>App: 200 {requiresFaceVerification, faceAvailable, passkeyAvailable, tempToken}
+    App->>U: Choose: Fingerprint (a key exists) or Face (a face is enrolled)
+
+    alt Fingerprint (listed first, recommended: the brief's design)
+        App->>A: POST /auth/biometric-key/login-options
+        A-->>App: challenge
+        U->>App: Fingerprint (Android) or Face ID / Touch ID (iPhone) unlocks the device key, which SIGNS the challenge
+        App->>A: POST /auth/biometric-key/login-verify {signature}
+    else Face (the website's face check)
+        App->>U: Ask for the camera permission (first time only)
+        App->>W: Open https://<site>/app-face, locked to the site's origin
+        W->>W: Same face-api.js models and blink check as the website
+        W-->>App: postMessage {type: "face-descriptor", descriptor[128]}
+        App->>App: Accept only from the site's origin, only 128 finite numbers
+        App->>A: POST /auth/face-verify {tempToken, descriptor} over the app's pinned connection
+        A->>A: Same comparison, 3 attempts and 2-minute window as the website
+    end
+    A-->>App: 200 {user}: full session
+```
+
+- **Set-up.** A new account chooses one on the set-up screen; face needs the same express biometric
+  consent as the website, as an unticked box. Privacy & Your Data adds the other later, or removes the
+  face (withdrawing consent deletes the template).
+- **The page makes no API call.** On Android the WebView shares the app's cookies, so the page is
+  rendered outside the website's sign-in provider; a request from it could otherwise disturb the app's
+  half-finished sign-in. The app sends the descriptor itself. The WebView isn't incognito, because on
+  Android that deletes every cookie, the app's own session included.
+- **iPhone** (2026-10-07): the device key opens with Face ID or Touch ID, and the camera option is
+  called "Face scan". iOS asks for the camera itself the first time the page opens it, and WebKit gives
+  the camera only to the site's own page.
+- The face option carries R-AUTH-1's gap (a descriptor, not a signature); the WebView's own risks are
+  R-MOBILE-5 (`04_Threat_Model_Risk_Assessment.md`).
+
 ## Why the passkey path is the "real" second factor — and why face-verify exists anyway
 
 Compliance note, decided 2026-08-28: face-verify is a deliberate, documented departure from the
@@ -96,7 +147,7 @@ the server never sees the private key or the raw biometric, only a cryptographic
 server-issued, single-use challenge. That signature cannot be produced without the device-held key,
 regardless of what the client claims. This is why:
 
-- On web, either factor satisfies MFA (`requireMfaEnrolled` accepts face OR passkey — a passkey-only mobile account has no way to enroll a face factor, so requiring both would lock it out permanently). Both can still be enrolled for extra assurance.
+- On web and mobile, either factor satisfies MFA (`requireMfaEnrolled` accepts face OR passkey — a person sets up one, and someone without a camera, or whom the face model fails, may never have the other, so requiring both would lock them out permanently). Both can still be enrolled for extra assurance.
 - Passkey is offered **first** at login/reset; face scan is an explicit, clearly-labelled fallback.
 - Face scan now also requires a blink-based liveness check before a descriptor is captured or
   auto-submitted (`lib/livenessDetection.ts`) — defends against the most obvious spoof (a static photo

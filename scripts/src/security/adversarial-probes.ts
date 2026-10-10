@@ -258,11 +258,12 @@ async function probeAuthBypass() {
     `got ${asUser.status}`,
   );
 
-  // The breach register and the government disclosure record (docs/12) are staff-only, and the
-  // readable data copy is only ever the signed-in person's own.
+  // The breach register and the government disclosure record (docs/12) are staff-only, legal holds
+  // are administrators' only, and the readable data copy is only ever the signed-in person's own.
   for (const path of [
     "/api/data-breaches",
     "/api/government-disclosures",
+    "/api/legal-holds",
     "/api/users/me/export/readable",
     "/api/users/me/breach-notices",
   ]) {
@@ -275,7 +276,11 @@ async function probeAuthBypass() {
       `got ${anonRes.status}`,
     );
   }
-  for (const path of ["/api/data-breaches", "/api/government-disclosures"]) {
+  for (const path of [
+    "/api/data-breaches",
+    "/api/government-disclosures",
+    "/api/legal-holds",
+  ]) {
     const read = await fetch(`${BASE}${path}`, {
       headers: { Origin: BASE, Cookie: session.cookies },
     });
@@ -300,9 +305,13 @@ async function probeAuthBypass() {
         discoveredAt: new Date().toISOString(),
         agency: "Probe agency",
         legalBasis: "No basis at all",
+        requestType: "legal-demand",
+        categories: ["account"],
         informationDisclosed: "Nothing",
         disclosedAt: new Date().toISOString(),
         notTellingReason: "Probe only",
+        subjectEmail: email,
+        reason: "Probe only",
       }),
     });
     record(
@@ -311,6 +320,21 @@ async function probeAuthBypass() {
       `got ${write.status}`,
     );
   }
+  const release = await fetch(`${BASE}/api/legal-holds/1/release`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({ reason: "Probe only" }),
+  });
+  record(
+    "regular user -> release a legal hold",
+    release.status === 401 || release.status === 403,
+    `got ${release.status}`,
+  );
 }
 
 async function probeIdor() {

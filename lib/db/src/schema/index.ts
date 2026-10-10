@@ -11,3 +11,5 @@ export * from "./parentConsentTokens";
 export * from "./biometricKeys";
 export * from "./securityLogRetention";
 export * from "./dataBreaches";
+export * from "./legalHolds";
+export * from "./bystanderReports";

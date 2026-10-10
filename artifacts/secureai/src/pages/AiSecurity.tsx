@@ -1,10 +1,11 @@
-import React from "react";
 import {
   useGetAiSecurityReport,
   getGetAiSecurityReportQueryKey,
   type AiValidationTest,
   type AiPocStarterKit,
   type AiPocMemorisation,
+  type AiBehavioralRisk,
+  type AiPromptInjectionRisk,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -373,6 +374,116 @@ function MemorisationCard({ mem }: { mem: AiPocMemorisation }) {
   );
 }
 
+function BehavioralRiskCard({ risk }: { risk: AiBehavioralRisk }) {
+  return (
+    <Card className="space-y-5">
+      <h3 className="font-mono font-bold uppercase tracking-widest text-foreground">
+        Behavioral Risk Scoring (Synthetic Demo)
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        Separate from the live sign-in risk check. Uses fixed weights and
+        synthetic examples to demonstrate risk-based authentication concepts.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-green-500/40 bg-green-500/5 p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Normal Login
+          </p>
+
+          <p className="font-mono text-2xl">{risk.normalLogin.riskScore}</p>
+
+          <Badge variant="success">{risk.normalLogin.level}</Badge>
+        </div>
+
+        <div className="border border-destructive/40 bg-destructive/5 p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Suspicious Login
+          </p>
+
+          <p className="font-mono text-2xl">{risk.suspiciousLogin.riskScore}</p>
+
+          <Badge variant="destructive">{risk.suspiciousLogin.level}</Badge>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Demonstrates risk-based authentication concepts using login behaviour,
+        failed login attempts, new-device detection, location change, and
+        unusual login-time signals.
+      </p>
+    </Card>
+  );
+}
+function PromptInjectionRiskCard({ risk }: { risk: AiPromptInjectionRisk }) {
+  return (
+    <Card className="space-y-5">
+      <h3 className="font-mono font-bold uppercase tracking-widest text-foreground">
+        Prompt Injection Risk (Synthetic Demo)
+      </h3>
+
+      <p className="text-xs text-muted-foreground">
+        Keyword-based demonstration of prompt-injection detection. This
+        repository does not contain a live LLM; the model is a synthetic
+        AI-security proof-of-concept.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Maximum Risk Score
+          </p>
+
+          <p className="font-mono text-2xl">{risk.maxRiskScore}</p>
+
+          <Badge
+            variant={
+              risk.overallLevel === "HIGH"
+                ? "destructive"
+                : risk.overallLevel === "MEDIUM"
+                  ? "warning"
+                  : "success"
+            }
+          >
+            {risk.overallLevel}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Prompt</TableHead>
+              <TableHead>Score</TableHead>
+              <TableHead>Level</TableHead>
+              <TableHead>Categories</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {risk.examples.map((example, index) => (
+              <TableRow key={index}>
+                <TableCell className="font-mono text-xs">
+                  {example.prompt}
+                </TableCell>
+
+                <TableCell>{example.riskScore}</TableCell>
+
+                <TableCell>{example.level}</TableCell>
+
+                <TableCell className="font-mono text-xs">
+                  {example.categories.join(", ")}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
 export default function AiSecurity() {
   const { data, isLoading, isFetching, error, refetch } =
     useGetAiSecurityReport({
@@ -511,6 +622,8 @@ export default function AiSecurity() {
             script changes without them being regenerated.
           </p>
         </div>
+        <BehavioralRiskCard risk={poc.behavioralRisk} />
+        <PromptInjectionRiskCard risk={poc.promptInjectionRisk} />
         <StarterKitCard kit={poc.starterKit} />
         <MemorisationCard mem={poc.memorisation} />
       </section>

@@ -212,6 +212,9 @@ function fmt(date: Date): string {
 /**
  * The notification statement the Notifiable Data Breaches scheme asks for: who we are and how to
  * contact us, what happened, the kinds of information involved, and what the person should do.
+ * Privacy policy section 14 tells people that this email never asks for a password or payment
+ * details and that its only SecureAI link is the home page, so a fake is easier to spot. Keep both
+ * true.
  */
 function breachEmail(b: DataBreach): { subject: string; text: string } {
   return {
@@ -428,9 +431,47 @@ export async function acknowledgeNotice(
 
 // ── Disclosures to government agencies ───────────────────────────────────────────────────────────
 
+/**
+ * Why information can be given (privacy policy section 9): legal-demand, required by Australian law
+ * or a court or tribunal order (APP 6.2(b)); enforcement-request, a written request from an Australian
+ * enforcement body that we judge reasonably necessary for its work (APP 6.2(e)); emergency, a serious
+ * threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). A foreign
+ * government or court has to go through Australia's mutual assistance process, so it isn't a type.
+ */
+export const DISCLOSURE_REQUEST_TYPES = [
+  "legal-demand",
+  "enforcement-request",
+  "emergency",
+] as const;
+export type DisclosureRequestType = (typeof DISCLOSURE_REQUEST_TYPES)[number];
+
+/**
+ * The kinds of information that can be given. Passwords (only a hash is held), sign-in tokens and
+ * encryption keys are deliberately not a kind: they let someone into accounts rather than show what
+ * happened, so they are never given.
+ */
+export const DISCLOSURE_CATEGORIES = [
+  "account",
+  "security-records",
+  "payments",
+  "uploads",
+  "face-template",
+  "ai-challenges",
+  "sign-in-keys",
+] as const;
+export type DisclosureCategory = (typeof DISCLOSURE_CATEGORIES)[number];
+
+/** Given only when the law requires it, never on a voluntary request or in an emergency. */
+export const LEGAL_DEMAND_ONLY: readonly DisclosureCategory[] = [
+  "face-template",
+  "uploads",
+];
+
 export interface RecordDisclosureInput {
   agency: string;
   legalBasis: string;
+  requestType: DisclosureRequestType;
+  categories: DisclosureCategory[];
   reference?: string | null;
   subjectEmail?: string | null;
   informationDisclosed: string;
@@ -461,6 +502,19 @@ export async function recordDisclosure(
   notFuture(input.disclosedAt, "The date it was disclosed");
   if (input.personToldAt)
     notFuture(input.personToldAt, "The date the person was told");
+  // In the order of DISCLOSURE_CATEGORIES, each once.
+  const categories = DISCLOSURE_CATEGORIES.filter((c) =>
+    input.categories.includes(c),
+  );
+  if (categories.length === 0)
+    throw new RegisterInputError("Choose what kinds of information were given");
+  if (
+    input.requestType !== "legal-demand" &&
+    categories.some((c) => LEGAL_DEMAND_ONLY.includes(c))
+  )
+    throw new RegisterInputError(
+      "Face templates and uploaded files are given only when the law requires it (a warrant, subpoena, court order or statutory notice), never on a voluntary request or in an emergency (privacy policy section 9)",
+    );
   const notTellingReason = input.notTellingReason?.trim() || null;
   if (!input.personToldAt && (!notTellingReason || notTellingReason.length < 5))
     throw new RegisterInputError(
@@ -471,6 +525,8 @@ export async function recordDisclosure(
     .values({
       agency: input.agency.trim(),
       legalBasis: input.legalBasis.trim(),
+      requestType: input.requestType,
+      categories,
       reference: input.reference?.trim() || null,
       subjectEmail: input.subjectEmail?.trim().toLowerCase() || null,
       informationDisclosed: input.informationDisclosed.trim(),
@@ -484,7 +540,7 @@ export async function recordDisclosure(
   // this record, and an order can forbid revealing who was the subject.
   await recordEvent({
     eventType: "GOVERNMENT_DISCLOSURE_RECORDED",
-    details: `disclosure=${row!.id}; agency=${row!.agency}; personTold=${row!.personToldAt ? "yes" : "no"}`,
+    details: `disclosure=${row!.id}; agency=${row!.agency}; type=${input.requestType}; categories=${categories.join(",")}; personTold=${row!.personToldAt ? "yes" : "no"}`,
     ...actorFields(actor),
   });
   return row!;

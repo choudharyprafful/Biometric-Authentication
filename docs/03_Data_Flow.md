@@ -25,7 +25,7 @@ flowchart LR
         ImgStrip --> Enc["AES-256-GCM encrypt"]
         Enc --> UploadsDB[("uploads table<br/>ciphertext + iv + authTag")]
 
-        U -->|face descriptor, 128 floats| FaceCap["face-api.js<br/>(client-side only — no raw image leaves browser)"]
+        U -->|face descriptor, 128 floats| FaceCap["face-api.js, in the browser or the<br/>phone app's face-check WebView<br/>(on the device only — no raw image leaves it)"]
         FaceCap --> EncFace["AES-256-GCM encrypt"]
         EncFace --> UsersDB[("users.faceDescriptorCiphertext")]
 

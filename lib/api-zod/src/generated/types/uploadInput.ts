@@ -5,6 +5,7 @@
  * SecureAI - Biometric Security Demo API
  * OpenAPI spec version: 0.1.0
  */
+import type { BystanderKind } from './bystanderKind';
 import type { UploadInputContentSource } from './uploadInputContentSource';
 
 export interface UploadInput {
@@ -22,4 +23,15 @@ export interface UploadInput {
   dataBase64: string;
   /** Declared origin of the content, per Team 2's Data Source Acceptability Matrix. Optional: omitting it stores the upload as "unspecified", which keeps the file fully usable by its owner but excludes it from every training corpus until a source is declared. */
   contentSource?: UploadInputContentSource;
+  /**
+     * Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.
+     * @maxItems 4
+     */
+  bystanders?: BystanderKind[];
+  /**
+     * Required with "reachable"; the uploader's statement that they told the person and the person doesn't object
+     * @maxLength 500
+     * @nullable
+     */
+  bystanderStatement?: string | null;
 }

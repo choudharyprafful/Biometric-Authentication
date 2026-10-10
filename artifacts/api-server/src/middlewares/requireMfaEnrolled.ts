@@ -8,10 +8,10 @@ import {
 } from "@workspace/db";
 
 // Blocks access until MFA enrollment is complete — face descriptor, passkey,
-// or device biometric key, any one satisfies it. Not AND: a mobile-created
-// account only ever enrolls a passkey or biometric key (device-native, no
-// app-captured face factor per the brief's own design), so requiring both
-// would permanently lock it out. Standard 2FA is password + one additional
+// or device biometric key, any one satisfies it. Not AND: a person chooses
+// one at enrolment (on the phone app, fingerprint or face), and someone
+// without a camera, or whom the face model fails, has only a key, so
+// requiring both would permanently lock them out. Standard 2FA is password + one additional
 // factor; requiring both here would be a third factor, stricter than what's
 // actually asked for. The frontend already redirects unenrolled users to
 // /enroll, but that's just UX — this is the server-side enforcement so a

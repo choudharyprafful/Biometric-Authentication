@@ -48,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // - Authenticated users with neither factor enrolled → /enroll
   //   (either face or passkey satisfies MFA — see requireMfaEnrolled.ts)
   // - /ai (how SecureAI uses AI, and challenging a decision) is open to everyone: signed out, signed in,
-  //   and mid-setup, since someone the face model fails is exactly who needs it
+  //   and mid-setup, since someone the face model fails is exactly who needs it; so are /privacy and
+  //   /report-content, where someone who appears in another person's upload asks for it to be reviewed
+  //   or removed (Team 2's Bystander Consent Policy, section 6: no account needed)
   useEffect(() => {
     if (!isLoading) {
       const isPublicRoute =
@@ -57,7 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         location === "/forgot-password" ||
         location === "/reset-password" ||
         location === "/parent-consent";
-      const isOpenRoute = location === "/ai" || location === "/privacy";
+      const isOpenRoute =
+        location === "/ai" ||
+        location === "/privacy" ||
+        location === "/report-content";
       const isEnrollRoute = location === "/enroll";
       const mfaComplete = !!user && (user.faceEnrolled || user.passkeyEnrolled);
 

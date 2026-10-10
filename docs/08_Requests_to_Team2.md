@@ -20,6 +20,13 @@ policy/enforcement split on both sides. Nothing to resolve here; noted only so i
 
 ## 1. For the Privacy & Consent Framework
 
+**Update 2026-10-07: partly addressed since this was written.** Every upload now records where it came
+from: the person's own work, another person's, published work, social media or other people's
+intellectual property. Anything not the person's own is never used by an AI feature, and photos, video and
+audio aren't used by any AI feature at all (privacy policy section 5, `lib/dataProvenance.ts`, docs/09).
+There is still no mechanism for the bystanders themselves: neither their consent nor redaction, for a
+photo or video that shows them. That policy call is on the §6 agenda.
+
 The gap that matters most: third-party consent has no technical mechanism at all yet, not even a
 placeholder. This is explicitly in scope for Team 2 twice over — both as one of the three things that
 make the app _ethically tricky_ ("a user can only consent to their own data... your consent and
@@ -325,3 +332,106 @@ review the new text: version 2026-10-04 changes sections 9, 10 and 11 and adds s
 One interpretation to confirm: "challenge the records (2 years)" was read as records of challenges to AI
 decisions (docs/11 section 3), the only challenge process SecureAI has. If the client meant something else,
 for example how long someone has to dispute a record, the period is one constant in `lib/retention.ts`.
+
+## 5e. 2026-10-06: face sign-in in the Android app (privacy policy version 2026-10-06)
+
+The Android app now lets people choose fingerprint or face as the second sign-in step (docs/04 §0,
+R-AUTH-1, R-MOBILE-5). Face on the phone collects the same face template as the website, through the
+same page, for the same purpose, kept and deleted the same way; no new kind of personal information is
+collected. The policy text changed only where it said the template is computed "in your browser":
+version 2026-10-06 changes the face template row in section 2 (computed on your device, in your browser
+or in the phone app; a passkey or your phone's fingerprint instead; delete it in Security Settings or in
+Privacy & Your Data). Team 2 may want to confirm:
+
+- that the app's consent wording (the website's, adapted: "computed on this phone", "I can use my
+  fingerprint instead", "under Privacy & Your Data") is acceptable as express consent for biometric
+  information;
+- that collecting the template through the app needs no change beyond section 2.
+
+**2026-10-07:** the iPhone app offers the same check, as "Face scan" next to Face ID or Touch ID. Its
+consent box says "I can use Face ID or Touch ID instead". At the next revision of the policy, section 2's
+"a passkey or your phone's fingerprint instead" could read "a passkey, or your phone's fingerprint, Face
+ID or Touch ID, instead". It was not changed now, because a new version asks everyone to review the
+policy again for one word. Changed in version 2026-10-07 (section 5f).
+
+## 5f. 2026-10-07: data breaches explained in more detail (privacy policy version 2026-10-07)
+
+Section 14 was rewritten so people can see what happens after a breach, and when they and the OAIC are
+told, which is what the client's breach requirement asked for (section 5d). It follows the response plan,
+`12_Data_Breach_Response_Plan.md`, which was updated to match. Version 2026-10-07 changes:
+
+- **Section 14**, now under headings:
+  - the five steps (contain, assess, tell the OAIC, tell you, review), each with when it happens, in a
+    table;
+  - what serious harm means and what decides whether it is likely;
+  - that no notification is needed when quick action means serious harm is no longer likely (s 26WF),
+    while the breach and the reasons are still recorded;
+  - how people are told, including people who deleted their account but whose payment or security
+    records are kept (section 10), who are emailed;
+  - what every notice says;
+  - how to spot a fake breach email;
+  - what people can do: follow the notice, sign out of all devices, change their password, tell us;
+  - the records kept, and complaints.
+
+  It also says that breaches at our service providers count.
+
+- **Section 2 and the notice at the top of the policy:** "Face ID or Touch ID" added next to fingerprint
+  (section 5e).
+
+Team 2 may want to confirm two commitments that are new in this version:
+
+- EU and UK users: the relevant data protection authority is told within 72 hours, and the people
+  affected are told directly when the risk to them is high (GDPR articles 33 and 34). The response lead
+  watches this deadline; the app's alerts follow the Australian scheme's (docs/12, section 5).
+- People who deleted their account are emailed by hand when a breach involves their kept records. The
+  app can't show them a notice, and "Tell the people affected" lists their addresses back as having no
+  account.
+
+## 5g. 2026-10-07: what is given to government agencies, and legal holds (privacy policy version 2026-10-07.2)
+
+The client's requirement to "disclose the information when asked by the govt" (section 5d) now has rules
+for what is given, and information an agency has asked for can no longer be lost while its request is dealt
+with (docs/04 R-PRIV-7 and R-PRIV-8, docs/12 section 3). Version 2026-10-07.2 changes:
+
+- **Section 9** gets a heading, "Requests from government and law enforcement", and says:
+  - face templates and uploaded files are given only when the law requires it (a warrant, subpoena, court
+    order or statutory notice), never on a voluntary request or in an emergency;
+  - account details, security and payment records, challenges and sign-in keys are given when the law
+    requires it, on a written request from an Australian enforcement body judged reasonably necessary
+    (APP 6.2(e)), or in an emergency (Privacy Act s 16A);
+  - passwords, and anything else that would let someone into an account, are never given;
+  - foreign governments and courts must use Australia's mutual assistance process;
+  - legal holds keep copies apart while a request needs them and delete them afterwards, and the person's
+    own deletions still happen.
+- **Sections 2, 10 and 11** each gain the one exception: the face template is used for nothing else
+  _unless the law requires us to give it to an agency_, and keeping and deleting data are subject to a
+  legal hold.
+
+Team 2 may want to confirm:
+
+- that face templates and files should need a legal demand even in an emergency;
+- that keeping copies through a person's own deletion, without telling them each time, is acceptable. Some
+  orders forbid telling, and the policy says that it happens.
+
+## 6. Week 10: agenda for the final sync with Team 2
+
+Everything still open for Team 2, from the sections above, in one place (issue #7):
+
+1. **Third-party consent** (§1): what should the app ask, or refuse, when an upload shows people who never
+   agreed to anything? The AI features already exclude such content, but storage still holds it.
+2. **A real privacy contact, and legal review** (§5c). `privacy@secureai.example` is a placeholder. The
+   APP 8 safeguards for storing Australians' data in the United States, and a legal review of the policy,
+   are still needed (docs/10).
+3. **"Challenge the records (2 years)"** (§5d): read as records of challenges to AI decisions. Confirm, or
+   say what the client meant.
+4. **Face sign-in in the phone app** (§5e): is the app's consent wording acceptable as express consent for
+   biometric information, and does collecting the template through the app need anything beyond policy
+   section 2?
+5. **Data breaches** (§5f): the GDPR's 72 hours for EU and UK users, and emailing by hand the people who
+   deleted their account.
+6. **Government requests** (§5g): face templates and files only under a legal demand, even in an
+   emergency; and keeping copies through a person's own deletion without telling them each time.
+7. **The dummy-data rule** (docs/04 R-PRIV-9): the project owner's own face was used in live testing. Team 2
+   may want it recorded in the ethics record, as Team 1 has in the risk register.
+8. **The coordination interface** (§0, docs/05): confirmed aligned in September. Confirm nothing changed in
+   Team 2's final documents.

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
-import { db, uploadsTable } from "@workspace/db";
+import { and, desc, eq } from "drizzle-orm";
+import { db, uploadsTable, usersTable } from "@workspace/db";
 import {
   CreateUploadBody,
   CreateUploadResponse,
@@ -8,6 +8,9 @@ import {
   GetUploadParams,
   GetUploadResponse,
   DeleteUploadParams,
+  DeclareUploadPeopleParams,
+  DeclareUploadPeopleBody,
+  DeclareUploadPeopleResponse,
 } from "@workspace/api-zod";
 import { logEvent } from "../lib/auditLog";
 import { encryptFile, decryptFile } from "../lib/fileEncryption";
@@ -20,10 +23,14 @@ import { scanBuffer } from "../lib/malwareScan";
 import { clamdTarget, scanWithClamdIfConfigured } from "../lib/clamdClient";
 import {
   assessTrainingEligibility,
+  assessPeopleRules,
+  canonicalBystanders,
   isContentSource,
+  type BystanderKind,
   type ContentSource,
 } from "../lib/dataProvenance";
 import { getClientIp } from "../lib/clientIp";
+import { activeHoldsFor, keepUpload } from "../lib/legalHolds";
 
 const router: IRouter = Router();
 // Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
@@ -54,16 +61,57 @@ function classifyMimeType(
   return null;
 }
 
+// Team 2's Bystander Consent Policy: who else a file shows. "reachable" needs the uploader's
+// statement that they told the person and the person doesn't object (section 4), kept with its date.
+function peopleDeclaration(
+  bystanders: readonly string[] | undefined,
+  statement: string | null | undefined,
+):
+  | {
+      bystanders: BystanderKind[] | null;
+      bystanderStatement: string | null;
+      bystandersDeclaredAt: Date | null;
+    }
+  | { error: string } {
+  if (bystanders === undefined)
+    return {
+      bystanders: null,
+      bystanderStatement: null,
+      bystandersDeclaredAt: null,
+    };
+  const kinds = canonicalBystanders(bystanders);
+  const text = statement?.trim() ?? "";
+  if (kinds.includes("reachable") && text.length < 5)
+    return {
+      error:
+        "Say whom you told and that they don't object, for someone you can contact",
+    };
+  return {
+    bystanders: kinds,
+    bystanderStatement: kinds.includes("reachable") ? text : null,
+    bystandersDeclaredAt: new Date(),
+  };
+}
+
 function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
   // Eligibility is recomputed from the stored source on every read rather
   // than persisted alongside it. The matrix is Team 2's document and can
   // change; a stored boolean would keep answering with the rules that applied
   // the day the file landed, which is exactly the staleness the consent
-  // design elsewhere in this app is careful to avoid.
-  const eligibility = assessTrainingEligibility(
+  // design elsewhere in this app is careful to avoid. The same goes for the
+  // people in the file and any review under way (assessPeopleRules).
+  const sourceRules = assessTrainingEligibility(
     row.contentSource,
     row.fileType,
   );
+  const people = assessPeopleRules(
+    row.bystanders,
+    row.pausedForReviewAt !== null,
+  );
+  const eligibility = {
+    eligible: sourceRules.eligible && people.personalisationAllowed,
+    reason: sourceRules.eligible ? (people.reason ?? "") : sourceRules.reason,
+  };
   return {
     id: row.id,
     userId: row.userId,
@@ -77,6 +125,10 @@ function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
     ...(eligibility.eligible
       ? {}
       : { trainingExclusionReason: eligibility.reason }),
+    bystanders: row.bystanders ?? null,
+    bystanderStatement: row.bystanderStatement ?? null,
+    bystandersDeclaredAt: row.bystandersDeclaredAt?.toISOString() ?? null,
+    pausedForReviewAt: row.pausedForReviewAt?.toISOString() ?? null,
   };
 }
 
@@ -112,6 +164,14 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
   )
     ? parsed.data.contentSource
     : "unspecified";
+  const people = peopleDeclaration(
+    parsed.data.bystanders,
+    parsed.data.bystanderStatement,
+  );
+  if ("error" in people) {
+    res.status(400).json({ error: people.error });
+    return;
+  }
 
   const fileType = classifyMimeType(mimeType);
   if (!fileType) {
@@ -224,6 +284,7 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
       iv: encrypted.iv,
       authTag: encrypted.authTag,
       contentSource: declaredSource,
+      ...people,
     })
     .returning();
 
@@ -233,6 +294,7 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
   }
 
   const eligibility = assessTrainingEligibility(declaredSource, fileType);
+  const peopleRules = assessPeopleRules(people.bystanders, false);
 
   await logEvent({
     eventType: "UPLOAD_CREATED",
@@ -256,6 +318,25 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
       details:
         `Upload ${upload.id} excluded from training corpora — blocked by ${eligibility.blockedBy}: ` +
         `${eligibility.reason} (matrix: ${eligibility.matrixRows.join(" | ")})`,
+      userId,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers["user-agent"],
+    });
+  } else if (!peopleRules.personalisationAllowed) {
+    await logEvent({
+      eventType: "TRAINING_SOURCE_REJECTED",
+      details: `Upload ${upload.id} excluded from training corpora — blocked by people: ${peopleRules.reason}`,
+      userId,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers["user-agent"],
+    });
+  }
+  // Policy section 7: every flag recorded, with its date. The statement stays on the file, not in
+  // the log, since it may name the person.
+  if (people.bystanders?.length) {
+    await logEvent({
+      eventType: "BYSTANDERS_DECLARED",
+      details: `Upload ${upload.id}: shows or names ${people.bystanders.join(", ")} (at upload)`,
       userId,
       ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"],
@@ -316,6 +397,60 @@ router.get("/uploads/:id", async (req, res): Promise<void> => {
   );
 });
 
+// POST /uploads/:id/people — the uploader says who else the file shows, at any time (policy section 3:
+// "actually my friend is in that video too"). Owner-only; someone else's file is a 404, so its
+// existence isn't revealed.
+router.post(
+  "/uploads/:id/people",
+  uploadRateLimit,
+  async (req, res): Promise<void> => {
+    const userId = req.session.userId as number;
+    const rawId = Array.isArray(req.params["id"])
+      ? req.params["id"][0]
+      : req.params["id"];
+    const params = DeclareUploadPeopleParams.safeParse({ id: Number(rawId) });
+    const body = DeclareUploadPeopleBody.safeParse(req.body);
+    if (!params.success) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    if (!body.success) {
+      res.status(400).json({ error: "Say who else the file shows or names" });
+      return;
+    }
+    const people = peopleDeclaration(
+      body.data.bystanders,
+      body.data.bystanderStatement,
+    );
+    if ("error" in people) {
+      res.status(400).json({ error: people.error });
+      return;
+    }
+    const [updated] = await db
+      .update(uploadsTable)
+      .set(people)
+      .where(
+        and(
+          eq(uploadsTable.id, params.data.id),
+          eq(uploadsTable.userId, userId),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    await logEvent({
+      eventType: "BYSTANDERS_DECLARED",
+      details: `Upload ${updated.id}: shows or names ${people.bystanders?.length ? people.bystanders.join(", ") : "no one else"} (changed later)`,
+      userId,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers["user-agent"],
+    });
+    res.json(DeclareUploadPeopleResponse.parse(mapUploadMeta(updated)));
+  },
+);
+
 // DELETE /uploads/:id — owner-only.
 router.delete("/uploads/:id", async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
@@ -341,7 +476,16 @@ router.delete("/uploads/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.delete(uploadsTable).where(eq(uploadsTable.id, params.data.id));
+  // A legal hold keeps a copy of the file, still encrypted (lib/legalHolds.ts).
+  const [owner] = await db
+    .select({ email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  const holds = await activeHoldsFor({ userId, email: owner?.email });
+  await db.transaction(async (tx) => {
+    await keepUpload(tx, holds, upload);
+    await tx.delete(uploadsTable).where(eq(uploadsTable.id, params.data.id));
+  });
   await logEvent({
     eventType: "UPLOAD_DELETED",
     details: `Upload deleted: ${upload.fileName} (${upload.fileType}, ${upload.mimeType}, ${upload.sizeBytes} bytes)`,

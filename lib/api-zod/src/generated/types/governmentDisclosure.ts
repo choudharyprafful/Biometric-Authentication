@@ -5,11 +5,23 @@
  * SecureAI - Biometric Security Demo API
  * OpenAPI spec version: 0.1.0
  */
+import type { DisclosureCategory } from './disclosureCategory';
+import type { GovernmentDisclosureRequestType } from './governmentDisclosureRequestType';
 
 export interface GovernmentDisclosure {
   id: number;
   agency: string;
   legalBasis: string;
+  /**
+     * legal-demand = required by Australian law or a court or tribunal order (APP 6.2(b)); enforcement-request = a written request from an Australian enforcement body (APP 6.2(e)); emergency = a serious threat to someone's life, health or safety, or a missing person (Privacy Act s 16A). Null for records made before 2026-10-07
+     * @nullable
+     */
+  requestType: GovernmentDisclosureRequestType;
+  /**
+     * The kinds of information given. Null for records made before 2026-10-07
+     * @nullable
+     */
+  categories: DisclosureCategory[] | null;
   /** @nullable */
   reference: string | null;
   /** @nullable */

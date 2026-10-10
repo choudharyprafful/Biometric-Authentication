@@ -15,12 +15,14 @@ committed report stale until it is regenerated; CI runs --check.
 Synthetic data only, as in the PoCs themselves.
 """
 
+import prompt_injection_risk_model as pir
 import contextlib
 import hashlib
 import io
 import json
 import pathlib
 import sys
+import behavioral_risk_model as brm
 
 sys.dont_write_bytecode = True
 
@@ -53,6 +55,17 @@ def starter_kit():
     hardened = ms.train(allowed, dedup=True)
     remaining = ms.delete_user(allowed, "user-00")
     retrained = ms.train(remaining, dedup=True)
+    
+    # Prediction coverage on ordinary prompts only; refusing the attack prompts is the defence working.
+    benign_prompts = []
+    for s in ms.BENIGN:
+        p = " ".join(s.split()[:3])
+        if p not in benign_prompts:
+            benign_prompts.append(p)
+    
+    vulnerable_coverage = sum(1 for p in benign_prompts if ms.generate(vulnerable, p, 8).strip())
+    hardened_coverage = sum(1 for p in benign_prompts if ms.generate(hardened, p, 8).strip())
+    
     return {
         "script": "model_starter.py",
         "author": "Yaseen",
@@ -87,6 +100,11 @@ def starter_kit():
             }
             for p in EXTRACTION_PROMPTS
         ],
+        "coverage": {
+            "benignPrompts": benign_prompts,
+            "vulnerable": f"{vulnerable_coverage}/{len(benign_prompts)} ordinary prompts",
+            "hardened": f"{hardened_coverage}/{len(benign_prompts)} ordinary prompts",
+        },
         "benign": {"prompt": "the daily report", "output": ms.generate(hardened, "the daily report", 8)},
         "deletion": {
             "userId": "user-00",
@@ -119,9 +137,68 @@ def memorisation_model():
         "console": console_of(mlm.main),
     }
 
+def behavioral_risk():
+    normal_score = brm.calculate_risk(
+        failed_attempts=0,
+        new_device=False,
+        new_location=False,
+        odd_hour=False,
+    )
 
+    suspicious_score = brm.calculate_risk(
+        failed_attempts=5,
+        new_device=True,
+        new_location=True,
+        odd_hour=True,
+    )
+
+    return {
+        "script": "behavioral_risk_model.py",
+        "author": "Yaseen",
+        "sha256": sha256("behavioral_risk_model.py"),
+        "normalLogin": {
+            "riskScore": normal_score,
+            "level": brm.classify(normal_score),
+        },
+        "suspiciousLogin": {
+            "riskScore": suspicious_score,
+            "level": brm.classify(suspicious_score),
+        },
+    }
+def prompt_injection_risk():
+    prompt_examples = pir.PROMPT_EXAMPLES
+
+    highest = max(
+        pir.calculate_risk(prompt)
+        for prompt in prompt_examples
+    )
+
+    return {
+        "script": "prompt_injection_risk_model.py",
+        "author": "Yaseen",
+        "maxRiskScore": highest,
+        "overallLevel": pir.classify(highest),
+        "examples": [
+            {
+                "prompt": prompt,
+                "riskScore": pir.calculate_risk(prompt),
+                "level": pir.classify(
+                    pir.calculate_risk(prompt)
+                ),
+                "categories": pir.categorize(prompt),
+            }
+            for prompt in prompt_examples
+        ],
+    }
+    
 def build():
-    return {"generator": "artifacts/ai-model/ai_security_report.py", "starterKit": starter_kit(), "memorisation": memorisation_model()}
+    return {
+        "generator": "artifacts/ai-model/ai_security_report.py",
+        "starterKit": starter_kit(),
+        "memorisation": memorisation_model(),
+        "behavioralRisk": behavioral_risk(),
+        "promptInjectionRisk": prompt_injection_risk(),
+    }
 
 
 def main():

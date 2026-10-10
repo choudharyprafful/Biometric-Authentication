@@ -39,6 +39,25 @@ export const API_BASE_URL =
 export const APP_ORIGIN =
   process.env.EXPO_PUBLIC_APP_ORIGIN ?? "http://localhost:8081";
 
+// The website, whose /app-face page is the face check (src/components/FaceCapture.tsx). Live, the
+// site and the API share one address (CloudFront sends /api to the API), so by default this is
+// API_BASE_URL without its /api. Set EXPO_PUBLIC_WEB_BASE_URL when they differ, as in local
+// development, where the site runs on Vite's port: http://localhost:5173 with
+// `adb reverse tcp:5173 tcp:5173`.
+export const WEB_BASE_URL = (
+  process.env.EXPO_PUBLIC_WEB_BASE_URL ?? API_BASE_URL.replace(/\/api\/?$/, "")
+).replace(/\/$/, "");
+
+// Scheme and host (and port) of a URL, lower-cased; "" when it isn't http(s). A regex, because
+// React Native's URL class doesn't implement .origin.
+export function originOf(url: string): string {
+  return /^https?:\/\/[^/?#]+/i.exec(url)?.[0].toLowerCase() ?? "";
+}
+
+// The only origin the face check WebView may load or accept a message from.
+export const WEB_ORIGIN = originOf(WEB_BASE_URL);
+export const FACE_CHECK_URL = `${WEB_BASE_URL}/app-face`;
+
 // The privacy policy is one page for web and mobile: the live site's /privacy.
 export const PRIVACY_POLICY_URL =
   process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL ??
@@ -48,7 +67,7 @@ export const PRIVACY_POLICY_URL =
 // API's PRIVACY_POLICY_VERSION (CI checks all three: scripts/check-privacy-policy-version.mjs).
 // An older build sending an older version is harmless: the API records an acknowledgement only
 // for the current version, and otherwise asks the person to review the policy after signing in.
-export const PRIVACY_POLICY_VERSION = "2026-10-04";
+export const PRIVACY_POLICY_VERSION = "2026-10-07.2";
 
 // Must match MINOR_CONSENT_AGE_THRESHOLD in api-server's auth.ts. Only decides whether to show
 // the guardian field; the server recomputes age from the date of birth.

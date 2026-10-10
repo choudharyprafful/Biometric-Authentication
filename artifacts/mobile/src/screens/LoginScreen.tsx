@@ -6,23 +6,48 @@ import {
   StyleSheet,
   ScrollView,
   Linking,
+  Platform,
 } from "react-native";
-import { login } from "../lib/api";
-import { loginWithBiometricKey, linkDeviceWithCode } from "../lib/biometricKey";
+import { login, verifyFace } from "../lib/api";
+import {
+  DEVICE_KEY_NAME,
+  DEVICE_KEY_PHRASE,
+  loginWithBiometricKey,
+  linkDeviceWithCode,
+} from "../lib/biometricKey";
 import { useAuth } from "../context/AuthContext";
 import {
   Card,
   Label,
   Input,
   Button,
+  MethodOption,
   SectionNote,
   ShieldBadge,
 } from "../components/ui";
+import {
+  FaceCapture,
+  FACE_OPTION_NAME,
+  FACE_OPTION_PHRASE,
+} from "../components/FaceCapture";
 import { colors, fonts } from "../theme";
 import { PRIVACY_POLICY_URL } from "../config";
 import { FaceCameraScreen } from "./FaceCameraScreen";
 
-type LoginStep = "password" | "biometric" | "link";
+type LoginStep = "password" | "choose" | "link";
+
+// What the account has for the second step, from POST /auth/login. "fingerprint" means some
+// passkey or phone key exists: the server can't tell whether it is on this phone.
+interface SecondSteps {
+  fingerprint: boolean;
+  face: boolean;
+  tempToken: string | null;
+}
+const NO_SECOND_STEPS: SecondSteps = {
+  fingerprint: false,
+  face: false,
+  tempToken: null,
+};
 
 export function LoginScreen({
   onSwitchToRegister,
@@ -36,13 +61,16 @@ export function LoginScreen({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  // 'biometric' is step 2 of ordinary login (password succeeded, a device
-  // biometric-key ceremony is needed) — mirrors the web app's two-step flow
-  // (Login.tsx): password alone never grants a full session. 'link' is the
-  // separate cross-device bootstrap for an account that has no biometric key
-  // on THIS device yet (e.g. enrolled via web) — see src/lib/biometricKey.ts's
-  // linkDeviceWithCode() for why that path exists.
+  // 'choose' is step 2 of ordinary login (password succeeded): the person picks fingerprint (the
+  // device biometric key) or face (the website's face check, src/components/FaceCapture.tsx) —
+  // mirrors the web app's two-step flow (Login.tsx): password alone never grants a full session.
+  // 'link' is the separate cross-device bootstrap for an account that has no biometric key on THIS
+  // device yet (e.g. enrolled via web) — see src/lib/biometricKey.ts's linkDeviceWithCode() for why
+  // that path exists.
   const [view, setView] = useState<LoginStep>("password");
+  const [steps, setSteps] = useState<SecondSteps>(NO_SECOND_STEPS);
+  const [checking, setChecking] = useState<"fingerprint" | "face" | null>(null);
+  const [faceOpen, setFaceOpen] = useState(false);
 
   const handlePasswordSubmit = async () => {
     setError("");
@@ -54,13 +82,12 @@ export function LoginScreen({
         await refetchUser();
         return;
       }
-      if (!result.passkeyAvailable) {
-        setError(
-          'This account has no device biometric key enrolled on this device. Use "Link this device" below with a code from an already signed-in session.',
-        );
-        return;
-      }
-      setView("biometric");
+      setSteps({
+        fingerprint: result.passkeyAvailable,
+        face: result.faceAvailable,
+        tempToken: result.tempToken,
+      });
+      setView("choose");
     } catch (err: any) {
       setError(err?.message || "Login failed.");
     } finally {
@@ -68,9 +95,9 @@ export function LoginScreen({
     }
   };
 
-  const handleBiometricStep = async () => {
+  const handleFingerprint = async () => {
     setError("");
-    setBusy(true);
+    setChecking("fingerprint");
     try {
       const result = await loginWithBiometricKey();
 
@@ -80,10 +107,35 @@ export function LoginScreen({
 
       await refetchUser();
     } catch (err: any) {
-      setError(err?.message || "Biometric verification failed.");
+      setError(err?.message || `${DEVICE_KEY_NAME} check failed.`);
     } finally {
-      setBusy(false);
+      setChecking(null);
     }
+  };
+
+  const handleFace = async (descriptor: number[]) => {
+    setFaceOpen(false);
+    setError("");
+    if (!steps.tempToken) {
+      setError("Sign-in has expired. Go back and enter your password again.");
+      return;
+    }
+    setChecking("face");
+    try {
+      await verifyFace(descriptor, steps.tempToken);
+      await refetchUser();
+    } catch (err: any) {
+      // The server's message says whether another scan is allowed or the password is needed again.
+      setError(err?.message || "Face check failed.");
+    } finally {
+      setChecking(null);
+    }
+  };
+
+  const backToPassword = () => {
+    setError("");
+    setSteps(NO_SECOND_STEPS);
+    setView("password");
   };
 
   const handleLinkDevice = async () => {
@@ -134,8 +186,9 @@ export function LoginScreen({
             </View>
 
             <SectionNote>
-              Biometric MFA — enrolled operators continue to a device biometric
-              check after password verification.
+              {Platform.OS === "ios"
+                ? "Biometric MFA — after your password, finish signing in with Face ID or Touch ID, or a face scan."
+                : "Biometric MFA — after your password, choose fingerprint or face to finish signing in."}
             </SectionNote>
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -172,7 +225,7 @@ export function LoginScreen({
           </>
         )}
 
-        {view === "biometric" && (
+        {view === "choose" && (
           <View style={styles.verifyStep}>
             <ShieldBadge size={48} />
             <Button onPress={() => setShowCamera(true)}>
@@ -180,22 +233,50 @@ export function LoginScreen({
             </Button>
             <Text style={styles.verifyTitle}>Verify It's You</Text>
             <Text style={styles.verifySubtitle}>
-              Password confirmed. Complete sign-in with your device biometric.
+              Password confirmed. Choose how to finish signing in.
             </Text>
+            <View style={styles.methods}>
+              <MethodOption
+                title={DEVICE_KEY_NAME}
+                recommended={steps.fingerprint}
+                detail={
+                  steps.fingerprint
+                    ? "Unlocks a key kept on this phone, which signs a one-time challenge. Your biometric never leaves the phone."
+                    : `Not set up for this account. Sign in with ${FACE_OPTION_PHRASE}, then set it up under Privacy & Your Data.`
+                }
+                onPress={handleFingerprint}
+                disabled={!steps.fingerprint || checking !== null}
+                isLoading={checking === "fingerprint"}
+                testID="button-signin-fingerprint"
+              />
+              <MethodOption
+                title={FACE_OPTION_NAME}
+                detail={
+                  steps.face
+                    ? "Look at the front camera and blink: the same face check as the website."
+                    : `Not set up for this account. Sign in with ${DEVICE_KEY_PHRASE}, then set it up under Privacy & Your Data.`
+                }
+                onPress={() => {
+                  setError("");
+                  setFaceOpen(true);
+                }}
+                disabled={!steps.face || checking !== null}
+                isLoading={checking === "face"}
+                testID="button-signin-face"
+              />
+            </View>
             {error ? <Text style={styles.error}>{error}</Text> : null}
-            <Button
-              onPress={handleBiometricStep}
-              isLoading={busy}
-              style={styles.submitButton}
-            >
-              Use Device Biometric
-            </Button>
             <Pressable
               onPress={() => {
                 setError("");
-                setView("password");
+                setView("link");
               }}
             >
+              <Text style={styles.link}>
+                No key on this phone yet? Link this device
+              </Text>
+            </Pressable>
+            <Pressable onPress={backToPassword}>
               <Text style={styles.link}>Back</Text>
             </Pressable>
           </View>
@@ -244,6 +325,13 @@ export function LoginScreen({
           </View>
         )}
       </Card>
+
+      <FaceCapture
+        visible={faceOpen}
+        title="Sign in with your face"
+        onCapture={handleFace}
+        onCancel={() => setFaceOpen(false)}
+      />
     </ScrollView>
   );
 }
@@ -295,6 +383,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   verifyStep: { alignItems: "center" },
+  methods: { alignSelf: "stretch", gap: 12, marginBottom: 16 },
   verifyTitle: {
     fontFamily: fonts.mono,
     color: colors.primary,
