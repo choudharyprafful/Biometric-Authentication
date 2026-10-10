@@ -2,8 +2,8 @@
 
 Team 1: Technical Security. Brief §4 (mobile client hardening) and §7 asks this be mapped to
 **OWASP MASVS** control-by-control, not just described in prose. Assessed against MASVS v2's eight
-categories, scoped to what's actually built in `artifacts/mobile` (Expo/React Native, Android target —
-see `04_Threat_Model_Risk_Assessment.md` §0 for why no `ios/` project exists yet in this PoC).
+categories, scoped to what's actually built in `artifacts/mobile` (Expo/React Native, Android and iOS targets —
+see `04_Threat_Model_Risk_Assessment.md` §0 for the current iOS implementation and its remaining security limitations).
 
 MASVS vs. MASTG, and where this document sits between them: MASVS defines _what_ a mobile app should
 satisfy (the requirements below); the **OWASP Mobile Application Security Testing Guide (MASTG)** defines
