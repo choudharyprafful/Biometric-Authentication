@@ -29,6 +29,8 @@ export const ALLOWED_ORIGINS: readonly string[] = (() => {
   if (!isProductionDeployment) {
     const port = process.env["FRONTEND_PORT"] ?? "5173";
     origins.add(`http://localhost:${port}`);
+    origins.add("https://192.168.0.110:5173");
+    origins.add("https://localhost:5173");
     origins.add(`http://localhost`);
   }
   return [...origins];

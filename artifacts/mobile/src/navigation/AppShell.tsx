@@ -17,6 +17,7 @@ import { PaymentsScreen } from "../screens/PaymentsScreen";
 import { UploadsScreen } from "../screens/UploadsScreen";
 import { DataProtectionScreen } from "../screens/DataProtectionScreen";
 import { PrivacyScreen } from "../screens/PrivacyScreen";
+import { FaceEnrollmentScreen } from "../screens/FaceEnrollmentScreen";
 import { getPrivacyPolicyStatus, listMyBreachNotices } from "../lib/api";
 import { PRIVACY_POLICY_VERSION } from "../config";
 
@@ -28,6 +29,7 @@ type ScreenKey =
   | "payments"
   | "uploads"
   | "data-protection"
+  | "face-enrollment"
   | "privacy";
 
 interface NavItem {
@@ -57,6 +59,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "payments", label: "Financial Ledger", visible: () => true },
   { key: "uploads", label: "Data Vault", visible: () => true },
   { key: "data-protection", label: "Data Protection", visible: () => true },
+  { key: "face-enrollment", label: "Face Enrollment", visible: () => true },
   { key: "privacy", label: "Privacy & Your Data", visible: () => true },
 ];
 
@@ -68,6 +71,7 @@ const SCREENS: Record<ScreenKey, React.ComponentType> = {
   payments: PaymentsScreen,
   uploads: UploadsScreen,
   "data-protection": DataProtectionScreen,
+  "face-enrollment": FaceEnrollmentScreen,
   privacy: PrivacyScreen,
 };
 

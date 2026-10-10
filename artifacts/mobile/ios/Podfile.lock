@@ -7,6 +7,10 @@ PODS:
     - ExpoModulesCore
   - ExpoAsset (11.0.5):
     - ExpoModulesCore
+  - ExpoCamera (16.0.18):
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoDocumentPicker (13.0.3):
     - ExpoModulesCore
   - ExpoFileSystem (18.0.12):
@@ -1626,6 +1630,11 @@ PODS:
     - React-utils (= 0.76.9)
   - SocketRocket (0.7.1)
   - Yoga (0.0.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
@@ -1633,6 +1642,7 @@ DEPENDENCIES:
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
+  - ExpoCamera (from `../node_modules/expo-camera/ios`)
   - ExpoDocumentPicker (from `../node_modules/expo-document-picker/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
@@ -1711,6 +1721,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - SocketRocket
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
@@ -1723,6 +1734,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
+  ExpoCamera:
+    :path: "../node_modules/expo-camera/ios"
   ExpoDocumentPicker:
     :path: "../node_modules/expo-document-picker/ios"
   ExpoFileSystem:
@@ -1875,6 +1888,7 @@ SPEC CHECKSUMS:
   EXConstants: a1f35b9aabbb3c6791f8e67722579b1ffcdd3f18
   Expo: 03dca15247583ca0d09d3cee37fb2d5a0b878f04
   ExpoAsset: 0687fe05f5d051c4a34dd1f9440bd00858413cfe
+  ExpoCamera: 0a3e78de7b1ca8c438ee6784fa6f22c5b1b36966
   ExpoDocumentPicker: 8c1f88c2809ab2287350e8fac65964bf423578be
   ExpoFileSystem: c8c19bf80d914c83dda3beb8569d7fb603be0970
   ExpoFont: 773955186469acc5108ff569712a2d243857475f
@@ -1948,6 +1962,7 @@ SPEC CHECKSUMS:
   ReactCommon: bfd3600989d79bc3acbe7704161b171a1480b9fd
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: feb4910aba9742cfedc059e2b2902e22ffe9954a
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: de4773327b74be05b76a36d104879325a47f855c
 

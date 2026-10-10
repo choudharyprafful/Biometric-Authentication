@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "node:fs";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
@@ -35,6 +36,26 @@ export default defineConfig({
       /\.(woff2?|ttf|otf)$/.test(file) ? false : undefined,
   },
   server: {
+    https: (() => {
+      const keyPath = path.resolve(
+        import.meta.dirname,
+        "../mobile/.certs/local-key.pem",
+      );
+      const certPath = path.resolve(
+        import.meta.dirname,
+        "../mobile/.certs/local.pem",
+      );
+
+      // Use local HTTPS when certificates exist; otherwise use HTTP.
+      if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+        return undefined;
+      }
+
+      return {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath),
+      };
+    })(),
     port,
     strictPort: true,
     host: "0.0.0.0",

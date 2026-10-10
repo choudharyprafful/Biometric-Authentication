@@ -203,6 +203,16 @@ export async function verifyFace(
   });
 }
 
+export async function verifyFaceLogin(
+  descriptor: number[],
+  tempToken: string,
+): Promise<{ user: AppUser; token: string }> {
+  return request("/auth/face-verify", {
+    method: "POST",
+    body: { descriptor, tempToken },
+  });
+}
+
 /** Stores the face template. The server refuses without consent: biometric information needs the person's express consent. */
 export async function enrollFace(
   userId: number,
