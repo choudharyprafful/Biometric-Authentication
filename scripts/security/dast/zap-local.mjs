@@ -1,11 +1,14 @@
 // DAST: an authenticated OWASP ZAP active scan of the API running locally, driven by the OpenAPI
-// spec, once as a normal user and once as an admin (docs/04, pre-deployment testing).
+// spec, once as a normal user and once as an admin (docs/04, pre-deployment testing). CI runs it on
+// every change (.github/workflows/ci.yml, "OWASP ZAP active scan").
 //
 //   ZAP_HOME=/path/to/ZAP_2.17.0 node scripts/security/dast/zap-local.mjs
 //
-// Needs: the API on http://localhost:8080 (a local build, never production: an active scan sends
-// attack payloads and creates and deletes records), the local Postgres superuser (to make the
-// admin scan account an admin), Java 17+, and the ZAP cross-platform release unpacked at ZAP_HOME.
+// Needs: the API on http://localhost:8080 with NODE_ENV=development (a local build, never
+// production: an active scan sends attack payloads and creates and deletes records, and the scan
+// accounts confirm their email from the dev-mode link), the local Postgres superuser (to make the
+// admin scan account an admin; LOCAL_PG_SUPERUSER_URL), Java 17+, and the ZAP release unpacked at
+// ZAP_HOME. ZAP_MAX_MINUTES caps each of the two active scans (default 10).
 //
 // What it does:
 //   1. creates two scan accounts with face sign-in set up (MFA complete), one made admin, plus an
@@ -95,6 +98,17 @@ async function account(label, seed) {
   });
   if (reg.status !== 201)
     throw new Error(`register ${label}: HTTP ${reg.status}`);
+  // Uploads and payments wait for a confirmed email (R-PAY-5).
+  const link = reg.json.devEmailVerificationLink;
+  if (!link)
+    throw new Error(
+      `register ${label}: no dev email link; is the API running with NODE_ENV=development?`,
+    );
+  const confirmed = await c.req("POST", "/api/auth/verify-email", {
+    token: new URL(link, API).searchParams.get("token"),
+  });
+  if (confirmed.status !== 200)
+    throw new Error(`email confirmation ${label}: HTTP ${confirmed.status}`);
   const face = await c.req(
     "POST",
     `/api/users/${reg.json.user.id}/enroll-face`,

@@ -125,3 +125,58 @@ jobs:
         run: pnpm --filter @workspace/scripts run security:probes
         env:
           PROBES_BASE_URL: http://localhost:8080
+
+  # DAST on every change (docs/10 section 3): an authenticated OWASP ZAP active scan of a fresh local
+  # build, driven by the OpenAPI spec, as a user and as an admin; any Medium or High alert fails it.
+  # Its own job, because the live-server job above uses the whole 10-an-hour sign-up allowance.
+  dast-zap:
+    name: OWASP ZAP active scan (DAST, live server)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: secureai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/secureai
+      SESSION_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: development
+      PORT: 8080
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      - run: pnpm --filter @workspace/db run push-force
+      - run: pnpm --filter @workspace/api-server run build
+      # Pinned release, checked against the SHA-256 ZAP publishes for it.
+      - name: Download OWASP ZAP 2.17.0
+        run: |
+          curl -sSfL -o zap.tar.gz https://github.com/zaproxy/zaproxy/releases/download/v2.17.0/ZAP_2.17.0_Linux.tar.gz
+          echo "efe799aaa3627db683b43f00c9c210aea0b75c00cc8f0a0f0434d12bb3ddde5a  zap.tar.gz" | sha256sum -c -
+          tar xzf zap.tar.gz -C "$RUNNER_TEMP"
+      - name: Start API server in the background
+        run: node artifacts/api-server/dist/index.mjs &
+      - name: Wait for the API server to come up
+        run: npx --yes wait-on http://localhost:8080/api/healthz --timeout 30000
+      - name: ZAP active scan as a user and as an admin
+        run: |
+          export PATH="$JAVA_HOME_17_X64/bin:$PATH"
+          node scripts/security/dast/zap-local.mjs
+        env:
+          ZAP_HOME: ${{ runner.temp }}/ZAP_2.17.0
+          LOCAL_PG_SUPERUSER_URL: postgresql://postgres:postgres@localhost:5432/secureai
+          ZAP_MAX_MINUTES: 5

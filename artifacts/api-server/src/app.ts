@@ -136,10 +136,13 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
   // API responses are JSON, never HTML — a strict CSP still blocks any
-  // response that somehow got script-executed in a browser context.
+  // response that somehow got script-executed in a browser context. The one
+  // HTML response, the readable data copy, is a download. form-action and
+  // base-uri don't fall back to default-src, so they are named too (found by
+  // the ZAP scan in CI, docs/04 R-SC-8).
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'none'; frame-ancestors 'none'",
+    "default-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'",
   );
   next();
 });
