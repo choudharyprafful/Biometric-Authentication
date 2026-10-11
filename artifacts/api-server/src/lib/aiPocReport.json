@@ -280,17 +280,16 @@
   "poisoningRisk": {
     "script": "data_poisoning_risk_model.py",
     "author": "Yaseen",
-    "riskScore": 100,
-    "level": "HIGH",
+    "riskScore": 75,
+    "level": "MEDIUM",
     "summary": {
-      "duplicateRecords": 8,
-      "singleUserRatio": 0.7,
-      "canaryFrequency": 0.3,
-      "sourceDiversity": 0.2
+      "duplicateRecords": 7,
+      "singleUserRatio": 0.17,
+      "canaryFrequency": 0.44,
+      "sourceDiversity": 0.06
     },
     "categories": [
       "DUPLICATE_DOMINANCE",
-      "USER_DOMINANCE",
       "CANARY_CONCENTRATION",
       "LOW_SOURCE_DIVERSITY"
     ]
