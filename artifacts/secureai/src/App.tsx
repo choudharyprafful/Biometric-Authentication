@@ -8,6 +8,7 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ParentConsent from "./pages/ParentConsent";
+import VerifyEmail from "./pages/VerifyEmail";
 import Enroll from "./pages/Enroll";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/parent-consent" component={ParentConsent} />
+      <Route path="/verify-email" component={VerifyEmail} />
 
       <Route path="/dashboard">
         <Layout>

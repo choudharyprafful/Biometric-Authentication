@@ -108,6 +108,8 @@ export interface User {
   subscriptionPlan: UserSubscriptionPlan;
   /** True after the account lost a chargeback. New purchases are refused until an admin clears it. */
   paymentHold: boolean;
+  /** False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified. */
+  emailVerified: boolean;
   createdAt: string;
   /** @nullable */
   updatedAt?: string | null;
@@ -121,7 +123,10 @@ export interface UserRegistration {
      * @maxLength 100
      */
   name: string;
-  /** @minLength 8 */
+  /**
+     * At least 8 characters, and not one of the most common passwords, one found in a known data breach (checked with Have I Been Pwned's range API, which only sees the first 5 characters of the SHA-1 hash), or one containing the email address's name or "SecureAI". A refused password gets 400 with code PASSWORD_NOT_ALLOWED.
+     * @minLength 8
+     */
   password: string;
   /** Must be true — explicit consent to processing of account/profile data. Registration is rejected without it. */
   dataConsent: boolean;
@@ -171,6 +176,11 @@ export interface AuthResponse {
      * @nullable
      */
   devParentConsentLink?: string | null;
+  /**
+     * Only populated in local development, like devParentConsentLink — the link that was emailed to confirm the new account's address.
+     * @nullable
+     */
+  devEmailVerificationLink?: string | null;
 }
 
 export interface LogoutAllResult {
@@ -443,6 +453,26 @@ export interface ForgotPasswordResult {
   devResetLink?: string | null;
 }
 
+export interface VerifyEmailInput {
+  /** @minLength 1 */
+  token: string;
+}
+
+export interface VerifyEmailResult {
+  verified: boolean;
+}
+
+export interface ResendEmailVerificationResult {
+  /** True when a new link was emailed (or, in local development, returned below) */
+  sent: boolean;
+  alreadyVerified: boolean;
+  /**
+     * Only populated in local development, where the link is returned instead of only emailed.
+     * @nullable
+     */
+  devEmailVerificationLink?: string | null;
+}
+
 export interface VerifyParentConsentInput {
   /** @minLength 1 */
   token: string;
@@ -473,7 +503,10 @@ export interface ResetPasswordFaceInput {
   /** @minLength 1 */
   token: string;
   descriptor: number[];
-  /** @minLength 8 */
+  /**
+     * The same rules as a new account's password (PASSWORD_NOT_ALLOWED when refused).
+     * @minLength 8
+     */
   newPassword: string;
 }
 

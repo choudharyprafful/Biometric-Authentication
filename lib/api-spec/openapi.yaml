@@ -98,6 +98,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      tags: [auth]
+      summary: Confirms an account's email address, via the link emailed at sign-up
+      description: Unauthenticated, so the link works on any device. Security rests on the token being long, single-use, 24-hour and only ever in the emailed (or dev-mode returned) link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailInput"
+      responses:
+        "200":
+          description: Address confirmed — uploads and payments are now open to the account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyEmailResult"
+        "400":
+          description: Invalid, expired, or already-used link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/verify-email/resend:
+    post:
+      operationId: resendEmailVerification
+      tags: [auth]
+      summary: Emails the signed-in account a new confirmation link, retiring any earlier one
+      responses:
+        "200":
+          description: A new link was sent, or the address is already confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResendEmailVerificationResult"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: More than 3 links asked for in an hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/login:
     post:
       operationId: loginUser
@@ -2199,6 +2250,7 @@ components:
           contentPersonalizationConsentGiven,
           subscriptionPlan,
           paymentHold,
+          emailVerified,
           createdAt,
         ]
       properties:
@@ -2237,6 +2289,9 @@ components:
         paymentHold:
           description: True after the account lost a chargeback. New purchases are refused until an admin clears it.
           type: boolean
+        emailVerified:
+          description: False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.
+          type: boolean
         createdAt:
           type: string
         updatedAt:
@@ -2255,6 +2310,7 @@ components:
           minLength: 1
           maxLength: 100
         password:
+          description: At least 8 characters, and not one of the most common passwords, one found in a known data breach (checked with Have I Been Pwned's range API, which only sees the first 5 characters of the SHA-1 hash), or one containing the email address's name or "SecureAI". A refused password gets 400 with code PASSWORD_NOT_ALLOWED.
           type: string
           minLength: 8
         dataConsent:
@@ -2318,6 +2374,9 @@ components:
           type: string
         devParentConsentLink:
           description: Only populated outside production, for a newly-registered minor account, where no email provider is configured — lets the demo be clicked through without a mail server.
+          type: ["string", "null"]
+        devEmailVerificationLink:
+          description: Only populated in local development, like devParentConsentLink — the link that was emailed to confirm the new account's address.
           type: ["string", "null"]
 
     LogoutAllResult:
@@ -2643,6 +2702,34 @@ components:
           description: Only populated outside production, where no email provider is configured — lets the demo be clicked through without a mail server.
           type: ["string", "null"]
 
+    VerifyEmailInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 1
+
+    VerifyEmailResult:
+      type: object
+      required: [verified]
+      properties:
+        verified:
+          type: boolean
+
+    ResendEmailVerificationResult:
+      type: object
+      required: [sent, alreadyVerified]
+      properties:
+        sent:
+          description: True when a new link was emailed (or, in local development, returned below)
+          type: boolean
+        alreadyVerified:
+          type: boolean
+        devEmailVerificationLink:
+          description: Only populated in local development, where the link is returned instead of only emailed.
+          type: ["string", "null"]
+
     VerifyParentConsentInput:
       type: object
       required: [token]
@@ -2692,6 +2779,7 @@ components:
           items:
             type: number
         newPassword:
+          description: The same rules as a new account's password (PASSWORD_NOT_ALLOWED when refused).
           type: string
           minLength: 8
 

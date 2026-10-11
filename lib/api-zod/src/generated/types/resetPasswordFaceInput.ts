@@ -10,6 +10,9 @@ export interface ResetPasswordFaceInput {
   /** @minLength 1 */
   token: string;
   descriptor: number[];
-  /** @minLength 8 */
+  /**
+     * The same rules as a new account's password (PASSWORD_NOT_ALLOWED when refused).
+     * @minLength 8
+     */
   newPassword: string;
 }

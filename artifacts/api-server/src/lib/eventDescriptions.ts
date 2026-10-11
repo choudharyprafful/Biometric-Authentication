@@ -48,6 +48,8 @@ export const EVENT_DESCRIPTIONS: Record<AuditEventType, string> = {
   MINOR_REGISTRATION_PENDING_CONSENT:
     "Account waiting for a parent or guardian to agree",
   PARENT_CONSENT_GRANTED: "A parent or guardian agreed to your account",
+  EMAIL_VERIFICATION_SENT: "Sent a new link to confirm your email address",
+  EMAIL_VERIFIED: "Confirmed your email address",
   TRAINING_CONSENT_GIVEN: "Agreed to let your activity improve suggestions",
   TRAINING_CONSENT_WITHDRAWN:
     "Stopped letting your activity improve suggestions",

@@ -62,7 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isOpenRoute =
         location === "/ai" ||
         location === "/privacy" ||
-        location === "/report-content";
+        location === "/report-content" ||
+        // The emailed link may be opened signed in or not, on any device.
+        location === "/verify-email";
       const isEnrollRoute = location === "/enroll";
       const mfaComplete = !!user && (user.faceEnrolled || user.passkeyEnrolled);
 

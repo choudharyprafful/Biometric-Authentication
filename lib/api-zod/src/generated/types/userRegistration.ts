@@ -14,7 +14,10 @@ export interface UserRegistration {
      * @maxLength 100
      */
   name: string;
-  /** @minLength 8 */
+  /**
+     * At least 8 characters, and not one of the most common passwords, one found in a known data breach (checked with Have I Been Pwned's range API, which only sees the first 5 characters of the SHA-1 hash), or one containing the email address's name or "SecureAI". A refused password gets 400 with code PASSWORD_NOT_ALLOWED.
+     * @minLength 8
+     */
   password: string;
   /** Must be true — explicit consent to processing of account/profile data. Registration is rejected without it. */
   dataConsent: boolean;

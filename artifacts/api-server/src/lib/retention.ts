@@ -3,6 +3,7 @@ import {
   db,
   passwordResetTokensTable,
   parentConsentTokensTable,
+  emailVerificationTokensTable,
   paymentsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
@@ -39,6 +40,20 @@ export async function purgeExpiredParentConsentTokens(): Promise<number> {
       ),
     )
     .returning({ id: parentConsentTokensTable.id });
+  return deleted.length;
+}
+
+// Same reasoning: EMAIL_VERIFIED in security_logs records the outcome.
+export async function purgeExpiredEmailVerificationTokens(): Promise<number> {
+  const deleted = await db
+    .delete(emailVerificationTokensTable)
+    .where(
+      or(
+        isNotNull(emailVerificationTokensTable.usedAt),
+        lt(emailVerificationTokensTable.expiresAt, new Date()),
+      ),
+    )
+    .returning({ id: emailVerificationTokensTable.id });
   return deleted.length;
 }
 
@@ -97,6 +112,13 @@ async function runRetentionPass(): Promise<void> {
     logger.info(
       { count: parentConsentCount },
       "Retention: purged expired/used parent consent tokens",
+    );
+
+  const emailVerificationCount = await purgeExpiredEmailVerificationTokens();
+  if (emailVerificationCount > 0)
+    logger.info(
+      { count: emailVerificationCount },
+      "Retention: purged expired/used email verification tokens",
     );
 
   // Records of anyone under a legal hold are copied before anything of theirs is purged

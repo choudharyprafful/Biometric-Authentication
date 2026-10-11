@@ -37,6 +37,7 @@ export async function mapUser(user: typeof usersTable.$inferSelect) {
     contentPersonalizationConsentGiven: user.contentPersonalizationConsentGiven,
     subscriptionPlan: user.subscriptionPlan,
     paymentHold: user.paymentHold,
+    emailVerified: user.emailVerified,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt?.toISOString() ?? null,
   };

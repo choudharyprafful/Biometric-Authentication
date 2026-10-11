@@ -71,6 +71,7 @@ import type {
   RecordGovernmentDisclosureInput,
   RegulatorNotificationInput,
   ReleaseLegalHoldInput,
+  ResendEmailVerificationResult,
   ResetPasswordFaceInput,
   ResetPasswordResult,
   ResolveAiChallengeInput,
@@ -91,6 +92,8 @@ import type {
   User,
   UserRegistration,
   UserUpdate,
+  VerifyEmailInput,
+  VerifyEmailResult,
   VerifyParentConsentInput,
   VerifyParentConsentResult,
   VerifyResetTokenInput,
@@ -343,6 +346,149 @@ export const useVerifyParentConsent = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getVerifyParentConsentMutationOptions(options));
+    }
+
+export const getVerifyEmailUrl = () => {
+
+
+
+
+  return `/api/auth/verify-email`
+}
+
+/**
+ * Unauthenticated, so the link works on any device. Security rests on the token being long, single-use, 24-hour and only ever in the emailed (or dev-mode returned) link.
+ * @summary Confirms an account's email address, via the link emailed at sign-up
+ */
+export const verifyEmail = async (verifyEmailInput: VerifyEmailInput, options?: Parameters<typeof customFetch>[1]): Promise<VerifyEmailResult> => {
+
+  return customFetch<VerifyEmailResult>(getVerifyEmailUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(verifyEmailInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyEmailMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyEmail>>, TError,{data: BodyType<VerifyEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyEmail>>, TError,{data: BodyType<VerifyEmailInput>}, TContext> => {
+
+const mutationKey = ['verifyEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyEmail>>, {data: BodyType<VerifyEmailInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyEmail(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyEmailMutationResult = NonNullable<Awaited<ReturnType<typeof verifyEmail>>>
+    export type VerifyEmailMutationBody = BodyType<VerifyEmailInput>
+    export type VerifyEmailMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Confirms an account's email address, via the link emailed at sign-up
+ */
+export const useVerifyEmail = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyEmail>>, TError,{data: BodyType<VerifyEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyEmail>>,
+        TError,
+        {data: BodyType<VerifyEmailInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyEmailMutationOptions(options));
+    }
+
+export const getResendEmailVerificationUrl = () => {
+
+
+
+
+  return `/api/auth/verify-email/resend`
+}
+
+/**
+ * @summary Emails the signed-in account a new confirmation link, retiring any earlier one
+ */
+export const resendEmailVerification = async ( options?: Parameters<typeof customFetch>[1]): Promise<ResendEmailVerificationResult> => {
+
+  return customFetch<ResendEmailVerificationResult>(getResendEmailVerificationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendEmailVerificationMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendEmailVerification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resendEmailVerification>>, TError,void, TContext> => {
+
+const mutationKey = ['resendEmailVerification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resendEmailVerification>>, void> = () => {
+
+
+          return  resendEmailVerification(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendEmailVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof resendEmailVerification>>>
+
+    export type ResendEmailVerificationMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Emails the signed-in account a new confirmation link, retiring any earlier one
+ */
+export const useResendEmailVerification = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendEmailVerification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resendEmailVerification>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getResendEmailVerificationMutationOptions(options));
     }
 
 export const getLoginUserUrl = () => {

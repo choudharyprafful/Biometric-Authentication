@@ -16,6 +16,7 @@ import {
 import { logEvent } from "../lib/auditLog";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
+import { requireVerifiedEmail } from "../middlewares/requireVerifiedEmail";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { encryptFile, decryptFile } from "../lib/fileEncryption";
 import { PLANS, isPlanId } from "../lib/plans";
@@ -87,6 +88,7 @@ router.get("/payments/plans", async (_req, res): Promise<void> => {
 // The client sends a planId only; the price is always looked up server-side from PLANS, never trusted from the request.
 router.post(
   "/payments/subscribe",
+  requireVerifiedEmail,
   paymentRateLimit,
   async (req, res): Promise<void> => {
     const userId = req.session.userId as number;
@@ -263,6 +265,10 @@ router.get("/payments", async (req, res): Promise<void> => {
 
   res.json(ListPaymentsResponse.parse(payments.map(mapPayment)));
 });
+
+// A new payment needs a confirmed email address (R-PAY-5); refunds and history don't. Registered
+// first, so it runs before the handler below.
+router.post("/payments", requireVerifiedEmail);
 
 router.post("/payments", paymentRateLimit, async (req, res): Promise<void> => {
   const userId = req.session.userId as number;

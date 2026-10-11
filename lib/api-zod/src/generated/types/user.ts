@@ -29,6 +29,8 @@ export interface User {
   subscriptionPlan: UserSubscriptionPlan;
   /** True after the account lost a chargeback. New purchases are refused until an admin clears it. */
   paymentHold: boolean;
+  /** False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified. */
+  emailVerified: boolean;
   createdAt: string;
   /** @nullable */
   updatedAt?: string | null;

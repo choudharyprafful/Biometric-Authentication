@@ -64,6 +64,7 @@ function mergeSetCookie(session: Session, res: Response): void {
 }
 
 interface RegisterResponse {
+  devEmailVerificationLink?: string | null;
   user?: {
     id: number;
     name: string;
@@ -79,6 +80,7 @@ async function register(
   email: string,
   name = "Probe Test",
   extra: Record<string, unknown> = {},
+  { confirmEmail = true }: { confirmEmail?: boolean } = {},
 ): Promise<{ status: number; id?: number; body: RegisterResponse | null }> {
   const res = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
@@ -102,7 +104,29 @@ async function register(
   mergeSetCookie(session, res);
   const body =
     res.status === 201 ? ((await res.json()) as RegisterResponse) : null;
+  // Uploads and payments wait for a confirmed email (R-PAY-5); probes that test something else
+  // confirm it straight away from the dev-mode link.
+  if (confirmEmail && body?.devEmailVerificationLink)
+    await confirmEmailFromLink(session, body.devEmailVerificationLink);
   return { status: res.status, id: body?.user?.id, body };
+}
+
+async function confirmEmailFromLink(
+  session: Session,
+  link: string,
+): Promise<number> {
+  const token = new URL(link, BASE).searchParams.get("token");
+  const res = await fetch(`${BASE}/api/auth/verify-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({ token }),
+  });
+  return res.status;
 }
 
 // A zero-vector descriptor satisfies enroll-face's own validation, so no
@@ -517,7 +541,53 @@ async function probeCors() {
 async function probePaymentInputBounds() {
   const session = await newSession();
   const email = `paymentbounds_${Date.now()}@test.com`;
-  await register(session, email);
+  const reg = await register(session, email, undefined, undefined, {
+    confirmEmail: false,
+  });
+  if (reg.id) await enrollFace(session, reg.id);
+
+  // R-PAY-5: with MFA set up, the only thing between this account and a payment or an upload is
+  // its unconfirmed email address.
+  const post = (path: string, body: Record<string, unknown>) =>
+    fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": session.csrf,
+        Cookie: session.cookies,
+      },
+      body: JSON.stringify(body),
+    });
+  const unverifiedPayment = await post("/api/payments", {
+    amount: 10,
+    currency: "USD",
+    description: "probe",
+  });
+  const unverifiedUpload = await post("/api/uploads", {
+    fileName: "probe.txt",
+    mimeType: "text/plain",
+    dataBase64: Buffer.from("probe").toString("base64"),
+  });
+  const codes = await Promise.all(
+    [unverifiedPayment, unverifiedUpload].map(
+      async (r) =>
+        `${r.status} ${((await r.json()) as { code?: string }).code}`,
+    ),
+  );
+  record(
+    "Email verification: an unconfirmed account can't pay or upload",
+    codes.every((c) => c === "403 EMAIL_VERIFICATION_REQUIRED"),
+    `payment ${codes[0]}, upload ${codes[1]}`,
+  );
+  const link = reg.body?.devEmailVerificationLink;
+  const confirmed = link ? await confirmEmailFromLink(session, link) : null;
+  const reused = link ? await confirmEmailFromLink(session, link) : null;
+  record(
+    "Email verification: the emailed link confirms the address once, and can't be used again",
+    confirmed === 200 && reused === 400,
+    `first ${confirmed}, second ${reused}${link ? "" : " (no dev link; NODE_ENV must be development)"}`,
+  );
 
   const attempts: { label: string; body: Record<string, unknown> }[] = [
     {
@@ -544,10 +614,10 @@ async function probePaymentInputBounds() {
       },
       body: JSON.stringify(body),
     });
-    // Not MFA-enrolled, so 401/403 (MFA gate) is as acceptable a "rejected" as 400 — only 201 is a finding.
+    // MFA set up and email confirmed above, so nothing but validation stands in the way.
     record(
       `Payment input validation: ${label}`,
-      res.status !== 201,
+      res.status === 400,
       `got ${res.status}`,
     );
   }
@@ -558,7 +628,6 @@ async function probePaymentInputBounds() {
 // this is the "stolen-but-correct password" case lib/loginRiskModel.ts
 // scores on every successful password check.
 async function probeLoginRiskDetection(): Promise<{
-  session: Session;
   id: number;
   email: string;
 } | null> {
@@ -628,14 +697,14 @@ async function probeLoginRiskDetection(): Promise<{
       riskyBody.securityNotice.length > 0,
     `securityNotice=${JSON.stringify(riskyBody.securityNotice)}`,
   );
-  return { session: setupSession, id: reg.id, email };
+  return { id: reg.id, email };
 }
 
 // R-AUTH-10: a reset can't set a password from a known breach. Uses the login-risk probe's account
 // (the sign-up budget above is full) and the zero-vector face from enrollFace(), so the reset gets
 // as far as the password check with a face that matches.
 async function probeBreachedPasswordOnReset(
-  account: { session: Session; id: number; email: string } | null,
+  account: { id: number; email: string } | null,
 ) {
   if (!account) {
     record(
@@ -645,7 +714,25 @@ async function probeBreachedPasswordOnReset(
     );
     return;
   }
-  await enrollFace(account.session, account.id);
+  // The login-risk probe's four sign-ins went past the free plan's 3 devices, which signed its
+  // registration session out (lib/sessionLimit.ts), so sign in again before setting up the face.
+  // From the login-risk probe's "usual" address: in CI the load test has already used up this
+  // machine's own address's login budget.
+  const session = await newSession();
+  const login = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+      "X-Forwarded-For": "203.0.113.50",
+      "User-Agent": "probe-agent-normal/1.0",
+    },
+    body: JSON.stringify({ email: account.email, password: PROBE_PASSWORD }),
+  });
+  mergeSetCookie(session, login);
+  await enrollFace(session, account.id);
 
   const requestSession = await newSession();
   const forgot = await fetch(`${BASE}/api/auth/forgot-password`, {

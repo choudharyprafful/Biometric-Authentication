@@ -15,4 +15,9 @@ export interface AuthResponse {
      * @nullable
      */
   devParentConsentLink?: string | null;
+  /**
+     * Only populated in local development, like devParentConsentLink — the link that was emailed to confirm the new account's address.
+     * @nullable
+     */
+  devEmailVerificationLink?: string | null;
 }

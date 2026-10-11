@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request } from "express";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -9,6 +9,7 @@ import {
   biometricKeysTable,
   passwordResetTokensTable,
   parentConsentTokensTable,
+  emailVerificationTokensTable,
   sessionsTable,
 } from "@workspace/db";
 import {
@@ -28,6 +29,9 @@ import {
   LogoutAllDevicesResponse,
   VerifyParentConsentBody,
   VerifyParentConsentResponse,
+  VerifyEmailBody,
+  VerifyEmailResponse,
+  ResendEmailVerificationResponse,
 } from "@workspace/api-zod";
 import { logEvent } from "../lib/auditLog";
 import { mapUser } from "../lib/mapUser";
@@ -74,6 +78,9 @@ const RESET_MAX_ATTEMPTS = 5;
 const MINOR_CONSENT_AGE_THRESHOLD = 18;
 // Not a time-pressured security action like a password reset, hence much longer TTL than RESET_TOKEN_TTL_MS.
 const PARENT_CONSENT_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// R-PAY-5: see lib/db/src/schema/emailVerificationTokens.ts for the 24 hours.
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const EMAIL_VERIFICATION_RESEND_MAX_PER_HOUR = 3;
 
 // Server-side only — never trust a client-reported "is adult" claim.
 function computeAge(dateOfBirthIso: string): number {
@@ -106,6 +113,42 @@ const RESET_REQUEST_MAX_PER_IP = 20;
 
 export function hashResetToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Retires any earlier link, stores a new one and emails it. Returns the link for local
+// development (devAuthLinksEnabled), null otherwise.
+async function issueEmailVerification(user: {
+  id: number;
+  email: string;
+}): Promise<string | null> {
+  await db
+    .update(emailVerificationTokensTable)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(emailVerificationTokensTable.userId, user.id),
+        isNull(emailVerificationTokensTable.usedAt),
+      ),
+    );
+  const rawToken = crypto.randomBytes(32).toString("base64url");
+  await db.insert(emailVerificationTokensTable).values({
+    userId: user.id,
+    tokenHash: hashResetToken(rawToken),
+    expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+  });
+  const link = `/verify-email?token=${rawToken}`;
+  await sendMail(
+    user.email,
+    "Confirm your email address — SecureAI",
+    `Confirm this is your email address to finish setting up your SecureAI account:
+
+${appUrl(link)}
+
+The link expires in 24 hours. Until you confirm, you can sign in and use your account, but not upload files or make payments.
+
+If you didn't create this account, you can ignore this email.`,
+  );
+  return devAuthLinksEnabled() ? link : null;
 }
 const MFA_MAX_ATTEMPTS = 3;
 const FACE_DESCRIPTOR_LENGTH = 128;
@@ -283,6 +326,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       // Opt-in, unlike dataConsent above — separate flag from dataConsentGiven (see lib/db/src/schema/users.ts).
       trainingConsentGiven: trainingConsent === true,
       trainingConsentAt: trainingConsent === true ? new Date() : null,
+      emailVerified: false,
     })
     .returning();
 
@@ -305,7 +349,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "REGISTER",
-    details: `New user registered: ${email}${isMinor ? ` (minor — age ${age}, parental consent pending from ${user.parentGuardianEmail})` : ""}`,
+    details: `New user registered: ${email}${isMinor ? ` (minor — age ${age}, parental consent pending from ${user.parentGuardianEmail})` : ""}; email confirmation pending`,
     userId: user.id,
     userEmail: user.email,
     ipAddress: getClientIp(req),
@@ -336,6 +380,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       userAgent: req.headers["user-agent"],
     });
   }
+
+  const devEmailVerificationLink = await issueEmailVerification(user);
 
   // No email provider configured — in production this would be emailed to the parent/guardian, never returned over the API.
   let devParentConsentLink: string | null = null;
@@ -370,6 +416,114 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       user: await mapUser(user),
       token: "authenticated",
       devParentConsentLink,
+      devEmailVerificationLink,
+    }),
+  );
+});
+
+router.post("/auth/verify-email", async (req, res): Promise<void> => {
+  const parsed = VerifyEmailBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [record] = await db
+    .select()
+    .from(emailVerificationTokensTable)
+    .where(
+      eq(
+        emailVerificationTokensTable.tokenHash,
+        hashResetToken(parsed.data.token),
+      ),
+    );
+  if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
+    res.status(400).json({
+      error:
+        "This link has expired or was already used. Sign in and send a new one from your dashboard.",
+    });
+    return;
+  }
+
+  await db
+    .update(emailVerificationTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(emailVerificationTokensTable.id, record.id));
+  const [user] = await db
+    .update(usersTable)
+    .set({ emailVerified: true, emailVerifiedAt: new Date() })
+    .where(eq(usersTable.id, record.userId))
+    .returning();
+  if (!user) {
+    res.status(400).json({ error: "Account no longer exists" });
+    return;
+  }
+
+  await logEvent({
+    eventType: "EMAIL_VERIFIED",
+    details: `Email address confirmed for user ${user.id}`,
+    userId: user.id,
+    userEmail: user.email,
+    ipAddress: getClientIp(req),
+    userAgent: req.headers["user-agent"],
+  });
+  res.json(VerifyEmailResponse.parse({ verified: true }));
+});
+
+router.post("/auth/verify-email/resend", async (req, res): Promise<void> => {
+  const userId = req.session.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  if (!user) {
+    res.status(401).json({ error: "Session invalid" });
+    return;
+  }
+  if (user.emailVerified) {
+    res.json(
+      ResendEmailVerificationResponse.parse({
+        sent: false,
+        alreadyVerified: true,
+        devEmailVerificationLink: null,
+      }),
+    );
+    return;
+  }
+
+  // Each request sends an email to the address on the account; 3 an hour is plenty for a lost
+  // or delayed one, and stops the endpoint being used to flood that inbox.
+  const reservation = checkAndRecordRequest(
+    `verify-email-resend:${user.id}`,
+    EMAIL_VERIFICATION_RESEND_MAX_PER_HOUR,
+    60 * 60 * 1000,
+  );
+  if (!reservation.allowed) {
+    res.set("Retry-After", String(reservation.retryAfterSeconds ?? 3600));
+    res.status(429).json({
+      error:
+        "You've asked for 3 links in the last hour. Check your spam folder, or try again later.",
+    });
+    return;
+  }
+
+  const devEmailVerificationLink = await issueEmailVerification(user);
+  await logEvent({
+    eventType: "EMAIL_VERIFICATION_SENT",
+    details: `New email confirmation link sent for user ${user.id}`,
+    userId: user.id,
+    userEmail: user.email,
+    ipAddress: getClientIp(req),
+    userAgent: req.headers["user-agent"],
+  });
+  res.json(
+    ResendEmailVerificationResponse.parse({
+      sent: true,
+      alreadyVerified: false,
+      devEmailVerificationLink,
     }),
   );
 });

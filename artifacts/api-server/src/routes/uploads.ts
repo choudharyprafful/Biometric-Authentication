@@ -16,6 +16,7 @@ import { logEvent } from "../lib/auditLog";
 import { encryptFile, decryptFile } from "../lib/fileEncryption";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
+import { requireVerifiedEmail } from "../middlewares/requireVerifiedEmail";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { stripImageMetadata, detectImageFormat } from "../lib/imageSafety";
 import { stripVideoMetadata } from "../lib/videoSafety";
@@ -144,6 +145,10 @@ router.get("/uploads", async (req, res): Promise<void> => {
     .orderBy(desc(uploadsTable.createdAt));
   res.json(ListUploadsResponse.parse(uploads.map(mapUploadMeta)));
 });
+
+// A new upload needs a confirmed email address (R-PAY-5); the rest of /uploads doesn't. Registered
+// first, so it runs before the handler below.
+router.post("/uploads", requireVerifiedEmail);
 
 // POST /uploads
 router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {

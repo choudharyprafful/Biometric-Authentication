@@ -11,6 +11,7 @@ import {
   logout,
   logoutAll,
   getDashboard,
+  resendEmailVerification,
   type SecurityDashboard,
 } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -48,6 +49,25 @@ export function DashboardScreen() {
         "Signed out everywhere",
         `${result.terminatedSessions} session(s) terminated.`,
       );
+    } finally {
+      await refetchUser();
+      setBusy(false);
+    }
+  };
+
+  // R-PAY-5: uploads and payments wait for a confirmed address; the API's refusal points here.
+  const handleResend = async () => {
+    setBusy(true);
+    try {
+      const result = await resendEmailVerification();
+      Alert.alert(
+        result.alreadyVerified ? "Already confirmed" : "Link sent",
+        result.alreadyVerified
+          ? "Your email address is already confirmed."
+          : `We've sent a new link to ${user?.email}. Earlier links no longer work.`,
+      );
+    } catch (err: any) {
+      Alert.alert("Couldn't send a link", err?.message || "Try again later.");
     } finally {
       await refetchUser();
       setBusy(false);
@@ -134,6 +154,24 @@ export function DashboardScreen() {
           )}
         </>
       ) : null}
+
+      {user.emailVerified === false && (
+        <Card topAccent style={styles.card}>
+          <Text style={styles.notice}>
+            Confirm your email address to upload files and make payments. We
+            sent a link to {user.email} when you signed up; it works for 24
+            hours.
+          </Text>
+          <Button
+            onPress={handleResend}
+            disabled={busy}
+            variant="outline"
+            style={styles.noticeButton}
+          >
+            Send a new link
+          </Button>
+        </Card>
+      )}
 
       <Text style={styles.sectionTitle}>Account</Text>
       <Card topAccent style={styles.card}>
@@ -278,4 +316,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   button: { marginBottom: 12 },
+  notice: {
+    color: colors.foreground,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  noticeButton: { marginTop: 12 },
 });

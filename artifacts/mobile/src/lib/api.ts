@@ -70,6 +70,8 @@ export interface AppUser {
   trainingConsentGiven: boolean;
   contentPersonalizationConsentGiven: boolean;
   subscriptionPlan: string;
+  // Absent from API versions before email verification (R-PAY-5); only false means unconfirmed.
+  emailVerified?: boolean;
 }
 
 export interface LoginResult {
@@ -234,6 +236,13 @@ export async function logout(): Promise<void> {
 
 export async function logoutAll(): Promise<{ terminatedSessions: number }> {
   return request("/auth/logout-all", { method: "POST" });
+}
+
+export async function resendEmailVerification(): Promise<{
+  sent: boolean;
+  alreadyVerified: boolean;
+}> {
+  return request("/auth/verify-email/resend", { method: "POST" });
 }
 
 export async function getDashboard(): Promise<SecurityDashboard> {

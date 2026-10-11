@@ -84,6 +84,11 @@ export const usersTable = pgTable("users", {
     .default("free"),
   // Set when the account loses a chargeback: new purchases are refused until an admin clears it.
   paymentHold: boolean("payment_hold").notNull().default(false),
+  // Sign-up sets false until the emailed link is opened (R-PAY-5); uploads and payments wait for it.
+  // The default is true so accounts that existed before email verification (2026-10-12) aren't
+  // locked out of features they already used.
+  emailVerified: boolean("email_verified").notNull().default(true),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -103,6 +108,8 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   faceEnrolled: true,
   subscriptionPlan: true,
   paymentHold: true,
+  emailVerified: true,
+  emailVerifiedAt: true,
   dataConsentGiven: true,
   dataConsentAt: true,
   biometricConsentGiven: true,

@@ -10,6 +10,9 @@ import {
 } from "./lib/dbBootstrap";
 import { logClamdStatusAtStartup } from "./lib/clamdClient";
 import { logBehaviorModelPrivacyAtStartup } from "./lib/behaviorModel";
+import { isEmailConfigured } from "./lib/mailer";
+import { devAuthLinksEnabled } from "./lib/devLinks";
+import { breachLookupEnabled } from "./lib/breachedPasswords";
 
 const rawPort = process.env["PORT"];
 
@@ -48,4 +51,20 @@ app.listen(port, async (err) => {
   startSecurityAlertingJob();
   void logClamdStatusAtStartup(logger);
   void logBehaviorModelPrivacyAtStartup(logger);
+
+  // New accounts can only open uploads and payments by confirming their email (R-PAY-5), so a
+  // missing mail account is worth saying out loud rather than finding out from support requests.
+  if (isEmailConfigured())
+    logger.info("Email verification: confirmation links are emailed");
+  else if (devAuthLinksEnabled())
+    logger.info(
+      "Email verification: no email account, so the link is returned to the client (local development only)",
+    );
+  else
+    logger.warn(
+      "Email verification: no email account (SMTP_HOST, SMTP_USER, SMTP_PASS), so new accounts cannot confirm their address and stay unable to upload or pay",
+    );
+  logger.info(
+    `Breached-password check: ${breachLookupEnabled() ? "bundled list and Have I Been Pwned" : "bundled list only (BREACHED_PASSWORD_API=off)"}`,
+  );
 });

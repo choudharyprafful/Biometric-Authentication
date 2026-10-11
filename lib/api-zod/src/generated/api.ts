@@ -36,7 +36,7 @@ export const registerUserBodyPrivacyPolicyVersionMax = 32;
 export const RegisterUserBody = zod.object({
   "email": zod.string().email().max(registerUserBodyEmailMax),
   "name": zod.string().min(1).max(registerUserBodyNameMax),
-  "password": zod.string().min(registerUserBodyPasswordMin),
+  "password": zod.string().min(registerUserBodyPasswordMin).describe('At least 8 characters, and not one of the most common passwords, one found in a known data breach (checked with Have I Been Pwned\'s range API, which only sees the first 5 characters of the SHA-1 hash), or one containing the email address\'s name or \"SecureAI\". A refused password gets 400 with code PASSWORD_NOT_ALLOWED.'),
   "dataConsent": zod.boolean().describe('Must be true — explicit consent to processing of account\/profile data. Registration is rejected without it.'),
   "dateOfBirth": zod.string().describe('Self-reported, ISO date (YYYY-MM-DD). Used server-side to compute age at registration — never trust a client-computed \"is adult\" boolean, same principle as everywhere else consent\/verification is enforced in this app.'),
   "parentGuardianEmail": zod.string().email().max(registerUserBodyParentGuardianEmailMax).optional().describe('Required only when dateOfBirth indicates the registrant is under the minor-consent age threshold. Registration succeeds but the account is gated (parentConsentPending) until this address confirms via an emailed link.'),
@@ -59,11 +59,13 @@ export const RegisterUserResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
   "token": zod.string(),
-  "devParentConsentLink": zod.string().nullish().describe('Only populated outside production, for a newly-registered minor account, where no email provider is configured — lets the demo be clicked through without a mail server.')
+  "devParentConsentLink": zod.string().nullish().describe('Only populated outside production, for a newly-registered minor account, where no email provider is configured — lets the demo be clicked through without a mail server.'),
+  "devEmailVerificationLink": zod.string().nullish().describe('Only populated in local development, like devParentConsentLink — the link that was emailed to confirm the new account\'s address.')
 })
 
 
@@ -81,6 +83,32 @@ export const VerifyParentConsentBody = zod.object({
 export const VerifyParentConsentResponse = zod.object({
   "verified": zod.boolean(),
   "childEmail": zod.string().nullish().describe('The account\'s own email, shown as confirmation of which account this approved')
+})
+
+
+/**
+ * Unauthenticated, so the link works on any device. Security rests on the token being long, single-use, 24-hour and only ever in the emailed (or dev-mode returned) link.
+ * @summary Confirms an account's email address, via the link emailed at sign-up
+ */
+
+
+
+export const VerifyEmailBody = zod.object({
+  "token": zod.string().min(1)
+})
+
+export const VerifyEmailResponse = zod.object({
+  "verified": zod.boolean()
+})
+
+
+/**
+ * @summary Emails the signed-in account a new confirmation link, retiring any earlier one
+ */
+export const ResendEmailVerificationResponse = zod.object({
+  "sent": zod.boolean().describe('True when a new link was emailed (or, in local development, returned below)'),
+  "alreadyVerified": zod.boolean(),
+  "devEmailVerificationLink": zod.string().nullish().describe('Only populated in local development, where the link is returned instead of only emailed.')
 })
 
 
@@ -111,6 +139,7 @@ export const LoginUserResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
@@ -141,11 +170,13 @@ export const FaceVerifyResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 }),
   "token": zod.string(),
-  "devParentConsentLink": zod.string().nullish().describe('Only populated outside production, for a newly-registered minor account, where no email provider is configured — lets the demo be clicked through without a mail server.')
+  "devParentConsentLink": zod.string().nullish().describe('Only populated outside production, for a newly-registered minor account, where no email provider is configured — lets the demo be clicked through without a mail server.'),
+  "devEmailVerificationLink": zod.string().nullish().describe('Only populated in local development, like devParentConsentLink — the link that was emailed to confirm the new account\'s address.')
 })
 
 
@@ -191,7 +222,7 @@ export const resetPasswordWithFaceBodyNewPasswordMin = 8;
 export const ResetPasswordWithFaceBody = zod.object({
   "token": zod.string().min(1),
   "descriptor": zod.array(zod.number()),
-  "newPassword": zod.string().min(resetPasswordWithFaceBodyNewPasswordMin)
+  "newPassword": zod.string().min(resetPasswordWithFaceBodyNewPasswordMin).describe('The same rules as a new account\'s password (PASSWORD_NOT_ALLOWED when refused).')
 })
 
 export const ResetPasswordWithFaceResponse = zod.object({
@@ -231,6 +262,7 @@ export const GetCurrentUserResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -253,6 +285,7 @@ export const ListUsersResponseItem = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -284,6 +317,7 @@ export const GetUserResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -323,6 +357,7 @@ export const UpdateUserResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -377,6 +412,7 @@ export const EnrollFaceResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -407,6 +443,7 @@ export const RemoveFaceResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -438,6 +475,7 @@ export const ResetUserMfaResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -469,6 +507,7 @@ export const ClearPaymentHoldResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -1131,6 +1170,7 @@ export const SetTrainingConsentResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })
@@ -1597,6 +1637,7 @@ export const SetContentPersonalizationConsentResponse = zod.object({
   "contentPersonalizationConsentGiven": zod.boolean().describe('A third, distinct consent purpose — whether this account\'s own uploaded text content may be read (decrypted server-side) to build a private, never-pooled personalization profile. Separate from trainingConsentGiven, which only ever gates event-type behavioral training, never upload content. Toggleable any time via POST \/users\/me\/content-personalization-consent.'),
   "subscriptionPlan": zod.enum(['free', 'plus', 'pro', 'team']),
   "paymentHold": zod.boolean().describe('True after the account lost a chargeback. New purchases are refused until an admin clears it.'),
+  "emailVerified": zod.boolean().describe('False from sign-up until the emailed confirmation link is opened. Uploads and payments are refused until then (EMAIL_VERIFICATION_REQUIRED); accounts created before email verification count as verified.'),
   "createdAt": zod.string(),
   "updatedAt": zod.string().nullish()
 })

@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { PrivacyPolicyNotice } from "./PrivacyPolicyNotice";
 import { BreachNotices } from "./BreachNotices";
+import { EmailVerificationNotice } from "./EmailVerificationNotice";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -29,6 +30,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           className={`p-4 md:p-8 max-w-7xl mx-auto h-full ${user ? "pt-20 md:pt-8" : ""}`}
         >
           {user && <BreachNotices />}
+          {user && <EmailVerificationNotice />}
           {user && <PrivacyPolicyNotice />}
           {children}
         </div>
