@@ -1281,6 +1281,19 @@ export const GetAiSecurityReportResponse = zod.object({
   "level": zod.string(),
   "categories": zod.array(zod.string())
 }))
+}),
+  "poisoningRisk": zod.object({
+  "script": zod.string(),
+  "author": zod.string(),
+  "riskScore": zod.number().int(),
+  "level": zod.string(),
+  "summary": zod.object({
+  "duplicateRecords": zod.number().int(),
+  "singleUserRatio": zod.number(),
+  "canaryFrequency": zod.number(),
+  "sourceDiversity": zod.number()
+}),
+  "categories": zod.array(zod.string())
 })
 })
 })

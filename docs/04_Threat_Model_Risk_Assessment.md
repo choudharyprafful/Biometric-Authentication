@@ -282,6 +282,38 @@ Applications LLM01: Prompt Injection. Because no LLM is deployed in the
 application itself, the model demonstrates the class of attack and its
 detection challenges rather than protecting a live production model.
 
+### Data Poisoning Risk Score
+
+The AI/ML security PoC includes a synthetic data-poisoning risk
+model (`artifacts/ai-model/data_poisoning_risk_model.py`).
+
+This model estimates the likelihood that training data may be
+influenced by poisoning-style behaviour.
+
+Factors considered include:
+
+- Duplicate-record concentration
+- Single-user dominance
+- Canary concentration
+- Source diversity
+
+The model reports:
+
+- Risk score
+- Risk level (LOW, MEDIUM, HIGH)
+- Contributing risk categories
+
+Reported categories include:
+
+- DUPLICATE_DOMINANCE
+- USER_DOMINANCE
+- CANARY_CONCENTRATION
+- LOW_SOURCE_DIVERSITY
+
+This is a synthetic proof-of-concept intended for AI security
+demonstration purposes and does not analyse a live production
+training pipeline.
+
 ### Access control
 
 | Threat (STRIDE)        | Scenario                                                                                                                                                                  | Control                                                                                                                                                                                                       | Status                                                                           |

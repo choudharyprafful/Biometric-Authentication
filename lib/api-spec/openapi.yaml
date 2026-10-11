@@ -3102,6 +3102,46 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AiPromptInjectionExample"
+    AiPoisoningRiskSummary:
+      type: object
+      required:
+        - duplicateRecords
+        - singleUserRatio
+        - canaryFrequency
+        - sourceDiversity
+      properties:
+        duplicateRecords:
+          type: integer
+        singleUserRatio:
+          type: number
+        canaryFrequency:
+          type: number
+        sourceDiversity:
+          type: number
+    AiPoisoningRisk:
+      type: object
+      required:
+        - script
+        - author
+        - riskScore
+        - level
+        - summary
+        - categories
+      properties:
+        script:
+          type: string
+        author:
+          type: string
+        riskScore:
+          type: integer
+        level:
+          type: string
+        summary:
+          $ref: "#/components/schemas/AiPoisoningRiskSummary"
+        categories:
+          type: array
+          items:
+            type: string
     AiPocModelRun:
       type: object
       required: [prompt, output, canaryLeaked]
@@ -3121,6 +3161,7 @@ components:
           memorisation,
           behavioralRisk,
           promptInjectionRisk,
+          poisoningRisk,
         ]
       properties:
         generator:
@@ -3133,6 +3174,8 @@ components:
           $ref: "#/components/schemas/AiBehavioralRisk"
         promptInjectionRisk:
           $ref: "#/components/schemas/AiPromptInjectionRisk"
+        poisoningRisk:
+          $ref: "#/components/schemas/AiPoisoningRisk"
     AiPocStarterKit:
       description: Yaseen's model_starter.py, run unmodified
       type: object

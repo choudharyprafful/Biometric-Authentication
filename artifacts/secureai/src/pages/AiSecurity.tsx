@@ -6,6 +6,7 @@ import {
   type AiPocMemorisation,
   type AiBehavioralRisk,
   type AiPromptInjectionRisk,
+  type AiPoisoningRisk,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -484,6 +485,64 @@ function PromptInjectionRiskCard({ risk }: { risk: AiPromptInjectionRisk }) {
   );
 }
 
+function PoisoningRiskCard({ risk }: { risk: AiPoisoningRisk }) {
+  return (
+    <Card className="space-y-5">
+      <h3 className="font-mono font-bold uppercase tracking-widest text-foreground">
+        Data Poisoning Risk (Synthetic Demo)
+      </h3>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Risk Score
+          </p>
+
+          <p className="font-mono text-2xl">{risk.riskScore}</p>
+
+          <Badge
+            variant={
+              risk.level === "HIGH"
+                ? "destructive"
+                : risk.level === "MEDIUM"
+                  ? "warning"
+                  : "success"
+            }
+          >
+            {risk.level}
+          </Badge>
+        </div>
+
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Categories
+          </p>
+
+          <p className="font-mono text-xs">{risk.categories.join(", ")}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-border p-3">
+          Duplicate Records: {risk.summary.duplicateRecords}
+        </div>
+
+        <div className="border border-border p-3">
+          Single User Ratio: {risk.summary.singleUserRatio}
+        </div>
+
+        <div className="border border-border p-3">
+          Canary Frequency: {risk.summary.canaryFrequency}
+        </div>
+
+        <div className="border border-border p-3">
+          Source Diversity: {risk.summary.sourceDiversity}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function AiSecurity() {
   const { data, isLoading, isFetching, error, refetch } =
     useGetAiSecurityReport({
@@ -624,6 +683,7 @@ export default function AiSecurity() {
         </div>
         <BehavioralRiskCard risk={poc.behavioralRisk} />
         <PromptInjectionRiskCard risk={poc.promptInjectionRisk} />
+        <PoisoningRiskCard risk={poc.poisoningRisk} />
         <StarterKitCard kit={poc.starterKit} />
         <MemorisationCard mem={poc.memorisation} />
       </section>
