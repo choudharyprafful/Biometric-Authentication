@@ -65,7 +65,8 @@ async function testRateLimiterUnderConcurrency(): Promise<boolean> {
     body: JSON.stringify({
       email,
       name: "Load Test",
-      password: "Password123!",
+      // Random, so the breached-password check (R-AUTH-10) accepts it.
+      password: `load-${crypto.randomUUID()}`,
       dataConsent: true,
       dateOfBirth: "1990-01-01",
     }),

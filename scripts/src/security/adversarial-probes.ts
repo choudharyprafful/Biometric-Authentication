@@ -14,9 +14,13 @@
  * — going over means the last probes `429` instead of testing anything.
  */
 
-export {};
+import { randomUUID } from "node:crypto";
 
 const BASE = process.env["PROBES_BASE_URL"] ?? "http://localhost:5173";
+
+// New per run, so it is in no breach list: sign-up and reset refuse breached, common and
+// account-specific passwords (lib/breachedPasswords.ts, R-AUTH-10).
+const PROBE_PASSWORD = `probe-${randomUUID()}`;
 
 interface Session {
   csrf: string;
@@ -89,7 +93,7 @@ async function register(
     body: JSON.stringify({
       email,
       name,
-      password: "Password123!",
+      password: PROBE_PASSWORD,
       dataConsent: true,
       dateOfBirth: "1995-01-01",
       ...extra,
@@ -189,7 +193,7 @@ async function probeCsrf() {
     body: JSON.stringify({
       email,
       name: "CSRF Probe",
-      password: "Password123!",
+      password: PROBE_PASSWORD,
       dataConsent: true,
     }),
   });
@@ -210,7 +214,7 @@ async function probeCsrf() {
     body: JSON.stringify({
       email,
       name: "CSRF Probe",
-      password: "Password123!",
+      password: PROBE_PASSWORD,
       dataConsent: true,
     }),
   });
@@ -396,7 +400,7 @@ async function probeStoredXss() {
     body: JSON.stringify({
       email,
       name: payload,
-      password: "Password123!",
+      password: PROBE_PASSWORD,
       dataConsent: true,
       dateOfBirth: "1995-01-01",
     }),
@@ -470,7 +474,7 @@ async function probePrototypePollution() {
     body: JSON.stringify({
       email,
       name: "Proto Probe",
-      password: "Password123!",
+      password: PROBE_PASSWORD,
       dataConsent: true,
       dateOfBirth: "1995-01-01",
       __proto__: { role: "admin", isAdmin: true },
@@ -553,9 +557,13 @@ async function probePaymentInputBounds() {
 // should be flagged, not treated like the account's normal login —
 // this is the "stolen-but-correct password" case lib/loginRiskModel.ts
 // scores on every successful password check.
-async function probeLoginRiskDetection() {
+async function probeLoginRiskDetection(): Promise<{
+  session: Session;
+  id: number;
+  email: string;
+} | null> {
   const email = `loginrisk_${Date.now()}@test.com`;
-  const password = "Password123!";
+  const password = PROBE_PASSWORD;
   const setupSession = await newSession();
   const reg = await register(setupSession, email);
   if (!reg.id) {
@@ -564,7 +572,7 @@ async function probeLoginRiskDetection() {
       false,
       "could not register the probe account",
     );
-    return;
+    return null;
   }
 
   // 3 baseline logins matches MIN_HISTORY_FOR_SCORING in loginRiskModel.ts —
@@ -619,6 +627,81 @@ async function probeLoginRiskDetection() {
     typeof riskyBody.securityNotice === "string" &&
       riskyBody.securityNotice.length > 0,
     `securityNotice=${JSON.stringify(riskyBody.securityNotice)}`,
+  );
+  return { session: setupSession, id: reg.id, email };
+}
+
+// R-AUTH-10: a reset can't set a password from a known breach. Uses the login-risk probe's account
+// (the sign-up budget above is full) and the zero-vector face from enrollFace(), so the reset gets
+// as far as the password check with a face that matches.
+async function probeBreachedPasswordOnReset(
+  account: { session: Session; id: number; email: string } | null,
+) {
+  if (!account) {
+    record(
+      "Breached password on reset setup",
+      false,
+      "no probe account available (login-risk probe setup failed)",
+    );
+    return;
+  }
+  await enrollFace(account.session, account.id);
+
+  const requestSession = await newSession();
+  const forgot = await fetch(`${BASE}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": requestSession.csrf,
+      Cookie: requestSession.cookies,
+    },
+    body: JSON.stringify({ email: account.email }),
+  });
+  const { devResetLink } = (await forgot.json()) as {
+    devResetLink?: string | null;
+  };
+  const token = devResetLink
+    ? new URL(devResetLink, BASE).searchParams.get("token")
+    : null;
+  if (!token) {
+    record(
+      "Breached password on reset setup",
+      false,
+      `no dev reset link (forgot-password returned ${forgot.status}); NODE_ENV must be development`,
+    );
+    return;
+  }
+
+  const reset = (newPassword: string) =>
+    fetch(`${BASE}/api/auth/reset-password/face`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": requestSession.csrf,
+        Cookie: requestSession.cookies,
+      },
+      body: JSON.stringify({
+        token,
+        descriptor: new Array(128).fill(0),
+        newPassword,
+      }),
+    });
+
+  const breached = await reset("Password123!");
+  const breachedBody = (await breached.json()) as { code?: string };
+  record(
+    'Breached password: a reset to "Password123!" is refused',
+    breached.status === 400 && breachedBody.code === "PASSWORD_NOT_ALLOWED",
+    `got ${breached.status} ${breachedBody.code ?? ""}`,
+  );
+
+  const fresh = await reset(`${PROBE_PASSWORD}-reset`);
+  record(
+    "Breached password: the same reset link still works with a new, unbreached password",
+    fresh.status === 200,
+    `got ${fresh.status}`,
   );
 }
 
@@ -865,7 +948,8 @@ await probeMassAssignment();
 await probePrototypePollution();
 await probeCors();
 await probePaymentInputBounds();
-await probeLoginRiskDetection();
+const loginRiskProbeAccount = await probeLoginRiskDetection();
+await probeBreachedPasswordOnReset(loginRiskProbeAccount);
 const contentProbeAccount = await probeContentProfileConsentGate();
 await probePaymentIdempotencyAndRefund(contentProbeAccount);
 

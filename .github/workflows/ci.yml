@@ -43,6 +43,9 @@ jobs:
       # Security alert email: every listed address and no one else, no header injection from alert
       # text, and a mail server outage never stopping the alert job.
       - run: pnpm --filter @workspace/api-server run verify:alert-email
+      # New passwords: common, breached and account-specific ones refused; only 5 hash characters
+      # sent to Have I Been Pwned; an API outage falls back to the bundled list (R-AUTH-10).
+      - run: pnpm --filter @workspace/api-server run verify:breached-passwords
       # The behaviour model's differential privacy: the noise is Laplace-shaped, one account's
       # influence stays capped, a planted canary leaks within budget, and BEHAVIOR_MODEL_DP_EPSILON
       # reaches the live suggestion endpoint (it didn't until 2026-10-07; docs/04 §2.2).

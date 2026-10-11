@@ -56,6 +56,7 @@ const LOGIN_RISK_WORDING: Record<LoginRiskCode, string> = {
 import { devAuthLinksEnabled } from "../lib/devLinks";
 import { sendMail, appUrl } from "../lib/mailer";
 import { getClientIp } from "../lib/clientIp";
+import { checkNewPassword } from "../lib/breachedPasswords";
 
 const router: IRouter = Router();
 
@@ -253,6 +254,14 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     .where(eq(usersTable.email, email.toLowerCase()));
   if (existing.length > 0) {
     res.status(409).json({ error: "Email already registered" });
+    return;
+  }
+
+  const passwordCheck = await checkNewPassword(password, { email });
+  if (!passwordCheck.ok) {
+    res
+      .status(400)
+      .json({ error: passwordCheck.message, code: "PASSWORD_NOT_ALLOWED" });
     return;
   }
 
@@ -966,6 +975,15 @@ router.post("/auth/reset-password/face", async (req, res): Promise<void> => {
     !user.faceDescriptorAuthTag
   ) {
     res.status(400).json({ error: "No face enrolled for this account" });
+    return;
+  }
+
+  // Before the face check, so a refused password doesn't use up one of the reset's attempts.
+  const passwordCheck = await checkNewPassword(newPassword, user);
+  if (!passwordCheck.ok) {
+    res
+      .status(400)
+      .json({ error: passwordCheck.message, code: "PASSWORD_NOT_ALLOWED" });
     return;
   }
 
