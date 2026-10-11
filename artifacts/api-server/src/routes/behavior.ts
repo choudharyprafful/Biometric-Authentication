@@ -59,7 +59,7 @@ router.post("/users/me/training-consent", async (req, res): Promise<void> => {
     eventType: consent
       ? "TRAINING_CONSENT_GIVEN"
       : "TRAINING_CONSENT_WITHDRAWN",
-    details: `${consent ? "Granted" : "Withdrew"} consent for ${user.email}'s activity to contribute to the behavior model's training corpus`,
+    details: `${consent ? "Granted" : "Withdrew"} consent for user ${user.id}'s activity to contribute to the behavior model's training corpus`,
     userId,
     userEmail: user.email,
     ipAddress: getClientIp(req),

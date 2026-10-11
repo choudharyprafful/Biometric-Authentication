@@ -499,7 +499,7 @@ router.post("/payments/:id/refund", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "PAYMENT_REFUNDED",
-    details: `Payment ${payment.id} (${payment.amount} ${payment.currency}) refunded by ${isAdmin && payment.userId !== userId ? `admin (${sessionUser?.email})` : "the payment's own owner"}`,
+    details: `Payment ${payment.id} (${payment.amount} ${payment.currency}) refunded by ${isAdmin && payment.userId !== userId ? `admin ${userId}` : "the payment's own owner"}`,
     userId,
     userEmail: sessionUser?.email ?? payment.userEmail,
   });

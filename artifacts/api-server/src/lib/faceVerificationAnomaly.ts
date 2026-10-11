@@ -44,7 +44,6 @@ export async function computeFaceVerificationAlerts(): Promise<
   const rows = await db
     .select({
       userId: securityLogsTable.userId,
-      userEmail: securityLogsTable.userEmail,
       details: securityLogsTable.details,
     })
     .from(securityLogsTable)
@@ -56,17 +55,10 @@ export async function computeFaceVerificationAlerts(): Promise<
       ),
     );
 
-  const byUser = new Map<
-    number,
-    { email: string | null; distances: number[]; count: number }
-  >();
+  const byUser = new Map<number, { distances: number[]; count: number }>();
   for (const row of rows) {
     if (row.userId === null) continue;
-    const entry = byUser.get(row.userId) ?? {
-      email: row.userEmail,
-      distances: [],
-      count: 0,
-    };
+    const entry = byUser.get(row.userId) ?? { distances: [], count: 0 };
     entry.count += 1;
     const distance = parseDistance(row.details);
     if (distance !== null) entry.distances.push(distance);
@@ -76,7 +68,8 @@ export async function computeFaceVerificationAlerts(): Promise<
   const alerts: SecurityAlert[] = [];
 
   for (const [userId, entry] of byUser) {
-    const who = entry.email ?? `user #${userId}`;
+    // An account id, not the email: alert text is emailed to staff and logged (docs/04 R-LOG-6).
+    const who = `user #${userId}`;
 
     if (entry.count >= FACE_FAILURE_SPIKE_THRESHOLD) {
       alerts.push({

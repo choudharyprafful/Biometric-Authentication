@@ -236,7 +236,7 @@ router.post(
       .where(eq(usersTable.id, userId));
     await logEvent({
       eventType: "PASSKEY_ENROLLED",
-      details: `Passkey enrolled${body.deviceName ? ` (${body.deviceName})` : ""} for ${user?.email ?? userId}`,
+      details: `Passkey enrolled${body.deviceName ? ` (${body.deviceName})` : ""} for user ${userId}`,
       userId,
       userEmail: user?.email,
       ipAddress: getClientIp(req),
@@ -299,7 +299,7 @@ router.delete("/auth/passkey/:id", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "PASSKEY_REMOVED",
-    details: `Passkey removed${key.deviceName ? ` (${key.deviceName})` : ""} for ${user?.email ?? userId}`,
+    details: `Passkey removed${key.deviceName ? ` (${key.deviceName})` : ""} for user ${userId}`,
     userId,
     userEmail: user?.email,
     ipAddress: getClientIp(req),
@@ -462,7 +462,7 @@ router.post("/auth/passkey/login-verify", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "LOGIN_PASSKEY_SUCCESS",
-    details: `Passkey MFA passed for ${user.email} — device-held key signed the server challenge`,
+    details: `Passkey MFA passed for user ${user.id} — device-held key signed the server challenge`,
     userId: user.id,
     userEmail: user.email,
     ipAddress: ip,
@@ -654,7 +654,7 @@ router.post(
 
     await logEvent({
       eventType: "PASSWORD_RESET_COMPLETED",
-      details: `Password reset completed for ${user.email} (passkey-verified)`,
+      details: `Password reset completed for user ${user.id} (passkey-verified)`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,

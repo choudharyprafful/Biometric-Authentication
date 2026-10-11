@@ -224,13 +224,11 @@ router.patch(
     // audit log answers "who gave this account admin, and when" (brief §5: privilege changes).
     // The name itself stays out of the log; only the fact that it changed is recorded.
     const actor =
-      sessionUserId === user.id
-        ? "themselves"
-        : `admin ${sessionUser?.email ?? sessionUserId}`;
+      sessionUserId === user.id ? "themselves" : `admin ${sessionUserId}`;
     if (updates.role && updates.role !== before.role) {
       await logEvent({
         eventType: "ROLE_CHANGED",
-        details: `Role of ${user.email} changed from ${before.role} to ${user.role} by ${actor}`,
+        details: `Role of user ${user.id} changed from ${before.role} to ${user.role} by ${actor}`,
         userId: sessionUserId,
         userEmail: user.email,
         ipAddress: getClientIp(req),
@@ -240,7 +238,7 @@ router.patch(
     if (updates.name && updates.name !== before.name) {
       await logEvent({
         eventType: "USER_UPDATED",
-        details: `Name of ${user.email} changed by ${actor}`,
+        details: `Name of user ${user.id} changed by ${actor}`,
         userId: sessionUserId,
         userEmail: user.email,
         ipAddress: getClientIp(req),
@@ -353,7 +351,7 @@ router.delete(
     const deletedSummary = `role=${user.role}, faceEnrolled=${user.faceEnrolled}, subscriptionPlan=${user.subscriptionPlan}, uploads=${uploadCount}, passkeys=${passkeyCount}, biometricKeys=${biometricKeyCount}`;
     await logEvent({
       eventType: "USER_DELETED",
-      details: `${isSelf ? `User ${user.email} deleted their own account` : `User ${user.email} deleted by admin ${sessionUserId}`} — cascade-removed: ${deletedSummary}`,
+      details: `${isSelf ? `User ${user.id} deleted their own account` : `User ${user.id} deleted by admin ${sessionUserId}`} — cascade-removed: ${deletedSummary}`,
       userId: sessionUserId,
     });
 
@@ -440,7 +438,7 @@ router.post(
 
     await logEvent({
       eventType: "FACE_ENROLLED",
-      details: `Face biometric enrolled for ${user.email}`,
+      details: `Face biometric enrolled for user ${user.id}`,
       userId: user.id,
       userEmail: user.email,
     });
@@ -503,7 +501,7 @@ router.delete("/users/:id/face", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "FACE_REMOVED",
-    details: `Face enrollment removed (biometric consent withdrawn) for ${user.email}`,
+    details: `Face enrollment removed (biometric consent withdrawn) for user ${user.id}`,
     userId: sessionUserId,
     userEmail: user.email,
   });
@@ -553,7 +551,7 @@ router.delete(
     if (before?.paymentHold) {
       await logEvent({
         eventType: "PAYMENT_HOLD_CLEARED",
-        details: `Payment hold cleared for ${user.email} by admin ${sessionUser.email}`,
+        details: `Payment hold cleared for user ${user.id} by admin ${sessionUserId}`,
         userId: sessionUserId,
         userEmail: sessionUser.email,
       });
@@ -634,7 +632,7 @@ router.post(
 
     await logEvent({
       eventType: "MFA_RESET_BY_STAFF",
-      details: `Face + passkey enrollment cleared for ${user.email} by ${sessionUser?.role} ${sessionUserId} — account routed back through enrollment`,
+      details: `Face + passkey enrollment cleared for user ${user.id} by ${sessionUser?.role} ${sessionUserId} — account routed back through enrollment`,
       userId: sessionUserId,
       userEmail: user.email,
     });
@@ -687,7 +685,7 @@ router.post(
 
     await logEvent({
       eventType: "PASSWORD_RESET_REQUESTED",
-      details: `Password reset issued for ${user.email} by ${sessionUser?.role} ${sessionUserId} (staff-initiated, not self-requested)`,
+      details: `Password reset issued for user ${user.id} by ${sessionUser?.role} ${sessionUserId} (staff-initiated, not self-requested)`,
       userId: sessionUserId,
       userEmail: user.email,
     });

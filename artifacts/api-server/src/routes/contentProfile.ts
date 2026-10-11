@@ -55,7 +55,7 @@ router.post(
       eventType: consent
         ? "CONTENT_PERSONALIZATION_CONSENT_GIVEN"
         : "CONTENT_PERSONALIZATION_CONSENT_WITHDRAWN",
-      details: `${consent ? "Granted" : "Withdrew"} consent for ${user.email}'s own uploaded text content to be read for a private personalization profile`,
+      details: `${consent ? "Granted" : "Withdrew"} consent for user ${user.id}'s own uploaded text content to be read for a private personalization profile`,
       userId,
       userEmail: user.email,
       ipAddress: getClientIp(req),

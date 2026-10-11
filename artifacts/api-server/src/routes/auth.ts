@@ -349,7 +349,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "REGISTER",
-    details: `New user registered: ${email}${isMinor ? ` (minor — age ${age}, parental consent pending from ${user.parentGuardianEmail})` : ""}; email confirmation pending`,
+    details: `New user registered: user ${user.id}${isMinor ? ` (minor — age ${age}, parental consent pending)` : ""}; email confirmation pending`,
     userId: user.id,
     userEmail: user.email,
     ipAddress: getClientIp(req),
@@ -373,7 +373,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   if (trainingConsent === true) {
     await logEvent({
       eventType: "TRAINING_CONSENT_GIVEN",
-      details: `Granted at registration for ${email}`,
+      details: `Granted at registration for user ${user.id}`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: getClientIp(req),
@@ -395,7 +395,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     const link = `/parent-consent?token=${rawToken}`;
     await logEvent({
       eventType: "MINOR_REGISTRATION_PENDING_CONSENT",
-      details: `Registration for ${email} is pending parental consent from ${user.parentGuardianEmail}`,
+      details: `Registration for user ${user.id} is pending parental consent`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: getClientIp(req),
@@ -567,7 +567,7 @@ router.post("/auth/parent-consent/verify", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "PARENT_CONSENT_GRANTED",
-    details: `Parent/guardian consent confirmed for ${user.email} (by ${user.parentGuardianEmail})`,
+    details: `Parent/guardian consent confirmed for user ${user.id}`,
     userId: user.id,
     userEmail: user.email,
     ipAddress: ip,
@@ -612,7 +612,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     );
     await logEvent({
       eventType: "RATE_LIMIT_HIT",
-      details: `Login rate limit hit for ${email} (${!emailReservation.allowed ? "account" : "IP"} threshold)`,
+      details: `Login rate limit hit (${!emailReservation.allowed ? "per-email" : "IP"} threshold)`,
       ipAddress: ip,
       userAgent: req.headers["user-agent"],
     });
@@ -631,7 +631,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     await bcrypt.compare(password, DUMMY_PASSWORD_HASH); // burn timing-equivalent work (see DUMMY_PASSWORD_HASH)
     await logEvent({
       eventType: "LOGIN_FAILED",
-      details: `Failed login attempt for ${email} — user not found`,
+      details: "Failed login attempt — no account with that email",
       ipAddress: ip,
       userAgent: req.headers["user-agent"],
     });
@@ -643,7 +643,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   if (!passwordMatch) {
     await logEvent({
       eventType: "LOGIN_FAILED",
-      details: `Failed login for ${email} — wrong password`,
+      details: `Failed login for user ${user.id} — wrong password`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -665,7 +665,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   if (riskAssessment.level !== "low") {
     await logEvent({
       eventType: "LOGIN_RISK_FLAGGED",
-      details: `Login risk ${riskAssessment.level} for ${email}: ${riskAssessment.reasons.join("; ")}`,
+      details: `Login risk ${riskAssessment.level} for user ${user.id}: ${riskAssessment.reasons.join("; ")}`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -708,7 +708,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
     await logEvent({
       eventType: "LOGIN_SUCCESS",
-      details: `Password verified for ${email}; awaiting MFA (${[user.faceEnrolled ? "face" : null, hasPasskey ? "passkey" : null].filter(Boolean).join(", ")})`,
+      details: `Password verified for user ${user.id}; awaiting MFA (${[user.faceEnrolled ? "face" : null, hasPasskey ? "passkey" : null].filter(Boolean).join(", ")})`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -744,7 +744,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
     await logEvent({
       eventType: "LOGIN_SUCCESS",
-      details: `Login successful for ${email} (no face MFA)`,
+      details: `Login successful for user ${user.id} (no face MFA)`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -894,7 +894,7 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
         }
         await logEvent({
           eventType: "LOGIN_FACE_FAILED",
-          details: `Face verification locked for ${user.email} after ${attempts} failed attempts (dist=${distance.toFixed(4)})`,
+          details: `Face verification locked for user ${user.id} after ${attempts} failed attempts (dist=${distance.toFixed(4)})`,
           userId: user.id,
           userEmail: user.email,
           ipAddress: ip,
@@ -916,7 +916,7 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
       }
       await logEvent({
         eventType: "LOGIN_FACE_FAILED",
-        details: `Face verification failed for ${user.email} (attempt ${attempts}/${MFA_MAX_ATTEMPTS}, dist=${distance.toFixed(4)})`,
+        details: `Face verification failed for user ${user.id} (attempt ${attempts}/${MFA_MAX_ATTEMPTS}, dist=${distance.toFixed(4)})`,
         userId: user.id,
         userEmail: user.email,
         ipAddress: ip,
@@ -946,7 +946,7 @@ router.post("/auth/face-verify", async (req, res): Promise<void> => {
 
     await logEvent({
       eventType: "LOGIN_FACE_SUCCESS",
-      details: `Biometric MFA passed for ${user.email} (dist=${distance.toFixed(4)})`,
+      details: `Biometric MFA passed for user ${user.id} (dist=${distance.toFixed(4)})`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -992,7 +992,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     );
     await logEvent({
       eventType: "RATE_LIMIT_HIT",
-      details: `Password reset request rate limit hit for ${email} (${!resetEmailReservation.allowed ? "account" : "IP"} threshold)`,
+      details: `Password reset request rate limit hit (${!resetEmailReservation.allowed ? "per-email" : "IP"} threshold)`,
       ipAddress: ip,
       userAgent: req.headers["user-agent"],
     });
@@ -1021,7 +1021,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     const link = `/reset-password?token=${rawToken}`;
     await logEvent({
       eventType: "PASSWORD_RESET_REQUESTED",
-      details: `Password reset requested for ${email}`,
+      details: `Password reset requested for user ${user.id}`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -1156,7 +1156,7 @@ router.post("/auth/reset-password/face", async (req, res): Promise<void> => {
       .where(eq(passwordResetTokensTable.id, record.id));
     await logEvent({
       eventType: "PASSWORD_RESET_FACE_FAILED",
-      details: `Reset face verification failed for ${user.email} (attempt ${attempts}/${RESET_MAX_ATTEMPTS}, dist=${resetDistance.toFixed(4)})`,
+      details: `Reset face verification failed for user ${user.id} (attempt ${attempts}/${RESET_MAX_ATTEMPTS}, dist=${resetDistance.toFixed(4)})`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -1181,7 +1181,7 @@ router.post("/auth/reset-password/face", async (req, res): Promise<void> => {
 
   await logEvent({
     eventType: "PASSWORD_RESET_COMPLETED",
-    details: `Password reset completed for ${user.email} (face-verified)`,
+    details: `Password reset completed for user ${user.id} (face-verified)`,
     userId: user.id,
     userEmail: user.email,
     ipAddress: ip,

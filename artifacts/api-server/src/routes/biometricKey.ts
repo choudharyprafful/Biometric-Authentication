@@ -194,7 +194,7 @@ router.post(
       .where(eq(usersTable.id, userId));
     await logEvent({
       eventType: "PASSKEY_ENROLLED",
-      details: `Device biometric key enrolled${body.deviceName ? ` (${body.deviceName})` : ""} for ${user?.email ?? userId}`,
+      details: `Device biometric key enrolled${body.deviceName ? ` (${body.deviceName})` : ""} for user ${userId}`,
       userId,
       userEmail: user?.email,
       ipAddress: getClientIp(req),
@@ -314,7 +314,7 @@ router.post(
 
     await logEvent({
       eventType: "LOGIN_PASSKEY_SUCCESS",
-      details: `Biometric key MFA passed for ${user.email} — device-held key signed the server challenge`,
+      details: `Biometric key MFA passed for user ${user.id} — device-held key signed the server challenge`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,
@@ -349,7 +349,7 @@ router.post(
       .where(eq(usersTable.id, userId));
     await logEvent({
       eventType: "DEVICE_LINK_CODE_CREATED",
-      details: `Device link code generated for ${user?.email ?? userId}`,
+      details: `Device link code generated for user ${userId}`,
       userId,
       userEmail: user?.email,
       ipAddress: getClientIp(req),
@@ -450,7 +450,7 @@ router.post(
 
     await logEvent({
       eventType: "DEVICE_LINK_REDEEMED",
-      details: `New device linked and biometric key enrolled for ${user.email}${body.deviceName ? ` (${body.deviceName})` : ""}`,
+      details: `New device linked and biometric key enrolled for user ${user.id}${body.deviceName ? ` (${body.deviceName})` : ""}`,
       userId: user.id,
       userEmail: user.email,
       ipAddress: ip,

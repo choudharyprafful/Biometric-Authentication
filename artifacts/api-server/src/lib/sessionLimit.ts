@@ -73,7 +73,6 @@ export async function computeAccountSharingAlerts(): Promise<SecurityAlert[]> {
   const rows = await db
     .select({
       userId: securityLogsTable.userId,
-      email: securityLogsTable.userEmail,
       n: count(),
     })
     .from(securityLogsTable)
@@ -83,13 +82,13 @@ export async function computeAccountSharingAlerts(): Promise<SecurityAlert[]> {
         gte(securityLogsTable.timestamp, since),
       ),
     )
-    .groupBy(securityLogsTable.userId, securityLogsTable.userEmail);
+    .groupBy(securityLogsTable.userId);
   return rows
     .filter((r) => r.n >= SHARING_ALERT_THRESHOLD)
     .map((r) => ({
       id: `account-sharing:${r.userId}`,
       severity: "medium" as const,
-      message: `Possible account sharing: ${r.email ?? `account ${r.userId}`} hit its device limit ${r.n} times in the last 24 hours`,
+      message: `Possible account sharing: user #${r.userId} hit its device limit ${r.n} times in the last 24 hours`,
       count: r.n,
       windowMinutes: 24 * 60,
     }));
