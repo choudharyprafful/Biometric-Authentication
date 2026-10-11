@@ -32,6 +32,12 @@ flowchart LR
         U -->|card details, simulated| Tokenise["Server generates tok_* provider token<br/>(raw card data never persisted)"]
         Tokenise --> EncPay["AES-256-GCM encrypt token"]
         EncPay --> PayDB[("payments table")]
+
+        U -->|new password, sign-up or reset| PwCheck["breachedPasswords.ts: bundled common list,<br/>then Have I Been Pwned's range API<br/>(only 5 characters of the SHA-1 hash leave the server)"]
+        PwCheck --> Hash["bcrypt, cost 12"]
+        Hash --> UsersDB
+        U -->|sign-up| Confirm["Confirmation link emailed (SMTP);<br/>only its SHA-256 is stored, 24 hours, single use"]
+        Confirm --> TokensDB[("email_verification_tokens")]
     end
 
     subgraph BehaviorReal["Built and running — the live behavior-model training pipeline"]
@@ -58,6 +64,11 @@ flowchart LR
         Model -.->|inference only, in this PoC| Personalise["Personalised output to user"]
     end
 ```
+
+Two outbound flows were added on 2026-10-12. The breached-password check (R-AUTH-10) sends Have I Been
+Pwned the first 5 characters of a new password's SHA-1 hash and nothing else: no email, no account, and
+padding so the response size gives nothing away. The confirmation email (R-PAY-5) goes through the same
+SMTP account as the reset and breach-notice email. Neither sends anything a model trains on.
 
 ## Design decisions for the training pipeline — real (behavior model) vs. assumed (content-based)
 

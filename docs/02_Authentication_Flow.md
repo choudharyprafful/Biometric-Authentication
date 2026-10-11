@@ -13,9 +13,13 @@ sequenceDiagram
 
     U->>A: POST /auth/register {email, name, password, dataConsent: true}
     A->>A: Reject with 400 if dataConsent != true
+    A->>A: Reject with 400 PASSWORD_NOT_ALLOWED if the password is common,<br/>breached (Have I Been Pwned, first 5 hash characters only) or contains the email's name
     A->>A: bcrypt.hash(password, 12)
-    A->>DB: INSERT users (dataConsentGiven=true, dataConsentAt=now)
-    A-->>U: 201 {user, session cookie}
+    A->>DB: INSERT users (dataConsentGiven=true, dataConsentAt=now, emailVerified=false)
+    A->>DB: INSERT email_verification_tokens (SHA-256 of the link, 24 hours)
+    A-->>U: 201 {user, session cookie} — and the link is emailed
+    U->>A: POST /auth/verify-email {token} (from the emailed link, any device)
+    A->>DB: UPDATE users SET emailVerified=true — uploads and payments now open
 
     Note over U,A: Every subsequent protected request is blocked by<br/>requireMfaEnrolled until AT LEAST ONE step below is done.
 
@@ -155,6 +159,13 @@ regardless of what the client claims. This is why:
   the passkey signature. See `04_Threat_Model_Risk_Assessment.md` (R-BIO-1) for the honest boundary.
 - The password-reset flow requires the _same_ proof as login — a reset link alone is never sufficient,
   closing the classic "account recovery becomes the MFA bypass" failure mode.
+- **New passwords** (sign-up and both reset paths) must be at least 8 characters and are refused if they
+  are among SecLists' most common passwords, appear in Have I Been Pwned (only the first 5 characters of
+  the SHA-1 hash leave the server; if it doesn't answer, the bundled list alone applies), or contain the
+  email's name or "SecureAI": NIST SP 800-63B §5.1.1.2, R-AUTH-10 (`lib/breachedPasswords.ts`).
+- **Email confirmation** (R-PAY-5): a new account can sign in, set up MFA and use every privacy right at
+  once, but uploads and payments wait until the emailed link is opened (`requireVerifiedEmail`). The link
+  is single use and lasts 24 hours; a signed-in account can ask for a new one 3 times an hour.
 
 ## Session model
 
