@@ -18,6 +18,8 @@ const COMMON_PASSWORDS = new Set(
   commonPasswordList.passwords.map((p) => p.toLowerCase()),
 );
 
+export const COMMON_PASSWORD_COUNT = COMMON_PASSWORDS.size;
+
 const RANGE_API = "https://api.pwnedpasswords.com/range/";
 const LOOKUP_TIMEOUT_MS = 2500;
 

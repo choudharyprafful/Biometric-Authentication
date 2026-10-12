@@ -490,6 +490,10 @@ this computer (Windows Hello) or a phone. Sign out and back in to show the two-s
 
 Where each feature shows (the account's history already has an example of each):
 
+Start here
+- Security Center (staff menu): every backend control's live state and evidence on one page,
+  with a "See it" link to each. Needs the passkey set up first.
+
 Sign-in and accounts
 - Breached and common passwords refused: Register page, try "Password123!".
 - Email confirmation: register a new account to see the banner and the "Send a new link" button.

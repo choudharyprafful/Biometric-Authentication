@@ -294,6 +294,7 @@ async function probeAuthBypass() {
     "/api/legal-holds",
     "/api/users/me/export/readable",
     "/api/users/me/breach-notices",
+    "/api/security/controls",
   ]) {
     const anonRes = await fetch(`${BASE}${path}`, {
       headers: { Origin: BASE },
@@ -587,6 +588,17 @@ async function probePaymentInputBounds() {
     "Email verification: the emailed link confirms the address once, and can't be used again",
     confirmed === 200 && reused === 400,
     `first ${confirmed}, second ${reused}${link ? "" : " (no dev link; NODE_ENV must be development)"}`,
+  );
+
+  // With MFA set up and the email confirmed, only the role check stands between this regular
+  // account and the Security Center (every control's live state).
+  const controls = await fetch(`${BASE}/api/security/controls`, {
+    headers: { Origin: BASE, Cookie: session.cookies },
+  });
+  record(
+    "regular user with MFA -> staff-only /api/security/controls",
+    controls.status === 403,
+    `got ${controls.status}`,
   );
 
   const attempts: { label: string; body: Record<string, unknown> }[] = [

@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Users,
   Activity,
+  Radar,
   AlertTriangle,
   CreditCard,
   Lock,
@@ -41,6 +42,12 @@ const navItems = [
     label: "Users",
     icon: Users,
     roles: ["admin", "it_support"],
+  },
+  {
+    href: "/security-center",
+    label: "Security Center",
+    icon: Radar,
+    roles: ["security_analyst", "admin"],
   },
   {
     href: "/security-logs",

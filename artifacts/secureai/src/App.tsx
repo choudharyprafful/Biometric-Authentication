@@ -18,6 +18,7 @@ import Payments from "./pages/Payments";
 import Uploads from "./pages/Uploads";
 import DataProtection from "./pages/DataProtection";
 import AiSecurity from "./pages/AiSecurity";
+import SecurityCenter from "./pages/SecurityCenter";
 import ResponsibleAi from "./pages/ResponsibleAi";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ReportContent from "./pages/ReportContent";
@@ -45,6 +46,11 @@ function Router() {
       <Route path="/users">
         <Layout>
           <Users />
+        </Layout>
+      </Route>
+      <Route path="/security-center">
+        <Layout>
+          <SecurityCenter />
         </Layout>
       </Route>
       <Route path="/security-logs">

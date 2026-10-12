@@ -76,6 +76,7 @@ import type {
   ResetPasswordResult,
   ResolveAiChallengeInput,
   ResolveBystanderReportInput,
+  SecurityControlsReport,
   SecurityDashboard,
   SecurityLog,
   SetAiSystemStateInput,
@@ -1725,6 +1726,84 @@ export const useStaffResetPassword = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getStaffResetPasswordMutationOptions(options));
     }
+
+export const getGetSecurityControlsUrl = () => {
+
+
+
+
+  return `/api/security/controls`
+}
+
+/**
+ * Security analysts and administrators only. Only states, counts, limits and header values; no keys, passwords, addresses or tokens. Re-verifies the audit chain, so it is rate-limited (30 per 5 minutes).
+ * @summary The Security Center — every backend control's live state, with evidence
+ */
+export const getSecurityControls = async ( options?: Parameters<typeof customFetch>[1]): Promise<SecurityControlsReport> => {
+
+  return customFetch<SecurityControlsReport>(getGetSecurityControlsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSecurityControlsQueryKey = () => {
+    return [
+    `/api/security/controls`
+    ] as const;
+    }
+
+
+export const getGetSecurityControlsQueryOptions = <TData = Awaited<ReturnType<typeof getSecurityControls>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSecurityControlsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSecurityControls>>> = ({ signal }) => getSecurityControls({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSecurityControls>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSecurityControlsQueryResult = NonNullable<Awaited<ReturnType<typeof getSecurityControls>>>
+export type GetSecurityControlsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary The Security Center — every backend control's live state, with evidence
+ */
+
+export function useGetSecurityControls<TData = Awaited<ReturnType<typeof getSecurityControls>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSecurityControlsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSecurityDashboardUrl = () => {
 
