@@ -365,9 +365,12 @@ active alerts, privacy records, the API's own security headers, the AI switches 
 model's privacy limits. It returns states, counts and limits only, never keys, passwords, addresses or
 tokens, and sits behind the same second-factor and role checks as the audit log (the probes confirm 401
 when signed out and 403 for a regular account with a second factor). Each load re-verifies the chain,
-so it is rate-limited to 30 requests per 5 minutes. A second tab lists all 86 security features
-(`artifacts/secureai/src/lib/securityFeatures.ts`), each with where to see it and, for the 50 a live check
-covers, that check's status.
+so it is rate-limited to 30 requests per 5 minutes. Another tab lists all 86 security features
+(`artifacts/secureai/src/lib/securityFeatures.ts`), each with where to see it, how it is built and the
+files that implement it (added 2026-10-13, every explanation checked against the code), and, for the 50
+a live check covers, that check's status. The same list is generated into
+[docs/13](13_Security_Features.md) by `scripts/generate-security-features-doc.mjs`, and CI fails if the
+two differ.
 
 ### Payments
 

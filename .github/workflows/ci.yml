@@ -56,6 +56,8 @@ jobs:
       - run: shellcheck artifacts/api-server/.platform/hooks/prebuild/10_clamav.sh
       # The privacy policy text and the version the API records must match.
       - run: node scripts/check-privacy-policy-version.mjs
+      # docs/13 is generated from the Security Center's feature list, and must match it.
+      - run: node scripts/generate-security-features-doc.mjs --check
 
   semgrep-sast:
     name: Semgrep SAST scan (real tool, not the adversarial-probe substitute)

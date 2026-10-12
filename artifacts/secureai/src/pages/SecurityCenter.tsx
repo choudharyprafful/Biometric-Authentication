@@ -27,6 +27,7 @@ import {
   Smartphone,
   GitBranch,
   Search,
+  ChevronRight,
 } from "lucide-react";
 
 // Every security feature (lib/securityFeatures.ts), and every backend control's live state
@@ -106,16 +107,37 @@ function ControlCard({ control }: { control: SecurityControl }) {
   );
 }
 
+// Backticks in a feature's `how` mark code: set in the code face here, and code spans in docs/13.
+function WithCode({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("`").map((part, i) =>
+        i % 2 === 1 ? (
+          <code key={`${i}:${part}`} className="font-mono text-[12px]">
+            {part}
+          </code>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 function FeatureCard({
   number,
   feature,
   control,
+  defaultOpen,
 }: {
   number: number;
   feature: SecurityFeature;
   control: SecurityControl | undefined;
+  defaultOpen: boolean;
 }) {
   const status = control ? STATUS[control.status] : null;
+  const [open, setOpen] = useState(defaultOpen);
+  const howId = `feature-${number}-how`;
   return (
     <Card className="space-y-2 p-5" data-testid={`feature-${number}`}>
       <div className="flex items-start justify-between gap-3">
@@ -135,12 +157,58 @@ function FeatureCard({
       </div>
       <p className="text-sm text-muted-foreground">{feature.detail}</p>
       <WhereToSee where={feature.where} label={feature.whereLabel} />
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={howId}
+        onClick={() => setOpen((o) => !o)}
+        data-testid={`feature-${number}-how-toggle`}
+        className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
+      >
+        <ChevronRight
+          className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-90" : ""}`}
+        />
+        How it's built
+      </button>
+      <div
+        id={howId}
+        hidden={!open}
+        className="space-y-2 border-t border-border/60 pt-3"
+      >
+        <p className="text-sm text-foreground break-words">
+          <WithCode text={feature.how} />
+        </p>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Code
+        </p>
+        <ul className="space-y-1">
+          {feature.code.map((file) => (
+            <li
+              key={file}
+              className="font-mono text-[11px] text-muted-foreground [overflow-wrap:anywhere]"
+            >
+              {/* Long paths wrap after a slash rather than mid-name. */}
+              {file.split("/").map((segment, i) => (
+                <React.Fragment key={`${i}:${segment}`}>
+                  {i > 0 && (
+                    <>
+                      /<wbr />
+                    </>
+                  )}
+                  {segment}
+                </React.Fragment>
+              ))}
+            </li>
+          ))}
+        </ul>
+      </div>
     </Card>
   );
 }
 
 function AllFeatures({ controls }: { controls: Map<string, SecurityControl> }) {
   const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const numbered = useMemo(() => {
     let n = 0;
     return SECURITY_FEATURE_AREAS.map((area) => ({
@@ -149,33 +217,51 @@ function AllFeatures({ controls }: { controls: Map<string, SecurityControl> }) {
     }));
   }, []);
   const q = query.trim().toLowerCase();
+  // A feature found only through how it's built (a file name, say) opens, so the match is visible.
   const visible = numbered
     .map((area) => ({
       ...area,
-      features: area.features.filter(
-        ({ feature }) =>
-          !q ||
-          `${area.title} ${feature.name} ${feature.detail}`
-            .toLowerCase()
-            .includes(q),
-      ),
+      features: area.features
+        .map(({ feature, number }) => {
+          const summary = `${area.title} ${feature.name} ${feature.detail}`;
+          const built = `${feature.how.replaceAll("`", "")} ${feature.code.join(" ")}`;
+          const inSummary = summary.toLowerCase().includes(q);
+          return {
+            feature,
+            number,
+            matches: !q || inSummary || built.toLowerCase().includes(q),
+            matchedInside: !!q && !inSummary,
+          };
+        })
+        .filter((f) => f.matches),
     }))
     .filter((area) => area.features.length > 0);
 
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <label className="flex items-center gap-2 border border-border bg-card px-3 py-2 max-w-md">
-          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-          <input
-            id="security-feature-search"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search features, e.g. passkey, refund, GPS"
-            className="w-full bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground"
-          />
-        </label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="flex flex-1 items-center gap-2 border border-border bg-card px-3 py-2 max-w-md">
+            <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+            <input
+              id="security-feature-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search features and code, e.g. refund, bcrypt"
+              className="w-full bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-pressed={showAll}
+            onClick={() => setShowAll((s) => !s)}
+            data-testid="security-features-show-how"
+          >
+            {showAll ? "Hide how each is built" : "Show how each is built"}
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-2">
           {numbered.map((area) => (
             <button
@@ -214,9 +300,10 @@ function AllFeatures({ controls }: { controls: Map<string, SecurityControl> }) {
               </span>
             </h2>
             <div className="grid gap-3 md:grid-cols-2">
-              {area.features.map(({ feature, number }) => (
+              {area.features.map(({ feature, number, matchedInside }) => (
+                // The key resets a card to the new default when "show all" or the match changes.
                 <FeatureCard
-                  key={number}
+                  key={`${number}-${showAll}-${matchedInside}`}
                   number={number}
                   feature={feature}
                   control={
@@ -224,6 +311,7 @@ function AllFeatures({ controls }: { controls: Map<string, SecurityControl> }) {
                       ? controls.get(feature.controlId)
                       : undefined
                   }
+                  defaultOpen={showAll || matchedInside}
                 />
               ))}
             </div>
@@ -306,8 +394,8 @@ export default function SecurityCenter() {
             Security Center
           </h1>
           <p className="text-sm font-mono text-muted-foreground uppercase tracking-wider mt-2">
-            {SECURITY_FEATURE_COUNT} security features, and the server's own
-            live checks
+            {SECURITY_FEATURE_COUNT} security features, how each is built, and
+            the server's own live checks
           </p>
           {report.data && (
             <div className="flex flex-wrap gap-2 mt-4">
