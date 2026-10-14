@@ -27,6 +27,9 @@ audio aren't used by any AI feature at all (privacy policy section 5, `lib/dataP
 There is still no mechanism for the bystanders themselves: neither their consent nor redaction, for a
 photo or video that shows them. That policy call is on the §6 agenda.
 
+**Update 2026-10-15: answered.** Team 2's Bystander Consent Policy settled it, and the app now follows it:
+see §5h. The rest of this section is kept as the record of the question.
+
 The gap that matters most: third-party consent has no technical mechanism at all yet, not even a
 placeholder. This is explicitly in scope for Team 2 twice over — both as one of the three things that
 make the app _ethically tricky_ ("a user can only consent to their own data... your consent and
@@ -413,12 +416,55 @@ Team 2 may want to confirm:
 - that keeping copies through a person's own deletion, without telling them each time, is acceptable. Some
   orders forbid telling, and the policy says that it happens.
 
+## 5h. 2026-10-15: the Bystander Consent Policy, and Team 2's tests (privacy policy version 2026-10-15)
+
+Team 2's Bystander Consent Policy answers §1's open question. What the app does, section by section of the
+policy (rules in `lib/dataProvenance.ts`, `assessPeopleRules`):
+
+- **Section 3, how a bystander is identified.** Every upload asks "Does it show or name anyone else?", on the
+  web and (from 2026-10-15) in the phone app, and the answer can be changed later. Nothing scans files for
+  faces, voices or names, as section 3.1 decides.
+- **Section 4, handling.**
+  - Someone under 18 overrides every other answer: no feature uses the file.
+  - Someone with a SecureAI account (from 2026-10-15) is asked in their own account and answers the
+    uploader's topic profile and shared training separately. Until all such people agree, no feature uses
+    the file (docs/04 R-PRIV-10).
+  - Someone the uploader has told, someone they can't contact, or someone who has died: the uploader's own
+    topic profile only, never anything shared. A statement and its date are kept for someone told.
+- **Section 5, "personalisation-only".** Nothing shared learns from file content today. The answer is stored
+  with each file, so anything that ever does has to honour it.
+- **Section 6, objecting without an account.** `/report-content`, linked from the sign-in page: on a valid
+  report staff pause the file, so nothing uses it, and tell the uploader.
+- **Section 7, records.** Every declaration is logged (`BYSTANDERS_DECLARED`), reports are kept separately
+  with their outcome, and both appear in the person's data download.
+
+Team 2's Compliance Test Plan and scenario script are answered test by test in docs/14, with three fixes
+made for them: an offer to delete the files personalisation read when it is withdrawn (R-PRIV-11), a notice
+naming voice cloning before audio or video is uploaded, and a fairness spot-check that found and fixed the
+topic profile failing writers in other languages (R-ML-12).
+
+Privacy policy version 2026-10-15 changes:
+
+- **Section 2** adds a row for other people in a file: what the uploader tells us, and the email addresses
+  of people asked, which are never confirmed as accounts and are deleted with the file.
+- **Section 5** explains the people question, what each answer means, asking people with an account, and
+  the report page.
+- **Section 6** says a file showing someone under 18 is used by no feature.
+- **Section 11** says withdrawing the topic profile offers to delete the files it read.
+
+Team 2 may want to confirm:
+
+- that one answer for the whole file (the strictest decides) is acceptable for scenario step 3, rather than
+  separate outcomes for each person in a photo;
+- the withdrawal wording (docs/14 section 4): with no stored model, "nothing remains" is accurate, so the
+  "may persist until retraining" caution is not shown.
+
 ## 6. Week 10: agenda for the final sync with Team 2
 
 Everything still open for Team 2, from the sections above, in one place (issue #7):
 
-1. **Third-party consent** (§1): what should the app ask, or refuse, when an upload shows people who never
-   agreed to anything? The AI features already exclude such content, but storage still holds it.
+1. **Third-party consent** (§1): **answered 2026-10-15** by the Bystander Consent Policy, built as described
+   in §5h.
 2. **A real privacy contact, and legal review** (§5c). `privacy@secureai.example` is a placeholder. The
    APP 8 safeguards for storing Australians' data in the United States, and a legal review of the policy,
    are still needed (docs/10).

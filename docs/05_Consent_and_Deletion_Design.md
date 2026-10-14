@@ -432,6 +432,24 @@ meaningfully higher than the term spread across all three, isolating and confirm
 not just that the feature still produces output. Consent model, scope (text-only), and deletion behaviour
 are all unchanged by this — only the ranking mathematics improved.
 
+### 5d. Withdrawing personalisation, and the files it read (added 2026-10-15)
+
+Withdrawing the topic profile's consent stops it on the next request, in one click, as before. Team 2's
+Weeks 3-4 framework (section 7) also expects the stored entries to go, so the app then offers to delete
+the text files the profile read: `DELETE /users/me/content-profile/files` (Security Settings on the web,
+Privacy & Your Data in the phone app). It deletes exactly the files `profileFilesCondition` lets the profile
+read, keeping legal-hold copies as every deletion does (§8). The profile itself was never stored, so there
+is nothing further to unlearn (docs/04 R-PRIV-11).
+
+### 5e. People in a file who have an account (added 2026-10-15)
+
+Team 2's Bystander Consent Policy, section 4, first row: someone in a file who has their own account is
+asked directly (`lib/bystanderConsent.ts`, table `bystander_consent_requests`). They answer the uploader's
+topic profile and shared training separately, and can change either answer at any time; no feature uses the
+file until every such person has agreed to that use. Deleting the file deletes its requests; deleting the
+answering account deletes its answers, which leaves the file unused again. The uploader is never told
+whether an address belongs to an account (docs/04 R-PRIV-10).
+
 ## 6. Honest limits (per the brief's "design an approach and be honest about its limits" instruction)
 
 1. No model to un-learn from — in the live app: the web/API application itself still doesn't train a
