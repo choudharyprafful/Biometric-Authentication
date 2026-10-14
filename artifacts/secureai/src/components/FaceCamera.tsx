@@ -218,7 +218,7 @@ export function FaceCamera({
   }, [isCameraReady, isModelsLoaded, isProcessing, autoCapture, onCapture]);
 
   const handleCapture = useCallback(async () => {
-    if (!videoRef.current || !onCapture) return;
+    if (!videoRef.current || !onCapture || !blinkConfirmedRef.current) return;
     setIsProcessing(true);
 
     try {
