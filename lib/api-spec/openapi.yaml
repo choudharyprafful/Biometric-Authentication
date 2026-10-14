@@ -1599,6 +1599,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/me/content-profile/files:
+    delete:
+      operationId: deleteContentProfileFiles
+      tags: [content-profile]
+      summary: Delete the text files the personalization profile reads, for example when withdrawing consent
+      description: Deletes every file the profile would read (this account's own text files that the acceptability matrix and the people rules allow), the same way as deleting each one from the vault. Other files are untouched.
+      responses:
+        "200":
+          description: Files deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedFilesResult"
+        "403":
+          description: MFA enrollment or parental consent required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /payments:
     get:
       operationId: listPayments
@@ -2204,6 +2230,15 @@ components:
         disabled:
           description: True when an administrator has switched personalisation off (see GET /ai/systems)
           type: boolean
+
+    DeletedFilesResult:
+      type: object
+      required: [deletedCount]
+      properties:
+        deletedCount:
+          description: How many files were deleted
+          type: integer
+          minimum: 0
 
     SuggestedActionResult:
       type: object

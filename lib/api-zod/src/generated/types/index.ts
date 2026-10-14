@@ -67,6 +67,7 @@ export * from './dataBreach';
 export * from './dataBreachAssessment';
 export * from './dataBreachNextStep';
 export * from './dataExport';
+export * from './deletedFilesResult';
 export * from './deleteUserConfirmation';
 export * from './deletionAuditEntry';
 export * from './disclosureCategory';

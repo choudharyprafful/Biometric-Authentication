@@ -21,7 +21,7 @@
  * removal, so a surfaced phrase reflects real adjacency in the source.
  */
 
-import { and, eq, desc, or, isNull, sql } from "drizzle-orm";
+import { and, eq, desc, or, isNull, sql, type SQL } from "drizzle-orm";
 import { trainableCombinations } from "./dataProvenance";
 import { db, uploadsTable, usersTable } from "@workspace/db";
 import { decryptFile } from "./fileEncryption";
@@ -180,6 +180,39 @@ function extractTerms(text: string): string[] {
   return terms;
 }
 
+/**
+ * The account's files the profile is allowed to read, as a query condition; undefined when the
+ * matrix currently admits nothing. The profile and "delete the files it used" (routes/
+ * contentProfile.ts) both use this, so the files offered for deletion are exactly the ones read.
+ *
+ * Eligibility comes from Team 2's acceptability matrix rather than a hardcoded file-type test. The
+ * set this resolves to is currently {own_work + text}, which is what the previous
+ * `fileType = "text"` filter happened to select — but only on one of the two axes the matrix
+ * defines. The source axis was absent entirely, so an uploaded copy of a published book was
+ * indistinguishable from the uploader's own diary. Deriving the filter from
+ * trainableCombinations() means a matrix revision changes this query without anyone remembering
+ * to come back and edit it.
+ */
+export function profileFilesCondition(userId: number): SQL | undefined {
+  const eligible = trainableCombinations();
+  if (eligible.length === 0) return undefined;
+  return and(
+    eq(uploadsTable.userId, userId),
+    // Team 2's Bystander Consent Policy (dataProvenance.ts assessPeopleRules): a file that shows
+    // someone under 18, or that someone in it has asked us to review, is used by no feature.
+    sql`NOT (coalesce(${uploadsTable.bystanders}, '{}'::text[]) @> ARRAY['minor']::text[])`,
+    isNull(uploadsTable.pausedForReviewAt),
+    or(
+      ...eligible.map((combo) =>
+        and(
+          eq(uploadsTable.contentSource, combo.source),
+          eq(uploadsTable.fileType, combo.fileType),
+        ),
+      ),
+    ),
+  );
+}
+
 /** Returns an empty profile — not an error — if consent isn't given or no
  *  text uploads exist. */
 export async function buildContentProfile(
@@ -194,16 +227,8 @@ export async function buildContentProfile(
     return { keywords: [], documentsConsidered: 0, builtAt: new Date() };
   }
 
-  // Eligibility comes from Team 2's acceptability matrix rather than a
-  // hardcoded file-type test. The set this resolves to is currently
-  // {own_work + text}, which is what the previous `fileType = "text"` filter
-  // happened to select — but only on one of the two axes the matrix defines.
-  // The source axis was absent entirely, so an uploaded copy of a published
-  // book was indistinguishable from the uploader's own diary. Deriving the
-  // filter from trainableCombinations() means a matrix revision changes this
-  // query without anyone remembering to come back and edit it.
-  const eligible = trainableCombinations();
-  if (eligible.length === 0) {
+  const readable = profileFilesCondition(userId);
+  if (!readable) {
     return { keywords: [], documentsConsidered: 0, builtAt: new Date() };
   }
 
@@ -214,23 +239,7 @@ export async function buildContentProfile(
       authTag: uploadsTable.authTag,
     })
     .from(uploadsTable)
-    .where(
-      and(
-        eq(uploadsTable.userId, userId),
-        // Team 2's Bystander Consent Policy (dataProvenance.ts assessPeopleRules): a file that shows
-        // someone under 18, or that someone in it has asked us to review, is used by no feature.
-        sql`NOT (coalesce(${uploadsTable.bystanders}, '{}'::text[]) @> ARRAY['minor']::text[])`,
-        isNull(uploadsTable.pausedForReviewAt),
-        or(
-          ...eligible.map((combo) =>
-            and(
-              eq(uploadsTable.contentSource, combo.source),
-              eq(uploadsTable.fileType, combo.fileType),
-            ),
-          ),
-        ),
-      ),
-    )
+    .where(readable)
     .orderBy(desc(uploadsTable.createdAt))
     .limit(MAX_DOCUMENTS);
 

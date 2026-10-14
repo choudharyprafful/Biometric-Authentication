@@ -41,6 +41,7 @@ import type {
   DataBreach,
   DataExport,
   DeleteUserConfirmation,
+  DeletedFilesResult,
   DeletionAuditEntry,
   ErrorResponse,
   FaceEnrollment,
@@ -4419,6 +4420,78 @@ export function useGetContentProfile<TData = Awaited<ReturnType<typeof getConten
 
 
 
+
+export const getDeleteContentProfileFilesUrl = () => {
+
+
+
+
+  return `/api/users/me/content-profile/files`
+}
+
+/**
+ * Deletes every file the profile would read (this account's own text files that the acceptability matrix and the people rules allow), the same way as deleting each one from the vault. Other files are untouched.
+ * @summary Delete the text files the personalization profile reads, for example when withdrawing consent
+ */
+export const deleteContentProfileFiles = async ( options?: Parameters<typeof customFetch>[1]): Promise<DeletedFilesResult> => {
+
+  return customFetch<DeletedFilesResult>(getDeleteContentProfileFilesUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteContentProfileFilesMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteContentProfileFiles>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteContentProfileFiles>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteContentProfileFiles'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteContentProfileFiles>>, void> = () => {
+
+
+          return  deleteContentProfileFiles(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteContentProfileFilesMutationResult = NonNullable<Awaited<ReturnType<typeof deleteContentProfileFiles>>>
+
+    export type DeleteContentProfileFilesMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete the text files the personalization profile reads, for example when withdrawing consent
+ */
+export const useDeleteContentProfileFiles = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteContentProfileFiles>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteContentProfileFiles>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteContentProfileFilesMutationOptions(options));
+    }
 
 export const getListPaymentsUrl = () => {
 

@@ -1671,6 +1671,19 @@ export const GetContentProfileResponse = zod.object({
 
 
 /**
+ * Deletes every file the profile would read (this account's own text files that the acceptability matrix and the people rules allow), the same way as deleting each one from the vault. Other files are untouched.
+ * @summary Delete the text files the personalization profile reads, for example when withdrawing consent
+ */
+export const deleteContentProfileFilesResponseDeletedCountMin = 0;
+
+
+
+export const DeleteContentProfileFilesResponse = zod.object({
+  "deletedCount": zod.number().int().min(deleteContentProfileFilesResponseDeletedCountMin).describe('How many files were deleted')
+})
+
+
+/**
  * @summary List all payments
  */
 export const ListPaymentsResponseItem = zod.object({

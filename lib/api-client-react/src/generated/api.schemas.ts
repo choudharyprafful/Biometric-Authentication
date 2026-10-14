@@ -36,6 +36,14 @@ export interface ContentProfileResult {
   disabled: boolean;
 }
 
+export interface DeletedFilesResult {
+  /**
+     * How many files were deleted
+     * @minimum 0
+     */
+  deletedCount: number;
+}
+
 /**
  * Whether the prediction came from the 2-event context (2, more specific/accurate) or fell back to the single-last-event table (1). Null if suggestion is null.
  * @nullable
