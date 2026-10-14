@@ -1042,9 +1042,56 @@ export interface AiPocReport {
   driftRisk: AiModelDriftRisk;
 }
 
+export interface TopicFairnessResult {
+  /** Percentage of the writer's words the tokenizer kept whole */
+  wordsRead: number;
+  topics: number;
+  /** Topics that are broken pieces of words rather than words the person wrote */
+  fragments: string[];
+  /** The first few topics */
+  sample: string[];
+}
+
+export type TopicFairnessPersonaVerdict = typeof TopicFairnessPersonaVerdict[keyof typeof TopicFairnessPersonaVerdict];
+
+
+export const TopicFairnessPersonaVerdict = {
+  consistent: 'consistent',
+  degraded: 'degraded',
+} as const;
+
+export interface TopicFairnessPersona {
+  id: string;
+  label: string;
+  language: string;
+  before: TopicFairnessResult;
+  secureai: TopicFairnessResult;
+  verdict: TopicFairnessPersonaVerdict;
+}
+
+export type TopicFairnessReportSummary = {
+  consistent: number;
+  degraded: number;
+  /** How many writers the tokenizer used before 2026-10-15 served badly */
+  degradedBefore: number;
+};
+
+/**
+ * Team 2's risk R13 spot-check of the personal topic profile, run on synthetic writers on every request
+ */
+export interface TopicFairnessReport {
+  ranAt: string;
+  model: string;
+  question: string;
+  personas: TopicFairnessPersona[];
+  summary: TopicFairnessReportSummary;
+  limits: string[];
+}
+
 export interface AiSecurityReport {
   live: AiLiveModelValidation;
   poc: AiPocReport;
+  fairness: TopicFairnessReport;
 }
 
 export type AiSystemId = typeof AiSystemId[keyof typeof AiSystemId];

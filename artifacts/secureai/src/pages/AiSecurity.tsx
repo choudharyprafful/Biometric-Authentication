@@ -8,6 +8,8 @@ import {
   type AiPromptInjectionRisk,
   type AiPoisoningRisk,
   type AiModelDriftRisk,
+  type TopicFairnessReport,
+  type TopicFairnessResult,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -26,6 +28,7 @@ import {
   RefreshCw,
   FlaskConical,
   Terminal,
+  Scale,
 } from "lucide-react";
 
 // Output the models produce, shown as text: event names come back with underscores, PoC outputs can be empty.
@@ -622,6 +625,95 @@ function DriftRiskCard({ risk }: { risk: AiModelDriftRisk }) {
     </Card>
   );
 }
+function FairnessCell({ result }: Readonly<{ result: TopicFairnessResult }>) {
+  return (
+    <div className="space-y-0.5">
+      <p className="tabular-nums">
+        {result.wordsRead}% read · {result.topics} topics
+      </p>
+      {result.fragments.length > 0 && (
+        <p className="text-destructive">
+          Broken words: {result.fragments.slice(0, 3).join(", ")}
+          {result.fragments.length > 3 ? "…" : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Team 2's Compliance Test Plan, risk R13: the same diary, written by synthetic people in different
+// languages, through the real topic profile code (the API's lib/topicFairness.ts).
+function FairnessSection({
+  report,
+}: Readonly<{ report: TopicFairnessReport }>) {
+  return (
+    <section className="space-y-4" data-testid="ai-fairness">
+      <div>
+        <h2 className="font-mono font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
+          <Scale className="w-5 h-5 text-primary" /> Fairness spot-check: topic
+          profile
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+          {report.question} Run on every load, through the same code as each
+          person's own profile ({report.model}). "Before" is the word splitter
+          used until 15 Oct 2026, which only understood the letters a–z; this
+          check, from Team 2's test plan (risk R13), is what found it.{" "}
+          {report.summary.consistent} of {report.personas.length} writers now
+          get a consistent profile; {report.summary.degradedBefore} did not
+          before.
+        </p>
+      </div>
+      <Card className="p-0 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Writer</TableHead>
+              <TableHead>Before</TableHead>
+              <TableHead>Now</TableHead>
+              <TableHead>Topics now</TableHead>
+              <TableHead>Result</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {report.personas.map((p) => (
+              <TableRow key={p.id} data-testid={`fairness-${p.id}`}>
+                <TableCell className="text-xs">{p.label}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  <FairnessCell result={p.before} />
+                </TableCell>
+                <TableCell className="text-xs">
+                  <FairnessCell result={p.secureai} />
+                </TableCell>
+                <TableCell
+                  className="text-xs"
+                  lang={p.id === "en-names" ? "en" : p.id}
+                  dir="auto"
+                >
+                  {p.secureai.sample.join(", ")}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      p.verdict === "consistent" ? "success" : "destructive"
+                    }
+                  >
+                    {p.verdict === "consistent" ? "Consistent" : "Degraded"}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+      <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1 max-w-3xl">
+        {report.limits.map((limit) => (
+          <li key={limit}>{limit}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function AiSecurity() {
   const { data, isLoading, isFetching, error, refetch } =
     useGetAiSecurityReport({
@@ -746,6 +838,8 @@ export default function AiSecurity() {
           ))}
         </div>
       </section>
+
+      <FairnessSection report={data.fairness} />
 
       <section className="space-y-4">
         <div>

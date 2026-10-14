@@ -1348,7 +1348,36 @@ export const GetAiSecurityReportResponse = zod.object({
 }),
   "categories": zod.array(zod.string())
 })
-})
+}),
+  "fairness": zod.object({
+  "ranAt": zod.coerce.date(),
+  "model": zod.string(),
+  "question": zod.string(),
+  "personas": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "language": zod.string(),
+  "before": zod.object({
+  "wordsRead": zod.number().int().describe('Percentage of the writer\'s words the tokenizer kept whole'),
+  "topics": zod.number().int(),
+  "fragments": zod.array(zod.string()).describe('Topics that are broken pieces of words rather than words the person wrote'),
+  "sample": zod.array(zod.string()).describe('The first few topics')
+}),
+  "secureai": zod.object({
+  "wordsRead": zod.number().int().describe('Percentage of the writer\'s words the tokenizer kept whole'),
+  "topics": zod.number().int(),
+  "fragments": zod.array(zod.string()).describe('Topics that are broken pieces of words rather than words the person wrote'),
+  "sample": zod.array(zod.string()).describe('The first few topics')
+}),
+  "verdict": zod.enum(['consistent', 'degraded'])
+})),
+  "summary": zod.object({
+  "consistent": zod.number().int(),
+  "degraded": zod.number().int(),
+  "degradedBefore": zod.number().int().describe('How many writers the tokenizer used before 2026-10-15 served badly')
+}),
+  "limits": zod.array(zod.string())
+}).describe('Team 2\'s risk R13 spot-check of the personal topic profile, run on synthetic writers on every request')
 })
 
 

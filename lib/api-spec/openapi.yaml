@@ -3228,12 +3228,81 @@ components:
             maxLength: 254
     AiSecurityReport:
       type: object
-      required: [live, poc]
+      required: [live, poc, fairness]
       properties:
         live:
           $ref: "#/components/schemas/AiLiveModelValidation"
         poc:
           $ref: "#/components/schemas/AiPocReport"
+        fairness:
+          $ref: "#/components/schemas/TopicFairnessReport"
+    TopicFairnessReport:
+      description: Team 2's risk R13 spot-check of the personal topic profile, run on synthetic writers on every request
+      type: object
+      required: [ranAt, model, question, personas, summary, limits]
+      properties:
+        ranAt:
+          type: string
+          format: date-time
+        model:
+          type: string
+        question:
+          type: string
+        personas:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopicFairnessPersona"
+        summary:
+          type: object
+          required: [consistent, degraded, degradedBefore]
+          properties:
+            consistent:
+              type: integer
+            degraded:
+              type: integer
+            degradedBefore:
+              description: How many writers the tokenizer used before 2026-10-15 served badly
+              type: integer
+        limits:
+          type: array
+          items:
+            type: string
+    TopicFairnessPersona:
+      type: object
+      required: [id, label, language, before, secureai, verdict]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        language:
+          type: string
+        before:
+          $ref: "#/components/schemas/TopicFairnessResult"
+        secureai:
+          $ref: "#/components/schemas/TopicFairnessResult"
+        verdict:
+          type: string
+          enum: [consistent, degraded]
+    TopicFairnessResult:
+      type: object
+      required: [wordsRead, topics, fragments, sample]
+      properties:
+        wordsRead:
+          description: Percentage of the writer's words the tokenizer kept whole
+          type: integer
+        topics:
+          type: integer
+        fragments:
+          description: Topics that are broken pieces of words rather than words the person wrote
+          type: array
+          items:
+            type: string
+        sample:
+          description: The first few topics
+          type: array
+          items:
+            type: string
     AiLiveModelValidation:
       type: object
       required: [ranAt, model, thresholds, tests]
