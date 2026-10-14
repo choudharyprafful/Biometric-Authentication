@@ -9,6 +9,11 @@ When this was written, Team 2's policy documents didn't exist yet. The design be
 assumptions it makes about that policy, so they can be checked rather than silently baked in. Team 2's
 documents have since arrived (`08_Requests_to_Team2.md` §5b and §5c, and the Acceptability Matrix in
 `09_Team2_Data_Source_Acceptability_Matrix.md`); where one confirmed an assumption, the section says so.
+Their final documents (October 2026) were checked against every section on 2026-10-15
+(`08_Requests_to_Team2.md` §0 and §6a): the consent, deletion and retention design matches what they
+decided, with two differences they are asked to confirm. Consent to AI use is per account rather than per
+upload type (docs/14 section 3), and "delete my AI profile" is defined by Team 1 because their report leaves
+it open (§3.7, §9.3).
 Every open question below (and elsewhere in these docs) that's actually Team 2's call to make is collected
 in one place, organized against Team 2's own deliverables, in `08_Requests_to_Team2.md`. Its §6 is the
 agenda for the final sync.
