@@ -642,7 +642,7 @@ export const UploadMetaContentSource = {
 } as const;
 
 /**
- * minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
+ * minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
  */
 export type BystanderKind = typeof BystanderKind[keyof typeof BystanderKind];
 
@@ -650,9 +650,27 @@ export type BystanderKind = typeof BystanderKind[keyof typeof BystanderKind];
 export const BystanderKind = {
   minor: 'minor',
   deceased: 'deceased',
+  account: 'account',
   reachable: 'reachable',
   unreachable: 'unreachable',
 } as const;
+
+export interface UploadConsentRequest {
+  /** The address the uploader gave */
+  email: string;
+  /**
+     * Their answer for the uploader's own topic profile; null until they answer
+     * @nullable
+     */
+  personalisation: boolean | null;
+  /**
+     * Their answer for anything shared across accounts; null until they answer
+     * @nullable
+     */
+  sharedTraining: boolean | null;
+  /** @nullable */
+  answeredAt: string | null;
+}
 
 export interface UploadMeta {
   id: number;
@@ -685,6 +703,48 @@ export interface UploadMeta {
      * @nullable
      */
   pausedForReviewAt: string | null;
+  /** The people with a SecureAI account the uploader asked about this file, and their answers so far */
+  consentRequests: UploadConsentRequest[];
+}
+
+export type IncomingConsentRequestFileType = typeof IncomingConsentRequestFileType[keyof typeof IncomingConsentRequestFileType];
+
+
+export const IncomingConsentRequestFileType = {
+  image: 'image',
+  video: 'video',
+  text: 'text',
+  audio: 'audio',
+} as const;
+
+export interface IncomingConsentRequest {
+  id: number;
+  /** Who asked */
+  fromName: string;
+  fromEmail: string;
+  fileName: string;
+  fileType: IncomingConsentRequestFileType;
+  uploadedAt: string;
+  requestedAt: string;
+  /**
+     * This account's answer for the uploader's own topic profile; null until answered
+     * @nullable
+     */
+  personalisation: boolean | null;
+  /**
+     * This account's answer for anything shared across accounts; null until answered
+     * @nullable
+     */
+  sharedTraining: boolean | null;
+  /** @nullable */
+  answeredAt: string | null;
+}
+
+export interface ConsentAnswerInput {
+  /** Whether the uploader's own topic profile may use the file */
+  personalisation: boolean;
+  /** Whether anything shared across accounts may use the file */
+  sharedTraining: boolean;
 }
 
 export type UploadContentFileType = typeof UploadContentFileType[keyof typeof UploadContentFileType];
@@ -741,7 +801,7 @@ export interface UploadInput {
   contentSource?: UploadInputContentSource;
   /**
      * Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.
-     * @maxItems 4
+     * @maxItems 5
      */
   bystanders?: BystanderKind[];
   /**
@@ -750,6 +810,12 @@ export interface UploadInput {
      * @nullable
      */
   bystanderStatement?: string | null;
+  /**
+     * Required with "account"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.
+     * @maxItems 5
+     * @items.maxLength 254
+     */
+  consentRequestEmails?: string[];
 }
 
 export interface AiValidationOutcome {
@@ -1514,7 +1580,7 @@ export interface ReleaseLegalHoldInput {
 export interface UploadPeopleInput {
   /**
      * Empty for no one else
-     * @maxItems 4
+     * @maxItems 5
      */
   bystanders: BystanderKind[];
   /**
@@ -1523,6 +1589,12 @@ export interface UploadPeopleInput {
      * @nullable
      */
   bystanderStatement?: string | null;
+  /**
+     * Required with "account"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.
+     * @maxItems 5
+     * @items.maxLength 254
+     */
+  consentRequestEmails?: string[];
 }
 
 /**

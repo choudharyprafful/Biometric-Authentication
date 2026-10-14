@@ -32,6 +32,13 @@ import {
 } from "../lib/dataProvenance";
 import { getClientIp } from "../lib/clientIp";
 import { activeHoldsFor, keepUpload } from "../lib/legalHolds";
+import {
+  addressesToAsk,
+  notifyPeopleAsked,
+  requestsForUploads,
+  setPeopleAsked,
+} from "../lib/bystanderConsent";
+import type { BystanderConsentRequest } from "@workspace/db";
 
 const router: IRouter = Router();
 // Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
@@ -64,21 +71,31 @@ function classifyMimeType(
 
 // Team 2's Bystander Consent Policy: who else a file shows. "reachable" needs the uploader's
 // statement that they told the person and the person doesn't object (section 4), kept with its date.
+// "account" needs the address of each person with an account, who is then asked directly
+// (lib/bystanderConsent.ts); `ask` is the list the file's requests are set to.
 function peopleDeclaration(
   bystanders: readonly string[] | undefined,
   statement: string | null | undefined,
+  consentRequestEmails: readonly string[] | undefined,
+  uploaderEmail: string,
 ):
   | {
-      bystanders: BystanderKind[] | null;
-      bystanderStatement: string | null;
-      bystandersDeclaredAt: Date | null;
+      columns: {
+        bystanders: BystanderKind[] | null;
+        bystanderStatement: string | null;
+        bystandersDeclaredAt: Date | null;
+      };
+      ask: string[];
     }
   | { error: string } {
   if (bystanders === undefined)
     return {
-      bystanders: null,
-      bystanderStatement: null,
-      bystandersDeclaredAt: null,
+      columns: {
+        bystanders: null,
+        bystanderStatement: null,
+        bystandersDeclaredAt: null,
+      },
+      ask: [],
     };
   const kinds = canonicalBystanders(bystanders);
   const text = statement?.trim() ?? "";
@@ -87,14 +104,38 @@ function peopleDeclaration(
       error:
         "Say whom you told and that they don't object, for someone you can contact",
     };
+  let ask: string[] = [];
+  if (kinds.includes("account")) {
+    const addresses = addressesToAsk(consentRequestEmails, uploaderEmail);
+    if ("error" in addresses) return addresses;
+    ask = addresses.emails;
+  }
   return {
-    bystanders: kinds,
-    bystanderStatement: kinds.includes("reachable") ? text : null,
-    bystandersDeclaredAt: new Date(),
+    columns: {
+      bystanders: kinds,
+      bystanderStatement: kinds.includes("reachable") ? text : null,
+      bystandersDeclaredAt: new Date(),
+    },
+    ask,
   };
 }
 
-function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
+async function uploader(userId: number) {
+  const [row] = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      email: usersTable.email,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  return row;
+}
+
+function mapUploadMeta(
+  row: typeof uploadsTable.$inferSelect,
+  requests: readonly BystanderConsentRequest[] = [],
+) {
   // Eligibility is recomputed from the stored source on every read rather
   // than persisted alongside it. The matrix is Team 2's document and can
   // change; a stored boolean would keep answering with the rules that applied
@@ -108,6 +149,7 @@ function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
   const people = assessPeopleRules(
     row.bystanders,
     row.pausedForReviewAt !== null,
+    requests,
   );
   const eligibility = {
     eligible: sourceRules.eligible && people.personalisationAllowed,
@@ -130,6 +172,12 @@ function mapUploadMeta(row: typeof uploadsTable.$inferSelect) {
     bystanderStatement: row.bystanderStatement ?? null,
     bystandersDeclaredAt: row.bystandersDeclaredAt?.toISOString() ?? null,
     pausedForReviewAt: row.pausedForReviewAt?.toISOString() ?? null,
+    consentRequests: requests.map((r) => ({
+      email: r.subjectEmail,
+      personalisation: r.personalisation,
+      sharedTraining: r.sharedTraining,
+      answeredAt: r.answeredAt?.toISOString() ?? null,
+    })),
   };
 }
 
@@ -143,7 +191,12 @@ router.get("/uploads", async (req, res): Promise<void> => {
     .from(uploadsTable)
     .where(eq(uploadsTable.userId, userId))
     .orderBy(desc(uploadsTable.createdAt));
-  res.json(ListUploadsResponse.parse(uploads.map(mapUploadMeta)));
+  const requests = await requestsForUploads(uploads.map((u) => u.id));
+  res.json(
+    ListUploadsResponse.parse(
+      uploads.map((u) => mapUploadMeta(u, requests.get(u.id))),
+    ),
+  );
 });
 
 // A new upload needs a confirmed email address (R-PAY-5); the rest of /uploads doesn't. Registered
@@ -169,9 +222,16 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
   )
     ? parsed.data.contentSource
     : "unspecified";
+  const owner = await uploader(userId);
+  if (!owner) {
+    res.status(401).json({ error: "Session invalid" });
+    return;
+  }
   const people = peopleDeclaration(
     parsed.data.bystanders,
     parsed.data.bystanderStatement,
+    parsed.data.consentRequestEmails,
+    owner.email,
   );
   if ("error" in people) {
     res.status(400).json({ error: people.error });
@@ -289,7 +349,7 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
       iv: encrypted.iv,
       authTag: encrypted.authTag,
       contentSource: declaredSource,
-      ...people,
+      ...people.columns,
     })
     .returning();
 
@@ -298,8 +358,14 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
     return;
   }
 
+  const asked = await setPeopleAsked(upload.id, people.ask);
+  const requests = (await requestsForUploads([upload.id])).get(upload.id);
   const eligibility = assessTrainingEligibility(declaredSource, fileType);
-  const peopleRules = assessPeopleRules(people.bystanders, false);
+  const peopleRules = assessPeopleRules(
+    people.columns.bystanders,
+    false,
+    requests,
+  );
 
   await logEvent({
     eventType: "UPLOAD_CREATED",
@@ -338,17 +404,20 @@ router.post("/uploads", uploadRateLimit, async (req, res): Promise<void> => {
   }
   // Policy section 7: every flag recorded, with its date. The statement stays on the file, not in
   // the log, since it may name the person.
-  if (people.bystanders?.length) {
+  if (people.columns.bystanders?.length) {
     await logEvent({
       eventType: "BYSTANDERS_DECLARED",
-      details: `Upload ${upload.id}: shows or names ${people.bystanders.join(", ")} (at upload)`,
+      details: `Upload ${upload.id}: shows or names ${people.columns.bystanders.join(", ")} (at upload)${asked.length ? `; asked ${asked.length} ${asked.length === 1 ? "person" : "people"} with an account` : ""}`,
       userId,
       ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"],
     });
   }
+  await notifyPeopleAsked(asked, owner, upload);
 
-  res.status(201).json(CreateUploadResponse.parse(mapUploadMeta(upload)));
+  res
+    .status(201)
+    .json(CreateUploadResponse.parse(mapUploadMeta(upload, requests)));
 });
 
 // GET /uploads/:id — decrypts and returns content. Strictly owner-only, no
@@ -423,9 +492,16 @@ router.post(
       res.status(400).json({ error: "Say who else the file shows or names" });
       return;
     }
+    const owner = await uploader(userId);
+    if (!owner) {
+      res.status(401).json({ error: "Session invalid" });
+      return;
+    }
     const people = peopleDeclaration(
       body.data.bystanders,
       body.data.bystanderStatement,
+      body.data.consentRequestEmails,
+      owner.email,
     );
     if ("error" in people) {
       res.status(400).json({ error: people.error });
@@ -433,7 +509,7 @@ router.post(
     }
     const [updated] = await db
       .update(uploadsTable)
-      .set(people)
+      .set(people.columns)
       .where(
         and(
           eq(uploadsTable.id, params.data.id),
@@ -445,14 +521,21 @@ router.post(
       res.status(404).json({ error: "File not found" });
       return;
     }
+    // People still listed keep the answer they gave; anyone removed is no longer asked.
+    const asked = await setPeopleAsked(updated.id, people.ask);
+    const bystanders = people.columns.bystanders;
     await logEvent({
       eventType: "BYSTANDERS_DECLARED",
-      details: `Upload ${updated.id}: shows or names ${people.bystanders?.length ? people.bystanders.join(", ") : "no one else"} (changed later)`,
+      details: `Upload ${updated.id}: shows or names ${bystanders?.length ? bystanders.join(", ") : "no one else"} (changed later)${asked.length ? `; asked ${asked.length} more ${asked.length === 1 ? "person" : "people"} with an account` : ""}`,
       userId,
       ipAddress: getClientIp(req),
       userAgent: req.headers["user-agent"],
     });
-    res.json(DeclareUploadPeopleResponse.parse(mapUploadMeta(updated)));
+    await notifyPeopleAsked(asked, owner, updated);
+    const requests = (await requestsForUploads([updated.id])).get(updated.id);
+    res.json(
+      DeclareUploadPeopleResponse.parse(mapUploadMeta(updated, requests)),
+    );
   },
 );
 

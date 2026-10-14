@@ -1877,10 +1877,16 @@ export const ListUploadsResponseItem = zod.object({
   "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).describe('Declared origin of the file\'s content, per Team 2\'s Data Source Acceptability Matrix. \"unspecified\" is the fail-closed default for an upload that never declared one.'),
   "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into the uploader\'s own personalisation, given its source, its file type and who else it shows (Team 2\'s Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side.'),
   "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s or the policy\'s own reasoning.'),
-  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'account', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
   "bystanderStatement": zod.string().nullable().describe('The uploader\'s statement about a person they have told, who doesn\'t object'),
   "bystandersDeclaredAt": zod.coerce.date().nullable(),
-  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile')
+  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile'),
+  "consentRequests": zod.array(zod.object({
+  "email": zod.string().describe('The address the uploader gave'),
+  "personalisation": zod.boolean().nullable().describe('Their answer for the uploader\'s own topic profile; null until they answer'),
+  "sharedTraining": zod.boolean().nullable().describe('Their answer for anything shared across accounts; null until they answer'),
+  "answeredAt": zod.coerce.date().nullable()
+})).describe('The people with a SecureAI account the uploader asked about this file, and their answers so far')
 })
 export const ListUploadsResponse = zod.array(ListUploadsResponseItem)
 
@@ -1892,9 +1898,13 @@ export const createUploadBodyFileNameMax = 255;
 
 
 
-export const createUploadBodyBystandersMax = 4;
+export const createUploadBodyBystandersMax = 5;
 
 export const createUploadBodyBystanderStatementMax = 500;
+
+export const createUploadBodyConsentRequestEmailsItemMax = 254;
+
+export const createUploadBodyConsentRequestEmailsMax = 5;
 
 
 
@@ -1903,8 +1913,9 @@ export const CreateUploadBody = zod.object({
   "mimeType": zod.string().min(1),
   "dataBase64": zod.string().min(1).describe('Raw file bytes, base64-encoded'),
   "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).optional().describe('Declared origin of the content, per Team 2\'s Data Source Acceptability Matrix. Optional: omitting it stores the upload as \"unspecified\", which keeps the file fully usable by its owner but excludes it from every training corpus until a source is declared.'),
-  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).max(createUploadBodyBystandersMax).optional().describe('Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.'),
-  "bystanderStatement": zod.string().max(createUploadBodyBystanderStatementMax).nullish().describe('Required with \"reachable\"; the uploader\'s statement that they told the person and the person doesn\'t object')
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'account', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).max(createUploadBodyBystandersMax).optional().describe('Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.'),
+  "bystanderStatement": zod.string().max(createUploadBodyBystanderStatementMax).nullish().describe('Required with \"reachable\"; the uploader\'s statement that they told the person and the person doesn\'t object'),
+  "consentRequestEmails": zod.array(zod.string().email().max(createUploadBodyConsentRequestEmailsItemMax)).max(createUploadBodyConsentRequestEmailsMax).optional().describe('Required with \"account\"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.')
 })
 
 export const CreateUploadResponse = zod.object({
@@ -1918,10 +1929,16 @@ export const CreateUploadResponse = zod.object({
   "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).describe('Declared origin of the file\'s content, per Team 2\'s Data Source Acceptability Matrix. \"unspecified\" is the fail-closed default for an upload that never declared one.'),
   "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into the uploader\'s own personalisation, given its source, its file type and who else it shows (Team 2\'s Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side.'),
   "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s or the policy\'s own reasoning.'),
-  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'account', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
   "bystanderStatement": zod.string().nullable().describe('The uploader\'s statement about a person they have told, who doesn\'t object'),
   "bystandersDeclaredAt": zod.coerce.date().nullable(),
-  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile')
+  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile'),
+  "consentRequests": zod.array(zod.object({
+  "email": zod.string().describe('The address the uploader gave'),
+  "personalisation": zod.boolean().nullable().describe('Their answer for the uploader\'s own topic profile; null until they answer'),
+  "sharedTraining": zod.boolean().nullable().describe('Their answer for anything shared across accounts; null until they answer'),
+  "answeredAt": zod.coerce.date().nullable()
+})).describe('The people with a SecureAI account the uploader asked about this file, and their answers so far')
 })
 
 
@@ -1973,15 +1990,20 @@ export const DeclareUploadPeopleParams = zod.object({
   "id": zod.coerce.number().int().min(1).max(declareUploadPeoplePathIdMax)
 })
 
-export const declareUploadPeopleBodyBystandersMax = 4;
+export const declareUploadPeopleBodyBystandersMax = 5;
 
 export const declareUploadPeopleBodyBystanderStatementMax = 500;
+
+export const declareUploadPeopleBodyConsentRequestEmailsItemMax = 254;
+
+export const declareUploadPeopleBodyConsentRequestEmailsMax = 5;
 
 
 
 export const DeclareUploadPeopleBody = zod.object({
-  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).max(declareUploadPeopleBodyBystandersMax).describe('Empty for no one else'),
-  "bystanderStatement": zod.string().max(declareUploadPeopleBodyBystanderStatementMax).nullish().describe('Required with \"reachable\"')
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'account', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).max(declareUploadPeopleBodyBystandersMax).describe('Empty for no one else'),
+  "bystanderStatement": zod.string().max(declareUploadPeopleBodyBystanderStatementMax).nullish().describe('Required with \"reachable\"'),
+  "consentRequestEmails": zod.array(zod.string().email().max(declareUploadPeopleBodyConsentRequestEmailsItemMax)).max(declareUploadPeopleBodyConsentRequestEmailsMax).optional().describe('Required with \"account\"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.')
 })
 
 export const DeclareUploadPeopleResponse = zod.object({
@@ -1995,10 +2017,65 @@ export const DeclareUploadPeopleResponse = zod.object({
   "contentSource": zod.enum(['own_work', 'third_party_individual', 'published_work', 'social_media', 'incidental_third_party_ip', 'unspecified']).describe('Declared origin of the file\'s content, per Team 2\'s Data Source Acceptability Matrix. \"unspecified\" is the fail-closed default for an upload that never declared one.'),
   "trainingEligible": zod.boolean().describe('Whether the matrix admits this file into the uploader\'s own personalisation, given its source, its file type and who else it shows (Team 2\'s Bystander Consent Policy). Returned so the consequence of a declaration is visible to the uploader rather than only enforced server-side.'),
   "trainingExclusionReason": zod.string().optional().describe('Present only when trainingEligible is false; the matrix\'s or the policy\'s own reasoning.'),
-  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'account', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable().describe('Who else the file shows or names. Null when never asked (older uploads and phone apps); empty when no one else.'),
   "bystanderStatement": zod.string().nullable().describe('The uploader\'s statement about a person they have told, who doesn\'t object'),
   "bystandersDeclaredAt": zod.coerce.date().nullable(),
-  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile')
+  "pausedForReviewAt": zod.coerce.date().nullable().describe('Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile'),
+  "consentRequests": zod.array(zod.object({
+  "email": zod.string().describe('The address the uploader gave'),
+  "personalisation": zod.boolean().nullable().describe('Their answer for the uploader\'s own topic profile; null until they answer'),
+  "sharedTraining": zod.boolean().nullable().describe('Their answer for anything shared across accounts; null until they answer'),
+  "answeredAt": zod.coerce.date().nullable()
+})).describe('The people with a SecureAI account the uploader asked about this file, and their answers so far')
+})
+
+
+/**
+ * Only requests sent to this account's confirmed email address. Shows who asked and the file's name, type and date, never the file itself.
+ * @summary Requests from other people asking whether this account agrees to a file that shows it
+ */
+export const ListIncomingConsentRequestsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "fromName": zod.string().describe('Who asked'),
+  "fromEmail": zod.string(),
+  "fileName": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "uploadedAt": zod.coerce.date(),
+  "requestedAt": zod.coerce.date(),
+  "personalisation": zod.boolean().nullable().describe('This account\'s answer for the uploader\'s own topic profile; null until answered'),
+  "sharedTraining": zod.boolean().nullable().describe('This account\'s answer for anything shared across accounts; null until answered'),
+  "answeredAt": zod.coerce.date().nullable()
+})
+export const ListIncomingConsentRequestsResponse = zod.array(ListIncomingConsentRequestsResponseItem)
+
+
+/**
+ * @summary Answer, or change the answer to, a request about a file that shows this account
+ */
+export const answerConsentRequestPathIdMax = 2147483647;
+
+
+
+export const AnswerConsentRequestParams = zod.object({
+  "id": zod.coerce.number().int().min(1).max(answerConsentRequestPathIdMax)
+})
+
+export const AnswerConsentRequestBody = zod.object({
+  "personalisation": zod.boolean().describe('Whether the uploader\'s own topic profile may use the file'),
+  "sharedTraining": zod.boolean().describe('Whether anything shared across accounts may use the file')
+})
+
+export const AnswerConsentRequestResponse = zod.object({
+  "id": zod.number().int(),
+  "fromName": zod.string().describe('Who asked'),
+  "fromEmail": zod.string(),
+  "fileName": zod.string(),
+  "fileType": zod.enum(['image', 'video', 'text', 'audio']),
+  "uploadedAt": zod.coerce.date(),
+  "requestedAt": zod.coerce.date(),
+  "personalisation": zod.boolean().nullable().describe('This account\'s answer for the uploader\'s own topic profile; null until answered'),
+  "sharedTraining": zod.boolean().nullable().describe('This account\'s answer for anything shared across accounts; null until answered'),
+  "answeredAt": zod.coerce.date().nullable()
 })
 
 
@@ -2070,7 +2147,7 @@ export const FindUploadsForBystanderReportResponseItem = zod.object({
   "fileName": zod.string(),
   "fileType": zod.enum(['image', 'video', 'text', 'audio']),
   "createdAt": zod.coerce.date(),
-  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable(),
+  "bystanders": zod.array(zod.enum(['minor', 'deceased', 'account', 'reachable', 'unreachable']).describe('minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn\'t object; unreachable = someone they can\'t contact')).nullable(),
   "pausedForReviewAt": zod.coerce.date().nullable()
 })
 export const FindUploadsForBystanderReportResponse = zod.array(FindUploadsForBystanderReportResponseItem)

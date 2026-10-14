@@ -30,11 +30,36 @@ export const CONTENT_SOURCE_OPTIONS: Array<{
 
 // Team 2's Bystander Consent Policy: who else a file shows or names, as the uploader says. Mirrors
 // BystanderKind in the API (lib/dataProvenance.ts) and the web app's components/PeopleInFile.tsx.
-export type BystanderKind = "reachable" | "unreachable" | "minor" | "deceased";
+export type BystanderKind =
+  "reachable" | "account" | "unreachable" | "minor" | "deceased";
 
 export interface PeopleRequest {
   bystanders: BystanderKind[];
   bystanderStatement: string | null;
+  // Addresses of people in it with a SecureAI account, who are asked directly.
+  consentRequestEmails: string[];
+}
+
+/** One person with an account the uploader asked, and their answers so far (null until answered). */
+export interface UploadConsentRequest {
+  email: string;
+  personalisation: boolean | null;
+  sharedTraining: boolean | null;
+  answeredAt: string | null;
+}
+
+/** A request to this account about someone else's file that shows it. */
+export interface IncomingConsentRequest {
+  id: number;
+  fromName: string;
+  fromEmail: string;
+  fileName: string;
+  fileType: "image" | "video" | "text" | "audio";
+  uploadedAt: string;
+  requestedAt: string;
+  personalisation: boolean | null;
+  sharedTraining: boolean | null;
+  answeredAt: string | null;
 }
 
 export interface UploadMeta {
@@ -52,6 +77,7 @@ export interface UploadMeta {
   bystanders?: BystanderKind[] | null;
   bystanderStatement?: string | null;
   pausedForReviewAt?: string | null;
+  consentRequests?: UploadConsentRequest[];
 }
 
 // Shown before a voice recording or video is uploaded (Team 2's consent matrix, section 9; the
@@ -194,6 +220,23 @@ export async function declareUploadPeople(
   people: PeopleRequest,
 ): Promise<UploadMeta> {
   return request(`/uploads/${id}/people`, { method: "POST", body: people });
+}
+
+// Team 2's Bystander Consent Policy, section 4, first row: requests to this account, answered per use.
+export async function listIncomingConsentRequests(): Promise<
+  IncomingConsentRequest[]
+> {
+  return request("/bystander-consent-requests");
+}
+
+export async function answerConsentRequest(
+  id: number,
+  answer: { personalisation: boolean; sharedTraining: boolean },
+): Promise<IncomingConsentRequest> {
+  return request(`/bystander-consent-requests/${id}/answer`, {
+    method: "POST",
+    body: answer,
+  });
 }
 
 // There's no browser "Downloads folder" on mobile — write the decrypted

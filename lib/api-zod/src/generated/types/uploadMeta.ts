@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BystanderKind } from './bystanderKind';
+import type { UploadConsentRequest } from './uploadConsentRequest';
 import type { UploadMetaContentSource } from './uploadMetaContentSource';
 import type { UploadMetaFileType } from './uploadMetaFileType';
 
@@ -40,4 +41,6 @@ export interface UploadMeta {
      * @nullable
      */
   pausedForReviewAt: Date | null;
+  /** The people with a SecureAI account the uploader asked about this file, and their answers so far */
+  consentRequests: UploadConsentRequest[];
 }

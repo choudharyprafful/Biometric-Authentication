@@ -23,7 +23,12 @@
 
 import { and, eq, desc, or, isNull, sql, type SQL } from "drizzle-orm";
 import { trainableCombinations } from "./dataProvenance";
-import { db, uploadsTable, usersTable } from "@workspace/db";
+import {
+  db,
+  uploadsTable,
+  usersTable,
+  bystanderConsentRequestsTable,
+} from "@workspace/db";
 import { decryptFile } from "./fileEncryption";
 
 // Cost bound, not anti-poisoning — a private, single-account computation
@@ -202,6 +207,11 @@ export function profileFilesCondition(userId: number): SQL | undefined {
     // someone under 18, or that someone in it has asked us to review, is used by no feature.
     sql`NOT (coalesce(${uploadsTable.bystanders}, '{}'::text[]) @> ARRAY['minor']::text[])`,
     isNull(uploadsTable.pausedForReviewAt),
+    // Someone in it with their own account: only once every one of them has agreed to this use.
+    sql`(NOT (coalesce(${uploadsTable.bystanders}, '{}'::text[]) @> ARRAY['account']::text[])
+      OR (EXISTS (SELECT 1 FROM ${bystanderConsentRequestsTable} r WHERE r.upload_id = ${uploadsTable.id})
+        AND NOT EXISTS (SELECT 1 FROM ${bystanderConsentRequestsTable} r
+          WHERE r.upload_id = ${uploadsTable.id} AND r.personalisation IS DISTINCT FROM true)))`,
     or(
       ...eligible.map((combo) =>
         and(

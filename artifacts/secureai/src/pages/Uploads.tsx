@@ -41,9 +41,11 @@ import {
   PeopleQuestion,
   answerFrom,
   peopleSummary,
+  requestStatus,
   toRequest,
   type PeopleAnswer,
 } from "../components/PeopleInFile";
+import { ConsentRequestsInbox } from "../components/ConsentRequestsInbox";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // must match artifacts/api-server/src/routes/uploads.ts
 const ACCEPTED_TYPES = "image/*,video/*,audio/*,text/plain";
@@ -232,7 +234,13 @@ export default function Uploads() {
 
   const startEditingPeople = (upload: UploadMeta) => {
     setEditingPeopleId(upload.id);
-    setEditPeople(answerFrom(upload.bystanders, upload.bystanderStatement));
+    setEditPeople(
+      answerFrom(
+        upload.bystanders,
+        upload.bystanderStatement,
+        upload.consentRequests,
+      ),
+    );
   };
 
   const savePeople = async (id: number) => {
@@ -371,6 +379,8 @@ export default function Uploads() {
         </div>
       </div>
 
+      <ConsentRequestsInbox />
+
       <PeopleQuestion value={people} onChange={setPeople} idPrefix="upload" />
 
       {pendingMedia &&
@@ -454,6 +464,25 @@ export default function Uploads() {
                               </Badge>
                             )}
                           </div>
+                          {upload.consentRequests.length > 0 && (
+                            <ul
+                              className="font-sans text-xs text-muted-foreground mt-1 space-y-0.5"
+                              data-testid={`upload-consent-${upload.id}`}
+                            >
+                              {upload.consentRequests.map((r) => (
+                                <li key={r.email}>
+                                  Asked {r.email}: {requestStatus(r)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {!upload.trainingEligible &&
+                            upload.trainingExclusionReason &&
+                            upload.bystanders?.includes("account") && (
+                              <p className="font-sans text-xs text-muted-foreground mt-1">
+                                {upload.trainingExclusionReason}
+                              </p>
+                            )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{upload.fileType}</Badge>

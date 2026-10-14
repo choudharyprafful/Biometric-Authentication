@@ -32,9 +32,11 @@ import {
   PeopleQuestion,
   answerFrom,
   peopleSummary,
+  requestStatus,
   toRequest,
   type PeopleAnswer,
 } from "../components/PeopleInFile";
+import { ConsentRequestsInbox } from "../components/ConsentRequestsInbox";
 import { colors, fonts } from "../theme";
 
 function formatSize(bytes: number): string {
@@ -173,6 +175,8 @@ export function UploadsScreen() {
         the uploader — not even an admin can read them.
       </Text>
 
+      <ConsentRequestsInbox />
+
       {/* Provenance picker. Chips rather than a Picker component so no new
           native dependency is pulled in for five options, and so every choice
           is visible at once instead of hidden behind a dropdown — the whole
@@ -287,6 +291,11 @@ export function UploadsScreen() {
                       Paused: someone in it asked us to review it
                     </Text>
                   ) : null}
+                  {(u.consentRequests ?? []).map((r) => (
+                    <Text key={r.email} style={styles.fileMeta}>
+                      Asked {r.email}: {requestStatus(r)}
+                    </Text>
+                  ))}
                 </View>
                 <View style={{ alignItems: "flex-end", gap: 4 }}>
                   <Badge tone="outline">{u.fileType}</Badge>
@@ -325,7 +334,11 @@ export function UploadsScreen() {
                   onPress={() => {
                     setEditingPeopleId(u.id);
                     setEditPeople(
-                      answerFrom(u.bystanders, u.bystanderStatement),
+                      answerFrom(
+                        u.bystanders,
+                        u.bystanderStatement,
+                        u.consentRequests,
+                      ),
                     );
                   }}
                   disabled={busy}
