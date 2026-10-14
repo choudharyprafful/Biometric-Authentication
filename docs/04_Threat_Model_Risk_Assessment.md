@@ -256,6 +256,33 @@ records the outcome.
 | Tampering / Elevation of privilege         | Model theft/extraction via repeated queries against the new content-profile endpoint — the brief's two distinct controls (rate limiting, query monitoring) apply here too, arguably more so, since this is the one endpoint that reads decrypted content                                                                            | `GET /users/me/content-profile` gated by `requireParentConsent`, `requireMfaEnrolled`, `requestRateLimit("content-profile", 30, 5 * 60 * 1000)`, and every successful call — not just ones that trip the rate limit — writes a `CONTENT_PROFILE_QUERIED` audit event, same shape as `BEHAVIOR_MODEL_QUERIED`                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Mitigated, verified live (R-ML-7) — confirmed the audit event fires with an accurate keyword/document count on every call                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Elevation of privilege / Tampering         | Scope creep — the model quietly expanding to read photo/video/audio content without the additional consent those categories need                                                                                                                                                                                                    | Deliberately scoped to TEXT uploads only. Team 2's Acceptability Matrix (`09_Team2_Data_Source_Acceptability_Matrix.md` §3) requires photos/video to go through a distinct bystander-consent workflow this app doesn't have, and audio needs its own voice-cloning-specific consent — text has neither complication. `buildContentProfile()` filters on `fileType === "text"` at the query level, not as an afterthought                                                                                                                                                                                                                                                                                                                                     | Scoped by design, not yet exercised as an attack surface (there's no code path that would read a non-text upload's content regardless of input) — flagged to Team 2 for confirmation in `08_Requests_to_Team2.md`                                                                                                                                                                                                                                                                                                                                     |
 
+### Model Drift Risk Score
+
+Synthetic demonstration of model-drift monitoring: `artifacts/ai-model/model_drift_risk_model.py`, run by
+`ai_security_report.py` and shown on the AI Security page with the team's other AI/ML proof-of-concepts.
+Drift means change over time, so it compares two snapshots of the training data, both after the consent
+gate (so the gate filtering records is not counted as drift):
+
+- **Then:** the synthetic corpus from `model_starter.py`, 18 records once consent and the per-user cap apply.
+- **Now:** the same corpus after five new users join and write about different topics (payments and
+  uploads), 28 records.
+
+Each indicator runs from 0 to 1 and is rounded to 2 decimals:
+
+| Indicator        | Measured as                                                                                                                          | Flagged above                 | Value |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ----- |
+| Feature drift    | Total variation distance between the two snapshots' word frequencies (half the sum of the absolute differences in each word's share) | 0.3 (`FEATURE_DRIFT`)         | 0.31  |
+| Score drift      | Change in prediction coverage on the 8 ordinary prompts (#31) between the model trained on "then" and the model retrained on "now"   | 0.3 (`SCORE_DRIFT`)           | 0     |
+| Threshold shift  | Change in the share of word contexts whose most likely next word clears the model's emission threshold (`MIN_COUNT`, 3)              | 0.2 (`THRESHOLD_INSTABILITY`) | 0.05  |
+| Population shift | Change in the largest account's share of the corpus (`single_user_ratio` from `corpus_metrics()`)                                    | 0.3 (`POPULATION_SHIFT`)      | 0.06  |
+
+Each flagged indicator adds 25 to the score (0 to 100). The level is HIGH at 80 or more, MEDIUM at 40 or
+more or when any indicator is flagged, and LOW otherwise. The current 25 (MEDIUM) therefore means one
+indicator crossed its line: the new users' topics moved the word frequencies (0.31), while the model's
+answers to the same prompts did not change (score drift 0).
+
+The data is synthetic. This is an educational AI-security demonstration, not a production drift detector.
+
 ### Prompt Injection Risk Detection
 
 The AI/ML security PoC includes a prompt-injection risk model

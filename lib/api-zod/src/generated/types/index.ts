@@ -15,6 +15,8 @@ export * from './aiChallengeOutcome';
 export * from './aiChallengeStatus';
 export * from './aiLiveModelValidation';
 export * from './aiLiveModelValidationThresholds';
+export * from './aiModelDriftRisk';
+export * from './aiModelDriftRiskSummary';
 export * from './aiOutcomeWindow';
 export * from './aiOversight';
 export * from './aiPocMemorisation';

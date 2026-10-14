@@ -1334,6 +1334,19 @@ export const GetAiSecurityReportResponse = zod.object({
   "sourceDiversity": zod.number()
 }),
   "categories": zod.array(zod.string())
+}),
+  "driftRisk": zod.object({
+  "script": zod.string(),
+  "author": zod.string(),
+  "riskScore": zod.number(),
+  "level": zod.string(),
+  "summary": zod.object({
+  "featureDrift": zod.number(),
+  "scoreDrift": zod.number(),
+  "thresholdShift": zod.number(),
+  "populationShift": zod.number()
+}),
+  "categories": zod.array(zod.string())
 })
 })
 })

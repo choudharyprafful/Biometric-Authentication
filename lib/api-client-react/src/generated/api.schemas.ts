@@ -942,6 +942,22 @@ export interface AiPoisoningRisk {
   categories: string[];
 }
 
+export interface AiModelDriftRiskSummary {
+  featureDrift: number;
+  scoreDrift: number;
+  thresholdShift: number;
+  populationShift: number;
+}
+
+export interface AiModelDriftRisk {
+  script: string;
+  author: string;
+  riskScore: number;
+  level: string;
+  summary: AiModelDriftRiskSummary;
+  categories: string[];
+}
+
 export interface AiPocReport {
   generator: string;
   starterKit: AiPocStarterKit;
@@ -949,6 +965,7 @@ export interface AiPocReport {
   behavioralRisk: AiBehavioralRisk;
   promptInjectionRisk: AiPromptInjectionRisk;
   poisoningRisk: AiPoisoningRisk;
+  driftRisk: AiModelDriftRisk;
 }
 
 export interface AiSecurityReport {

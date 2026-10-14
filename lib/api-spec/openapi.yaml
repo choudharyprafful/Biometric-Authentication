@@ -3230,6 +3230,36 @@ components:
           type: array
           items:
             type: string
+    AiModelDriftRiskSummary:
+      type: object
+      required: [featureDrift, scoreDrift, thresholdShift, populationShift]
+      properties:
+        featureDrift:
+          type: number
+        scoreDrift:
+          type: number
+        thresholdShift:
+          type: number
+        populationShift:
+          type: number
+    AiModelDriftRisk:
+      type: object
+      required: [script, author, riskScore, level, summary, categories]
+      properties:
+        script:
+          type: string
+        author:
+          type: string
+        riskScore:
+          type: number
+        level:
+          type: string
+        summary:
+          $ref: "#/components/schemas/AiModelDriftRiskSummary"
+        categories:
+          type: array
+          items:
+            type: string
     AiPocModelRun:
       type: object
       required: [prompt, output, canaryLeaked]
@@ -3250,6 +3280,7 @@ components:
           behavioralRisk,
           promptInjectionRisk,
           poisoningRisk,
+          driftRisk,
         ]
       properties:
         generator:
@@ -3264,6 +3295,8 @@ components:
           $ref: "#/components/schemas/AiPromptInjectionRisk"
         poisoningRisk:
           $ref: "#/components/schemas/AiPoisoningRisk"
+        driftRisk:
+          $ref: "#/components/schemas/AiModelDriftRisk"
     AiPocStarterKit:
       description: Yaseen's model_starter.py, run unmodified
       type: object
