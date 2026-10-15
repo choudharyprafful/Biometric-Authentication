@@ -131,17 +131,20 @@ export default function App() {
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
-  } else if (findings.length > 0 && !acknowledged) {
-    content = (
-      <DeviceWarningView
-        findings={findings}
-        onContinue={() => setAcknowledged(true)}
-      />
-    );
   } else {
+    // The warning sits inside AuthProvider, so the check of who is signed in starts behind it
+    // (with the finding on that first request) and is ready when the person carries on. Nothing
+    // else is shown until they do.
     content = (
       <AuthProvider>
-        <RootView />
+        {findings.length > 0 && !acknowledged ? (
+          <DeviceWarningView
+            findings={findings}
+            onContinue={() => setAcknowledged(true)}
+          />
+        ) : (
+          <RootView />
+        )}
       </AuthProvider>
     );
   }
