@@ -15,6 +15,7 @@ import aiGovernanceRouter from "./aiGovernance";
 import privacyRouter from "./privacy";
 import dataBreachesRouter from "./dataBreaches";
 import bystanderReportsRouter from "./bystanderReports";
+import bystanderConsentRouter from "./bystanderConsent";
 
 const router: IRouter = Router();
 
@@ -35,5 +36,6 @@ router.use(aiGovernanceRouter);
 router.use(privacyRouter);
 router.use(dataBreachesRouter);
 router.use(bystanderReportsRouter);
+router.use(bystanderConsentRouter);
 
 export default router;

@@ -29,6 +29,7 @@ import { renderReadableExport } from "../lib/readableExport";
 import { RETENTION } from "../lib/retention";
 import { appUrl } from "../lib/mailer";
 import { disclosuresToldTo } from "../lib/dataBreaches";
+import { incomingRequests, requestsForUploads } from "../lib/bystanderConsent";
 import {
   PRIVACY_POLICY_VERSION,
   acknowledgementDetails,
@@ -202,6 +203,12 @@ async function collectExport(userId: number, withFileContents: boolean) {
     breachNoticesFor(userId),
     disclosuresFor(user.email),
   ]);
+  // Team 2's Bystander Consent Policy, section 4: the people asked about each file, and this
+  // account's own answers about files that other people say show it.
+  const asked = await requestsForUploads(uploads.map((u) => u.id));
+  const answersGiven = (await incomingRequests(user)).filter(
+    (r) => r.answeredAt !== null,
+  );
 
   let includedBytes = 0;
   let withContent = 0;
@@ -217,6 +224,12 @@ async function collectExport(userId: number, withFileContents: boolean) {
       // never asked), and whether a report from someone in it is being reviewed.
       otherPeople: u.bystanders,
       otherPeopleStatement: u.bystanderStatement,
+      peopleAsked: (asked.get(u.id) ?? []).map((r) => ({
+        email: r.subjectEmail,
+        topicProfile: r.personalisation,
+        sharedTraining: r.sharedTraining,
+        answeredAt: iso(r.answeredAt),
+      })),
       pausedForReviewSince: iso(u.pausedForReviewAt),
       uploadedAt: iso(u.createdAt),
     };
@@ -259,6 +272,7 @@ async function collectExport(userId: number, withFileContents: boolean) {
     policy,
     notices,
     disclosures,
+    answersGiven,
   };
 }
 
@@ -358,6 +372,14 @@ router.get(
         })),
       },
       uploads: data.uploadEntries,
+      answersAboutOtherPeoplesFiles: data.answersGiven.map((r) => ({
+        askedBy: `${r.fromName} (${r.fromEmail})`,
+        fileName: r.fileName,
+        fileType: r.fileType,
+        topicProfile: r.personalisation,
+        sharedTraining: r.sharedTraining,
+        answeredAt: r.answeredAt,
+      })),
       payments: data.payments.map((p) => ({
         id: p.id,
         amount: p.amount,
@@ -474,8 +496,16 @@ router.get(
         sizeBytes: u.sizeBytes,
         declaredSource: u.declaredSource,
         otherPeople: u.otherPeople,
+        peopleAsked: u.peopleAsked,
         pausedForReviewSince: u.pausedForReviewSince,
         uploadedAt: u.uploadedAt,
+      })),
+      answersGiven: data.answersGiven.map((r) => ({
+        askedBy: `${r.fromName} (${r.fromEmail})`,
+        fileName: r.fileName,
+        topicProfile: r.personalisation === true,
+        sharedTraining: r.sharedTraining === true,
+        answeredAt: r.answeredAt,
       })),
       payments: data.payments.map((p) => ({
         amount: p.amount,

@@ -7,8 +7,10 @@
  */
 import type { AiLiveModelValidation } from './aiLiveModelValidation';
 import type { AiPocReport } from './aiPocReport';
+import type { TopicFairnessReport } from './topicFairnessReport';
 
 export interface AiSecurityReport {
   live: AiLiveModelValidation;
   poc: AiPocReport;
+  fairness: TopicFairnessReport;
 }

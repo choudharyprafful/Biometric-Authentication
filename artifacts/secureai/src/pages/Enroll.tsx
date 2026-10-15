@@ -10,8 +10,11 @@ import {
   useSetTrainingConsent,
   useSetContentPersonalizationConsent,
   useGetContentProfile,
+  useDeleteContentProfileFiles,
+  useListUploads,
   getGetCurrentUserQueryKey,
   getGetContentProfileQueryKey,
+  getListUploadsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Label, Input } from "../components/ui";
@@ -267,6 +270,13 @@ export default function Enroll() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [trainingConsentError, setTrainingConsentError] = useState("");
   const [contentConsentError, setContentConsentError] = useState("");
+  // After personalisation is turned off: offer to delete the files it read (Team 2's scenario
+  // script, step 7). Withdrawal itself stays one click; deleting is a second, separate choice.
+  const [offerDeleteFiles, setOfferDeleteFiles] = useState(false);
+  const [deletedFilesCount, setDeletedFilesCount] = useState<number | null>(
+    null,
+  );
+  const deleteFilesMutation = useDeleteContentProfileFiles();
 
   // 'face' then 'passkey' for an account with no second factor yet; 'settings' once it has a passkey.
   // Face is optional once a passkey exists: a person the face model can't enrol, who has no camera, or
@@ -294,6 +304,12 @@ export default function Enroll() {
         !!user?.contentPersonalizationConsentGiven && mode === "settings",
     },
   });
+  // trainingEligible on a file is the same rule the profile reads by, so this counts what it read.
+  const uploadsQuery = useListUploads({
+    query: { queryKey: getListUploadsQueryKey(), enabled: offerDeleteFiles },
+  });
+  const filesProfileRead =
+    uploadsQuery.data?.filter((upload) => upload.trainingEligible).length ?? 0;
 
   if (!user) return null;
 
@@ -440,10 +456,25 @@ export default function Enroll() {
       await queryClient.invalidateQueries({
         queryKey: getGetContentProfileQueryKey(),
       });
+      setOfferDeleteFiles(!consent);
+      setDeletedFilesCount(null);
     } catch (err: any) {
       setContentConsentError(
         err?.data?.error || "Failed to update content-personalization consent.",
       );
+    }
+  };
+
+  const handleDeleteProfileFiles = async () => {
+    setContentConsentError("");
+    try {
+      const result = await deleteFilesMutation.mutateAsync();
+      setDeletedFilesCount(result.deletedCount);
+      await queryClient.invalidateQueries({
+        queryKey: getListUploadsQueryKey(),
+      });
+    } catch (err: any) {
+      setContentConsentError(err?.data?.error || "Could not delete the files.");
     }
   };
 
@@ -673,6 +704,61 @@ export default function Enroll() {
             <p className="text-destructive font-mono text-xs uppercase tracking-wider">
               {contentConsentError}
             </p>
+          )}
+          {offerDeleteFiles && !user.contentPersonalizationConsentGiven && (
+            <div
+              className="space-y-3 border border-border bg-muted/20 p-3"
+              data-testid="panel-content-withdrawn"
+            >
+              {deletedFilesCount !== null ? (
+                <p className="text-xs font-mono text-muted-foreground">
+                  Deleted {deletedFilesCount} file
+                  {deletedFilesCount === 1 ? "" : "s"}. Personalisation is off
+                  and the files it read are gone.
+                </p>
+              ) : uploadsQuery.isLoading ? (
+                <p className="text-xs font-mono text-muted-foreground">
+                  Checking which files it read…
+                </p>
+              ) : filesProfileRead === 0 ? (
+                <p className="text-xs font-mono text-muted-foreground">
+                  Personalisation is off. None of your files were being read for
+                  it.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Personalisation is off from now on. The topic list was never
+                    saved, so nothing it picked up from your writing remains. It
+                    read {filesProfileRead} text file
+                    {filesProfileRead === 1 ? "" : "s"} of yours, and{" "}
+                    {filesProfileRead === 1 ? "that file is" : "they are"} still
+                    in your vault. Delete{" "}
+                    {filesProfileRead === 1 ? "it" : "them"} too?
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteProfileFiles}
+                      isLoading={deleteFilesMutation.isPending}
+                      data-testid="button-delete-profile-files"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" /> Delete{" "}
+                      {filesProfileRead} file{filesProfileRead === 1 ? "" : "s"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setOfferDeleteFiles(false)}
+                      data-testid="button-keep-profile-files"
+                    >
+                      Keep {filesProfileRead === 1 ? "it" : "them"}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
           {user.contentPersonalizationConsentGiven &&
             (() => {

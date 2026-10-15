@@ -146,6 +146,25 @@ synthetic one), false-accept and false-reject rates per group across a range of 
 decision on the threshold from those numbers. Until then, the monitoring above (refusal rate plus
 face challenges) is the operational signal.
 
+## 5a. Topic profile: fairness spot-check (added 2026-10-15)
+
+Team 2's Compliance Test Plan asks, for risk R13, that the personalisation feature be run for varied
+synthetic personas and checked for degradation for any group. `lib/topicFairness.ts` does this for the
+personal topic profile: eight synthetic writers (Australian and Indian English, English with accented
+names, Spanish, Vietnamese, Hindi, Chinese and Arabic) write the same three diary entries, and each profile
+is measured for how much of the writing it reads and whether any topic is a broken piece of a word.
+
+It found a real fault. The tokenizer kept only a-z and 0-9, so writers in Hindi, Chinese and Arabic got no
+topics at all, a Vietnamese writer got 3 topics from 9% of the words, and Spanish or accented names became
+fragments such as "canci" and "jos". Words are now found with Unicode word segmentation
+(`lib/topicModel.ts`), and all eight writers have every word read with no fragments. The check runs on each
+load of the AI Security page, with the old tokenizer as the "before" column, and in CI
+(`verify:fairness`), which also fails if the old behaviour returns (docs/04 R-ML-12).
+
+Limits: common words are filtered for English only, so in other languages some everyday words appear as
+topics; eight synthetic writers are a spot-check, not a statistical bias test. Face matching can't be
+checked this way without real faces (§5).
+
 ## 6. Transparency and explanations in the app
 
 | Where                                     | What the person sees                                                                                                                                                                                                                                           |

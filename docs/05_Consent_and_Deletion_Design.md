@@ -9,6 +9,11 @@ When this was written, Team 2's policy documents didn't exist yet. The design be
 assumptions it makes about that policy, so they can be checked rather than silently baked in. Team 2's
 documents have since arrived (`08_Requests_to_Team2.md` §5b and §5c, and the Acceptability Matrix in
 `09_Team2_Data_Source_Acceptability_Matrix.md`); where one confirmed an assumption, the section says so.
+Their final documents (October 2026) were checked against every section on 2026-10-15
+(`08_Requests_to_Team2.md` §0 and §6a): the consent, deletion and retention design matches what they
+decided, with two differences they are asked to confirm. Consent to AI use is per account rather than per
+upload type (docs/14 section 3), and "delete my AI profile" is defined by Team 1 because their report leaves
+it open (§3.7, §9.3).
 Every open question below (and elsewhere in these docs) that's actually Team 2's call to make is collected
 in one place, organized against Team 2's own deliverables, in `08_Requests_to_Team2.md`. Its §6 is the
 agenda for the final sync.
@@ -431,6 +436,24 @@ raw occurrence counts across a 3-document corpus, the term confined to a single 
 meaningfully higher than the term spread across all three, isolating and confirming the IDF effect itself,
 not just that the feature still produces output. Consent model, scope (text-only), and deletion behaviour
 are all unchanged by this — only the ranking mathematics improved.
+
+### 5d. Withdrawing personalisation, and the files it read (added 2026-10-15)
+
+Withdrawing the topic profile's consent stops it on the next request, in one click, as before. Team 2's
+Weeks 3-4 framework (section 7) also expects the stored entries to go, so the app then offers to delete
+the text files the profile read: `DELETE /users/me/content-profile/files` (Security Settings on the web,
+Privacy & Your Data in the phone app). It deletes exactly the files `profileFilesCondition` lets the profile
+read, keeping legal-hold copies as every deletion does (§8). The profile itself was never stored, so there
+is nothing further to unlearn (docs/04 R-PRIV-11).
+
+### 5e. People in a file who have an account (added 2026-10-15)
+
+Team 2's Bystander Consent Policy, section 4, first row: someone in a file who has their own account is
+asked directly (`lib/bystanderConsent.ts`, table `bystander_consent_requests`). They answer the uploader's
+topic profile and shared training separately, and can change either answer at any time; no feature uses the
+file until every such person has agreed to that use. Deleting the file deletes its requests; deleting the
+answering account deletes its answers, which leaves the file unused again. The uploader is never told
+whether an address belongs to an account (docs/04 R-PRIV-10).
 
 ## 6. Honest limits (per the brief's "design an approach and be honest about its limits" instruction)
 
