@@ -145,6 +145,13 @@ export async function setContentPersonalizationConsent(
   });
 }
 
+/** Deletes the text files the personalisation profile reads; offered after withdrawing it. */
+export async function deleteContentProfileFiles(): Promise<{
+  deletedCount: number;
+}> {
+  return request("/users/me/content-profile/files", { method: "DELETE" });
+}
+
 /** The whole export as text, so it can be written to a file and shared. */
 export async function exportMyData(): Promise<string> {
   return JSON.stringify(await request<unknown>("/users/me/export"), null, 2);

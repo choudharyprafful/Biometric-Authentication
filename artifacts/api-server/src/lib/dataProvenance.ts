@@ -304,13 +304,15 @@ export function trainableCombinations(): Array<{
 
 /**
  * Who else a file shows or names, as the uploader declares it (policy section 3): someone under 18,
- * someone who has died, someone the uploader has told who doesn't object, or someone they can't
- * contact. The uploader's declaration is the detection method: the policy rules out scanning uploads
- * with face or voice recognition, which would itself collect more about those people.
+ * someone who has died, someone with their own SecureAI account (asked directly, section 4's first
+ * row), someone the uploader has told who doesn't object, or someone they can't contact. The
+ * uploader's declaration is the detection method: the policy rules out scanning uploads with face or
+ * voice recognition, which would itself collect more about those people.
  */
 export const BYSTANDER_KINDS = [
   "minor",
   "deceased",
+  "account",
   "reachable",
   "unreachable",
 ] as const;
@@ -340,16 +342,28 @@ export interface PeopleRules {
   reason: string | null;
 }
 
+/** One answer from someone in the file who has an account: null until they answer that use. */
+export interface AccountHolderAnswer {
+  personalisation: boolean | null;
+  sharedTraining: boolean | null;
+}
+
 /**
  * Policy section 4. Whoever the other people are, their content stays out of anything shared
  * ("personalisation-only, excluded from central training"). Someone under 18 keeps it out of the
  * uploader's own personalisation too, whatever the uploader says. Section 6: while a report from
  * someone in the file is reviewed, nothing uses it. A file never asked about (null) keeps the source
  * and file-type rules alone, but stays out of anything shared, since nobody said it shows no one.
+ *
+ * Someone with their own account ("account") is the one case where real consent can be asked for, so
+ * it is asked for, and each use waits for it: the uploader's own personalisation until every such
+ * person has agreed to it, and shared training until every one has agreed to that too and nobody else
+ * is in the file (User Data Case Studies, item 2: a use they refuse is not available for that file).
  */
 export function assessPeopleRules(
   bystanders: readonly string[] | null,
   pausedForReview: boolean,
+  accountHolders: readonly AccountHolderAnswer[] = [],
 ): PeopleRules {
   if (pausedForReview)
     return {
@@ -365,6 +379,35 @@ export function assessPeopleRules(
       reason:
         "It shows or names someone under 18, so no feature uses it (Team 2's Bystander Consent Policy).",
     };
+  if (bystanders?.includes("account")) {
+    const others = bystanders.filter((k) => k !== "account");
+    const sharedTrainingAllowed =
+      others.length === 0 &&
+      accountHolders.length > 0 &&
+      accountHolders.every((a) => a.sharedTraining === true);
+    if (accountHolders.some((a) => a.personalisation === false))
+      return {
+        personalisationAllowed: false,
+        sharedTrainingAllowed,
+        reason:
+          "Someone in it said no to it being used for your topic profile.",
+      };
+    if (
+      accountHolders.length === 0 ||
+      accountHolders.some((a) => a.personalisation !== true)
+    )
+      return {
+        personalisationAllowed: false,
+        sharedTrainingAllowed,
+        reason:
+          "Waiting for the people in it with a SecureAI account to say whether it can be used.",
+      };
+    return {
+      personalisationAllowed: true,
+      sharedTrainingAllowed,
+      reason: null,
+    };
+  }
   return {
     personalisationAllowed: true,
     sharedTrainingAllowed: bystanders !== null && bystanders.length === 0,

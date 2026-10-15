@@ -241,6 +241,59 @@ console.log("\n[7] People in the file (Team 2's Bystander Consent Policy)");
     !paused.personalisationAllowed && !paused.sharedTrainingAllowed,
     JSON.stringify(paused),
   );
+  const yes = { personalisation: true, sharedTraining: true };
+  const waiting = assessPeopleRules(["account"], false, [
+    yes,
+    { personalisation: null, sharedTraining: null },
+  ]);
+  check(
+    "someone with an account: no use until every such person answers (section 4, first row)",
+    !waiting.personalisationAllowed &&
+      !waiting.sharedTrainingAllowed &&
+      /Waiting/.test(waiting.reason ?? ""),
+    JSON.stringify(waiting),
+  );
+  const agreed = assessPeopleRules(["account"], false, [yes, yes]);
+  check(
+    "everyone with an account agreed to both: personal use and shared training allowed",
+    agreed.personalisationAllowed && agreed.sharedTrainingAllowed,
+    JSON.stringify(agreed),
+  );
+  const personalOnly = assessPeopleRules(["account"], false, [
+    { personalisation: true, sharedTraining: false },
+  ]);
+  check(
+    "agreed to personal use only: shared training stays out (case studies, item 2)",
+    personalOnly.personalisationAllowed && !personalOnly.sharedTrainingAllowed,
+    JSON.stringify(personalOnly),
+  );
+  const refused = assessPeopleRules(["account"], false, [
+    yes,
+    { personalisation: false, sharedTraining: true },
+  ]);
+  check(
+    "anyone refusing personal use: the file isn't used for it",
+    !refused.personalisationAllowed && /said no/.test(refused.reason ?? ""),
+    JSON.stringify(refused),
+  );
+  const mixed = assessPeopleRules(["account", "unreachable"], false, [yes]);
+  check(
+    "agreed, but someone else in it can't be asked: personal use only",
+    mixed.personalisationAllowed && !mixed.sharedTrainingAllowed,
+    JSON.stringify(mixed),
+  );
+  const noOneAsked = assessPeopleRules(["account"], false, []);
+  check(
+    "an account holder declared with nobody asked: no use (fails closed)",
+    !noOneAsked.personalisationAllowed && !noOneAsked.sharedTrainingAllowed,
+    JSON.stringify(noOneAsked),
+  );
+  const minorWins = assessPeopleRules(["minor", "account"], false, [yes]);
+  check(
+    "someone under 18 still overrides an account holder's yes",
+    !minorWins.personalisationAllowed && !minorWins.sharedTrainingAllowed,
+    JSON.stringify(minorWins),
+  );
   const ordered = canonicalBystanders([
     "unreachable",
     "minor",
@@ -253,11 +306,13 @@ console.log("\n[7] People in the file (Team 2's Bystander Consent Policy)");
     JSON.stringify(ordered),
   );
   check(
-    "only the policy's four kinds are recognised",
-    ["minor", "deceased", "reachable", "unreachable"].every(isBystanderKind) &&
+    "only the policy's five kinds are recognised",
+    ["minor", "deceased", "account", "reachable", "unreachable"].every(
+      isBystanderKind,
+    ) &&
       !isBystanderKind("public-figure") &&
       !isBystanderKind(""),
-    "minor, deceased, reachable, unreachable",
+    "minor, deceased, account, reachable, unreachable",
   );
 }
 

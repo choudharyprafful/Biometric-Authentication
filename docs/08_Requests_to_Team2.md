@@ -18,6 +18,28 @@ own §6 row; a shorter version of Team 2's brief didn't). Resolved against Team 
 Deletion/erasure, Access control, Audit logging, Data provenance, Retention, each with the same
 policy/enforcement split on both sides. Nothing to resolve here; noted only so it doesn't get re-raised.
 
+**Update 2026-10-15: Team 2's final report (section 10) has nine areas.** It merges audit logging and
+retention, and adds bystander handling, source acceptability and regulatory compliance. Each area's Team 1
+side, checked against the build:
+
+| Area (Team 2's final report §10) | Team 1 builds                                                                | Where                                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Data classification              | Protection per tier                                                          | Built: tiers in `lib/dataProvenance.ts`; T3 encrypted by the app (docs/07)                                           |
+| Data provenance                  | Records provenance; validates inputs against trust tiers                     | Built: declared source on every upload, fail-closed default (docs/09)                                                |
+| Consent and withdrawal           | Enforces consent state; blocks non-consented data from training              | Built: separate flags, withdrawal on the next request, delete-files offer (docs/05 §1, §5d)                          |
+| Deletion                         | The deletion mechanism                                                       | Built: account, file, face template and the files personalisation read (docs/05 §2, §5d)                             |
+| Access control                   | RBAC, least privilege, admin/developer separation                            | Built, with admin a superset of the other roles (docs/04 R-AC-4, accepted)                                           |
+| Audit and retention              | Tamper-resistant logging, secure disposal                                    | Built: hash-chained log, hourly retention purge, legal holds (docs/04 R-LOG-2, R-LOG-5; docs/05 §3)                  |
+| Bystander handling               | Upload-time prompt, storage-level exclusion flag, no-login reporting channel | Built on web and phone, plus consent requests to account holders (§5h)                                               |
+| Source acceptability             | Train / personalise-only / exclude decisions at the pipeline level           | Built: `assessTrainingEligibility`, applied by every model that reads files                                          |
+| Regulatory compliance            | Confirms infrastructure location; extends AI-output labelling if needed      | Location fixed and documented (`us-east-1`, policy §9); every AI output labelled; the APP 1.7 disclosure added (§5h) |
+
+Every area is covered. The one area Team 2's §10 split leaves partly open is deletion: their report
+(§3.7, §9.3) still has to define what "delete my AI profile" means. Team 1's proposal, for them to
+confirm: there is no stored profile to delete, because both models are rebuilt from current data on every
+request, so withdrawing consent removes the profile at once; deleting the account, or the files the
+profile read, removes the source data.
+
 ## 1. For the Privacy & Consent Framework
 
 **Update 2026-10-07: partly addressed since this was written.** Every upload now records where it came
@@ -26,6 +48,9 @@ intellectual property. Anything not the person's own is never used by an AI feat
 audio aren't used by any AI feature at all (privacy policy section 5, `lib/dataProvenance.ts`, docs/09).
 There is still no mechanism for the bystanders themselves: neither their consent nor redaction, for a
 photo or video that shows them. That policy call is on the §6 agenda.
+
+**Update 2026-10-15: answered.** Team 2's Bystander Consent Policy settled it, and the app now follows it:
+see §5h. The rest of this section is kept as the record of the question.
 
 The gap that matters most: third-party consent has no technical mechanism at all yet, not even a
 placeholder. This is explicitly in scope for Team 2 twice over — both as one of the three things that
@@ -413,12 +438,59 @@ Team 2 may want to confirm:
 - that keeping copies through a person's own deletion, without telling them each time, is acceptable. Some
   orders forbid telling, and the policy says that it happens.
 
+## 5h. 2026-10-15: the Bystander Consent Policy, and Team 2's tests (privacy policy version 2026-10-15)
+
+Team 2's Bystander Consent Policy answers §1's open question. What the app does, section by section of the
+policy (rules in `lib/dataProvenance.ts`, `assessPeopleRules`):
+
+- **Section 3, how a bystander is identified.** Every upload asks "Does it show or name anyone else?", on the
+  web and (from 2026-10-15) in the phone app, and the answer can be changed later. Nothing scans files for
+  faces, voices or names, as section 3.1 decides.
+- **Section 4, handling.**
+  - Someone under 18 overrides every other answer: no feature uses the file.
+  - Someone with a SecureAI account (from 2026-10-15) is asked in their own account and answers the
+    uploader's topic profile and shared training separately. Until all such people agree, no feature uses
+    the file (docs/04 R-PRIV-10).
+  - Someone the uploader has told, someone they can't contact, or someone who has died: the uploader's own
+    topic profile only, never anything shared. A statement and its date are kept for someone told.
+- **Section 5, "personalisation-only".** Nothing shared learns from file content today. The answer is stored
+  with each file, so anything that ever does has to honour it.
+- **Section 6, objecting without an account.** `/report-content`, linked from the sign-in page: on a valid
+  report staff pause the file, so nothing uses it, and tell the uploader.
+- **Section 7, records.** Every declaration is logged (`BYSTANDERS_DECLARED`), reports are kept separately
+  with their outcome, and both appear in the person's data download.
+
+Team 2's Compliance Test Plan and scenario script are answered test by test in docs/14, with three fixes
+made for them: an offer to delete the files personalisation read when it is withdrawn (R-PRIV-11), a notice
+naming voice cloning before audio or video is uploaded, and a fairness spot-check that found and fixed the
+topic profile failing writers in other languages (R-ML-12).
+
+Privacy policy version 2026-10-15 changes:
+
+- **Section 2** adds a row for other people in a file: what the uploader tells us, and the email addresses
+  of people asked, which are never confirmed as accounts and are deleted with the file.
+- **Section 5** explains the people question, what each answer means, asking people with an account, and
+  the report page.
+- **Section 6** says a file showing someone under 18 is used by no feature.
+- **Section 11** says withdrawing the topic profile offers to delete the files it read.
+- **Section 4** gains the automated-decision disclosure Team 2's Week 9 assessment asks to build now,
+  ahead of APP 1.7 on 10 December 2026: the decisions programs make entirely by themselves (face matching
+  refusing an attempt, refusals for repeated attempts, breached passwords and malware), those people can
+  review (the sign-in risk check, unusual-activity alerts), and which features may use each file.
+
+Team 2 may want to confirm:
+
+- that one answer for the whole file (the strictest decides) is acceptable for scenario step 3, rather than
+  separate outcomes for each person in a photo;
+- the withdrawal wording (docs/14 section 4): with no stored model, "nothing remains" is accurate, so the
+  "may persist until retraining" caution is not shown.
+
 ## 6. Week 10: agenda for the final sync with Team 2
 
 Everything still open for Team 2, from the sections above, in one place (issue #7):
 
-1. **Third-party consent** (§1): what should the app ask, or refuse, when an upload shows people who never
-   agreed to anything? The AI features already exclude such content, but storage still holds it.
+1. **Third-party consent** (§1): **answered 2026-10-15** by the Bystander Consent Policy, built as described
+   in §5h.
 2. **A real privacy contact, and legal review** (§5c). `privacy@secureai.example` is a placeholder. The
    APP 8 safeguards for storing Australians' data in the United States, and a legal review of the policy,
    are still needed (docs/10).
@@ -435,3 +507,23 @@ Everything still open for Team 2, from the sections above, in one place (issue #
    may want it recorded in the ethics record, as Team 1 has in the risk register.
 8. **The coordination interface** (§0, docs/05): confirmed aligned in September. Confirm nothing changed in
    Team 2's final documents.
+
+### 6a. After Team 2's final documents (2026-10-15)
+
+Team 2's final documents (their final report, the Compliance Test Plan, the scenario script, the case
+studies, the Bystander Consent Policy, the Week 9 assessment and the Weeks 7-8 framework) answer some of
+these:
+
+| #   | Answered by Team 2's final documents?                                                                                                                                                                                                                              | Still to ask                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| 1   | Yes: the Bystander Consent Policy, built as in §5h                                                                                                                                                                                                                 | Nothing                                                                                         |
+| 2   | Partly. The Week 9 assessment (§4.3, §7) needs a fixed, documented hosting location before APP 8 can be finalised; Team 1's answer is `us-east-1`, in the policy and docs/10. Their report (§9) lists the legal review items. The privacy contact is not mentioned | Who the real privacy contact is                                                                 |
+| 3   | No                                                                                                                                                                                                                                                                 | What "challenge the records (2 years)" meant                                                    |
+| 4   | Partly. The Weeks 3-4 consent matrix asks for explicit, authentication-only biometric consent, separate from every other; the app's face consent is that. The wording itself isn't reviewed                                                                        | A quick look at the phone app's face consent wording                                            |
+| 5   | Mostly. The Week 9 assessment treats GDPR as contingent on EU or UK users, so the 72-hour rule applies only if that product decision is made; the Australian scheme (NDB) is the baseline, which docs/12 follows                                                   | Whether emailing people who deleted their account by hand is acceptable                         |
+| 6   | No                                                                                                                                                                                                                                                                 | Face templates and files only under a legal demand; copies kept through a person's own deletion |
+| 7   | No. Their report says every example of theirs is synthetic; it doesn't mention the live test                                                                                                                                                                       | Whether to record the owner's own face test in the ethics record                                |
+| 8   | Changed, and reconciled in §0: nine areas, each built                                                                                                                                                                                                              | Confirm the "delete my AI profile" proposal in §0                                               |
+
+So the meeting needs items 2 to 7, the §0 proposal, and the two questions at the end of §5h (one answer per
+file, and the withdrawal wording).

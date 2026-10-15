@@ -10,7 +10,7 @@ import type { BystanderKind } from './bystanderKind';
 export interface UploadPeopleInput {
   /**
      * Empty for no one else
-     * @maxItems 4
+     * @maxItems 5
      */
   bystanders: BystanderKind[];
   /**
@@ -19,4 +19,10 @@ export interface UploadPeopleInput {
      * @nullable
      */
   bystanderStatement?: string | null;
+  /**
+     * Required with "account"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.
+     * @maxItems 5
+     * @items.maxLength 254
+     */
+  consentRequestEmails?: string[];
 }

@@ -174,6 +174,7 @@ export const AI_SYSTEMS: readonly AiSystem[] = [
     howToChallenge: CHALLENGE,
     knownLimits: [
       "Text only; statistics over word frequency, so topics can be surprising or miss meaning.",
+      "Reads writing in any language, but filters common words for English only, so in other languages some everyday words can appear as topics (fairness spot-check on the AI Security page).",
     ],
     riskRefs: ["R-ML-7", "R-ML-9"],
     accountableOwner: ACCOUNTABLE_OWNER,

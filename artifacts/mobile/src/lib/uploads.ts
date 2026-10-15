@@ -28,6 +28,40 @@ export const CONTENT_SOURCE_OPTIONS: Array<{
   },
 ];
 
+// Team 2's Bystander Consent Policy: who else a file shows or names, as the uploader says. Mirrors
+// BystanderKind in the API (lib/dataProvenance.ts) and the web app's components/PeopleInFile.tsx.
+export type BystanderKind =
+  "reachable" | "account" | "unreachable" | "minor" | "deceased";
+
+export interface PeopleRequest {
+  bystanders: BystanderKind[];
+  bystanderStatement: string | null;
+  // Addresses of people in it with a SecureAI account, who are asked directly.
+  consentRequestEmails: string[];
+}
+
+/** One person with an account the uploader asked, and their answers so far (null until answered). */
+export interface UploadConsentRequest {
+  email: string;
+  personalisation: boolean | null;
+  sharedTraining: boolean | null;
+  answeredAt: string | null;
+}
+
+/** A request to this account about someone else's file that shows it. */
+export interface IncomingConsentRequest {
+  id: number;
+  fromName: string;
+  fromEmail: string;
+  fileName: string;
+  fileType: "image" | "video" | "text" | "audio";
+  uploadedAt: string;
+  requestedAt: string;
+  personalisation: boolean | null;
+  sharedTraining: boolean | null;
+  answeredAt: string | null;
+}
+
 export interface UploadMeta {
   id: number;
   userId: number;
@@ -39,6 +73,40 @@ export interface UploadMeta {
   contentSource: ContentSource | "unspecified";
   trainingEligible: boolean;
   trainingExclusionReason?: string;
+  // Absent from API versions before the bystander policy; null when never asked.
+  bystanders?: BystanderKind[] | null;
+  bystanderStatement?: string | null;
+  pausedForReviewAt?: string | null;
+  consentRequests?: UploadConsentRequest[];
+}
+
+// Shown before a voice recording or video is uploaded (Team 2's consent matrix, section 9; the
+// scenario script's step 5). Same words as the web app (secureai src/pages/Uploads.tsx): no
+// feature reads these files, so this says what happens rather than asking for a consent.
+export const MEDIA_NOTICE: Record<
+  "audio" | "video",
+  { title: string; text: string }
+> = {
+  audio: {
+    title: "Voice recording",
+    text: "It's stored encrypted, for you to play back and download. No feature uses voice recordings: nothing is trained on them, nothing is personalised from them, and SecureAI never copies (clones) a voice. If that ever changes, you'll be asked first, in a separate consent that names voice cloning.",
+  },
+  video: {
+    title: "Video",
+    text: "It's stored encrypted, for you to watch and download. No feature uses videos: nothing is trained on them, nothing is personalised from them, and SecureAI never copies a face or a voice from them. If that ever changes, you'll be asked first, in a separate consent that names it.",
+  },
+};
+
+export function mediaKind(mimeType: string): "audio" | "video" | null {
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
+  return null;
+}
+
+export interface PickedFile {
+  name: string;
+  mimeType: string;
+  uri: string;
 }
 
 export interface UploadContent extends UploadMeta {
@@ -104,12 +172,9 @@ export async function deleteUpload(id: number): Promise<void> {
   await request(`/uploads/${id}`, { method: "DELETE" });
 }
 
-// Opens the OS document picker, reads the picked file as base64 (RN has no
-// FileReader/Blob the way a browser does — expo-file-system is the
-// equivalent primitive), and uploads it. Returns null if the user cancelled.
-export async function pickAndUploadFile(
-  contentSource: ContentSource,
-): Promise<UploadMeta | null> {
+// Opens the OS document picker. Returns null if the user cancelled. Picking and uploading are
+// separate steps so a voice recording or video can show its notice in between.
+export async function pickFile(): Promise<PickedFile | null> {
   const result = await DocumentPicker.getDocumentAsync({
     type: ["image/*", "video/*", "audio/*", "text/plain"],
     copyToCacheDirectory: true,
@@ -120,18 +185,57 @@ export async function pickAndUploadFile(
   if (asset.size && asset.size > MAX_UPLOAD_BYTES) {
     throw new Error(`File must be under ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB`);
   }
+  return {
+    name: asset.name,
+    mimeType: asset.mimeType ?? "application/octet-stream",
+    uri: asset.uri,
+  };
+}
 
-  const dataBase64 = await FileSystem.readAsStringAsync(asset.uri, {
+// Reads the picked file as base64 (RN has no FileReader/Blob the way a browser does —
+// expo-file-system is the equivalent primitive) and uploads it with the uploader's answers.
+export async function uploadPickedFile(
+  file: PickedFile,
+  contentSource: ContentSource,
+  people: PeopleRequest,
+): Promise<UploadMeta> {
+  const dataBase64 = await FileSystem.readAsStringAsync(file.uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
   return request("/uploads", {
     method: "POST",
     body: {
-      fileName: asset.name,
-      mimeType: asset.mimeType ?? "application/octet-stream",
+      fileName: file.name,
+      mimeType: file.mimeType,
       dataBase64,
       contentSource,
+      ...people,
     },
+  });
+}
+
+// Policy section 3: the uploader can say who else a file shows at any time, not only at upload.
+export async function declareUploadPeople(
+  id: number,
+  people: PeopleRequest,
+): Promise<UploadMeta> {
+  return request(`/uploads/${id}/people`, { method: "POST", body: people });
+}
+
+// Team 2's Bystander Consent Policy, section 4, first row: requests to this account, answered per use.
+export async function listIncomingConsentRequests(): Promise<
+  IncomingConsentRequest[]
+> {
+  return request("/bystander-consent-requests");
+}
+
+export async function answerConsentRequest(
+  id: number,
+  answer: { personalisation: boolean; sharedTraining: boolean },
+): Promise<IncomingConsentRequest> {
+  return request(`/bystander-consent-requests/${id}/answer`, {
+    method: "POST",
+    body: answer,
   });
 }
 

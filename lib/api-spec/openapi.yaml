@@ -1599,6 +1599,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /users/me/content-profile/files:
+    delete:
+      operationId: deleteContentProfileFiles
+      tags: [content-profile]
+      summary: Delete the text files the personalization profile reads, for example when withdrawing consent
+      description: Deletes every file the profile would read (this account's own text files that the acceptability matrix and the people rules allow), the same way as deleting each one from the vault. Other files are untouched.
+      responses:
+        "200":
+          description: Files deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedFilesResult"
+        "403":
+          description: MFA enrollment or parental consent required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /payments:
     get:
       operationId: listPayments
@@ -1961,6 +1987,67 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /bystander-consent-requests:
+    get:
+      operationId: listIncomingConsentRequests
+      tags: [uploads]
+      summary: Requests from other people asking whether this account agrees to a file that shows it
+      description: Only requests sent to this account's confirmed email address. Shows who asked and the file's name, type and date, never the file itself.
+      responses:
+        "200":
+          description: Requests, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IncomingConsentRequest"
+        "403":
+          description: MFA enrollment or parental consent required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bystander-consent-requests/{id}/answer:
+    post:
+      operationId: answerConsentRequest
+      tags: [uploads]
+      summary: Answer, or change the answer to, a request about a file that shows this account
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsentAnswerInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingConsentRequest"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No such request for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /bystander-reports:
     post:
       operationId: reportContentShowingMe
@@ -2204,6 +2291,15 @@ components:
         disabled:
           description: True when an administrator has switched personalisation off (see GET /ai/systems)
           type: boolean
+
+    DeletedFilesResult:
+      type: object
+      required: [deletedCount]
+      properties:
+        deletedCount:
+          description: How many files were deleted
+          type: integer
+          minimum: 0
 
     SuggestedActionResult:
       type: object
@@ -2907,6 +3003,7 @@ components:
           bystanderStatement,
           bystandersDeclaredAt,
           pausedForReviewAt,
+          consentRequests,
         ]
       properties:
         id:
@@ -2967,6 +3064,83 @@ components:
           description: Set while a report from someone in the file is reviewed; the file is used by nothing meanwhile
           type: ["string", "null"]
           format: date-time
+        consentRequests:
+          description: The people with a SecureAI account the uploader asked about this file, and their answers so far
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadConsentRequest"
+
+    UploadConsentRequest:
+      type: object
+      required: [email, personalisation, sharedTraining, answeredAt]
+      properties:
+        email:
+          description: The address the uploader gave
+          type: string
+        personalisation:
+          description: Their answer for the uploader's own topic profile; null until they answer
+          type: ["boolean", "null"]
+        sharedTraining:
+          description: Their answer for anything shared across accounts; null until they answer
+          type: ["boolean", "null"]
+        answeredAt:
+          type: ["string", "null"]
+          format: date-time
+
+    IncomingConsentRequest:
+      type: object
+      required:
+        [
+          id,
+          fromName,
+          fromEmail,
+          fileName,
+          fileType,
+          uploadedAt,
+          requestedAt,
+          personalisation,
+          sharedTraining,
+          answeredAt,
+        ]
+      properties:
+        id:
+          type: integer
+        fromName:
+          description: Who asked
+          type: string
+        fromEmail:
+          type: string
+        fileName:
+          type: string
+        fileType:
+          type: string
+          enum: [image, video, text, audio]
+        uploadedAt:
+          type: string
+          format: date-time
+        requestedAt:
+          type: string
+          format: date-time
+        personalisation:
+          description: This account's answer for the uploader's own topic profile; null until answered
+          type: ["boolean", "null"]
+        sharedTraining:
+          description: This account's answer for anything shared across accounts; null until answered
+          type: ["boolean", "null"]
+        answeredAt:
+          type: ["string", "null"]
+          format: date-time
+
+    ConsentAnswerInput:
+      type: object
+      required: [personalisation, sharedTraining]
+      properties:
+        personalisation:
+          description: Whether the uploader's own topic profile may use the file
+          type: boolean
+        sharedTraining:
+          description: Whether anything shared across accounts may use the file
+          type: boolean
 
     UploadContent:
       type: object
@@ -3037,21 +3211,98 @@ components:
             Who else the file shows or names (empty for no one else). Optional
             for older phone apps, which store it as never asked.
           type: array
-          maxItems: 4
+          maxItems: 5
           items:
             $ref: "#/components/schemas/BystanderKind"
         bystanderStatement:
           description: Required with "reachable"; the uploader's statement that they told the person and the person doesn't object
           type: ["string", "null"]
           maxLength: 500
+        consentRequestEmails:
+          description: Required with "account"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            format: email
+            maxLength: 254
     AiSecurityReport:
       type: object
-      required: [live, poc]
+      required: [live, poc, fairness]
       properties:
         live:
           $ref: "#/components/schemas/AiLiveModelValidation"
         poc:
           $ref: "#/components/schemas/AiPocReport"
+        fairness:
+          $ref: "#/components/schemas/TopicFairnessReport"
+    TopicFairnessReport:
+      description: Team 2's risk R13 spot-check of the personal topic profile, run on synthetic writers on every request
+      type: object
+      required: [ranAt, model, question, personas, summary, limits]
+      properties:
+        ranAt:
+          type: string
+          format: date-time
+        model:
+          type: string
+        question:
+          type: string
+        personas:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopicFairnessPersona"
+        summary:
+          type: object
+          required: [consistent, degraded, degradedBefore]
+          properties:
+            consistent:
+              type: integer
+            degraded:
+              type: integer
+            degradedBefore:
+              description: How many writers the tokenizer used before 2026-10-15 served badly
+              type: integer
+        limits:
+          type: array
+          items:
+            type: string
+    TopicFairnessPersona:
+      type: object
+      required: [id, label, language, before, secureai, verdict]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        language:
+          type: string
+        before:
+          $ref: "#/components/schemas/TopicFairnessResult"
+        secureai:
+          $ref: "#/components/schemas/TopicFairnessResult"
+        verdict:
+          type: string
+          enum: [consistent, degraded]
+    TopicFairnessResult:
+      type: object
+      required: [wordsRead, topics, fragments, sample]
+      properties:
+        wordsRead:
+          description: Percentage of the writer's words the tokenizer kept whole
+          type: integer
+        topics:
+          type: integer
+        fragments:
+          description: Topics that are broken pieces of words rather than words the person wrote
+          type: array
+          items:
+            type: string
+        sample:
+          description: The first few topics
+          type: array
+          items:
+            type: string
     AiLiveModelValidation:
       type: object
       required: [ranAt, model, thresholds, tests]
@@ -4178,9 +4429,9 @@ components:
           maxLength: 1000
 
     BystanderKind:
-      description: minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
+      description: minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
       type: string
-      enum: [minor, deceased, reachable, unreachable]
+      enum: [minor, deceased, account, reachable, unreachable]
 
     UploadPeopleInput:
       type: object
@@ -4189,13 +4440,21 @@ components:
         bystanders:
           description: Empty for no one else
           type: array
-          maxItems: 4
+          maxItems: 5
           items:
             $ref: "#/components/schemas/BystanderKind"
         bystanderStatement:
           description: Required with "reachable"
           type: ["string", "null"]
           maxLength: 500
+        consentRequestEmails:
+          description: Required with "account"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            format: email
+            maxLength: 254
 
     BystanderReportInput:
       type: object

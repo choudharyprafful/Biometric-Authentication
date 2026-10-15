@@ -41,9 +41,11 @@ import {
   PeopleQuestion,
   answerFrom,
   peopleSummary,
+  requestStatus,
   toRequest,
   type PeopleAnswer,
 } from "../components/PeopleInFile";
+import { ConsentRequestsInbox } from "../components/ConsentRequestsInbox";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // must match artifacts/api-server/src/routes/uploads.ts
 const ACCEPTED_TYPES = "image/*,video/*,audio/*,text/plain";
@@ -126,6 +128,29 @@ const CONTENT_SOURCE_OPTIONS: Array<{ value: ContentSource; label: string }> = [
   },
 ];
 
+// Shown before a voice recording or video is uploaded (Team 2's consent matrix, section 9: audio
+// consent names voice cloning specifically; the scenario script's step 5). No feature reads these
+// files (lib/dataProvenance.ts admits only the uploader's own text), so this is a statement of
+// what happens, not a consent request: there is nothing to agree to. The phone app shows the same
+// words (mobile src/lib/uploads.ts).
+const MEDIA_NOTICE: Record<"audio" | "video", { title: string; text: string }> =
+  {
+    audio: {
+      title: "Voice recording",
+      text: "It's stored encrypted, for you to play back and download. No feature uses voice recordings: nothing is trained on them, nothing is personalised from them, and SecureAI never copies (clones) a voice. If that ever changes, you'll be asked first, in a separate consent that names voice cloning.",
+    },
+    video: {
+      title: "Video",
+      text: "It's stored encrypted, for you to watch and download. No feature uses videos: nothing is trained on them, nothing is personalised from them, and SecureAI never copies a face or a voice from them. If that ever changes, you'll be asked first, in a separate consent that names it.",
+    },
+  };
+
+function mediaKind(file: File): "audio" | "video" | null {
+  if (file.type.startsWith("audio/")) return "audio";
+  if (file.type.startsWith("video/")) return "video";
+  return null;
+}
+
 interface PreviewState {
   meta: UploadMeta;
   objectUrl: string | null;
@@ -158,6 +183,8 @@ export default function Uploads() {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [previewingId, setPreviewingId] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  // A voice recording or video waiting while its notice is read.
+  const [pendingMedia, setPendingMedia] = useState<File | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -170,6 +197,19 @@ export default function Uploads() {
       return;
     }
 
+    if (!peopleRequest) {
+      setError("Say whether the file shows or names anyone else.");
+      return;
+    }
+    if (mediaKind(file)) {
+      setPendingMedia(file);
+      return;
+    }
+    await uploadFile(file);
+  };
+
+  const uploadFile = async (file: File) => {
+    setPendingMedia(null);
     if (!peopleRequest) {
       setError("Say whether the file shows or names anyone else.");
       return;
@@ -194,7 +234,13 @@ export default function Uploads() {
 
   const startEditingPeople = (upload: UploadMeta) => {
     setEditingPeopleId(upload.id);
-    setEditPeople(answerFrom(upload.bystanders, upload.bystanderStatement));
+    setEditPeople(
+      answerFrom(
+        upload.bystanders,
+        upload.bystanderStatement,
+        upload.consentRequests,
+      ),
+    );
   };
 
   const savePeople = async (id: number) => {
@@ -333,7 +379,45 @@ export default function Uploads() {
         </div>
       </div>
 
+      <ConsentRequestsInbox />
+
       <PeopleQuestion value={people} onChange={setPeople} idPrefix="upload" />
+
+      {pendingMedia &&
+        (() => {
+          const notice = MEDIA_NOTICE[mediaKind(pendingMedia) ?? "audio"];
+          return (
+            <div
+              className="space-y-3 border border-primary/40 bg-muted/20 p-4"
+              data-testid="panel-media-notice"
+            >
+              <p className="text-xs font-mono uppercase tracking-wider text-foreground">
+                {notice.title}: {pendingMedia.name}
+              </p>
+              <p className="text-xs text-muted-foreground max-w-prose">
+                {notice.text}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => uploadFile(pendingMedia)}
+                  isLoading={createMutation.isPending}
+                  data-testid="button-media-upload"
+                >
+                  <UploadIcon className="w-4 h-4 mr-2" /> Upload it
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setPendingMedia(null)}
+                  data-testid="button-media-cancel"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
 
       {error && (
         <p className="text-destructive font-mono text-xs uppercase tracking-wider">
@@ -380,6 +464,25 @@ export default function Uploads() {
                               </Badge>
                             )}
                           </div>
+                          {upload.consentRequests.length > 0 && (
+                            <ul
+                              className="font-sans text-xs text-muted-foreground mt-1 space-y-0.5"
+                              data-testid={`upload-consent-${upload.id}`}
+                            >
+                              {upload.consentRequests.map((r) => (
+                                <li key={r.email}>
+                                  Asked {r.email}: {requestStatus(r)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {!upload.trainingEligible &&
+                            upload.trainingExclusionReason &&
+                            upload.bystanders?.includes("account") && (
+                              <p className="font-sans text-xs text-muted-foreground mt-1">
+                                {upload.trainingExclusionReason}
+                              </p>
+                            )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{upload.fileType}</Badge>
