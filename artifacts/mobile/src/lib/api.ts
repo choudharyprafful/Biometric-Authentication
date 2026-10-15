@@ -1,5 +1,6 @@
 import CookieManager from "@react-native-cookies/cookies";
 import { API_BASE_URL, APP_ORIGIN } from "../config";
+import { integrityFindings } from "./deviceIntegrity";
 
 // React Native's fetch (backed by the native HTTP stack on both platforms)
 // persists and replays cookies automatically, same as a browser — so the
@@ -26,6 +27,7 @@ async function request<T>(
 ): Promise<T> {
   const method = options.method ?? "GET";
   const isMutating = method !== "GET" && method !== "HEAD";
+  const integrity = integrityFindings();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Origin: APP_ORIGIN,
@@ -34,6 +36,8 @@ async function request<T>(
     // any caller overwrite the CSRF token — or Origin — with a value of its
     // own choosing. Ordering is the whole control here.
     ...(options.headers ?? {}),
+    // What the start-up device check found (src/lib/deviceIntegrity.ts), so the server records it.
+    ...(integrity.length ? { "X-Device-Integrity": integrity.join(",") } : {}),
     ...(isMutating ? await csrfHeader() : {}),
   };
 

@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import crypto from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -12,6 +12,10 @@ import { checkAndRecordRequest } from "../lib/rateLimit";
 import { ABSOLUTE_SESSION_MAX_MS } from "../lib/sessionPolicy";
 import { enforceSessionLimit } from "../lib/sessionLimit";
 import { getClientIp } from "../lib/clientIp";
+import {
+  recordDeviceFindings,
+  reportedDeviceFindings,
+} from "../lib/deviceIntegrity";
 
 const router: IRouter = Router();
 
@@ -126,6 +130,30 @@ function verifyBiometricSignature(
   }
 }
 
+// A phone that reports it is rooted, jailbroken or an emulator (lib/deviceIntegrity.ts) can't be
+// trusted to keep a new key in protected storage, so no new key is registered from it. Signing in with
+// a key registered before still works.
+async function refuseFlaggedDevice(
+  req: Request,
+  res: Response,
+  userId: number,
+): Promise<boolean> {
+  const findings = reportedDeviceFindings(req);
+  if (findings.length === 0) return false;
+  await recordDeviceFindings(
+    req,
+    findings,
+    { id: userId },
+    "Phone key set-up refused",
+  );
+  res.status(403).json({
+    error:
+      "This phone reports that it is rooted, jailbroken or an emulator, so a new sign-in key can't be set up on it. Use face sign-in, or a passkey on the website.",
+    code: "DEVICE_NOT_TRUSTED",
+  });
+  return true;
+}
+
 // Enrollment routes below require a fully authenticated session.
 router.post(
   "/auth/biometric-key/register-challenge",
@@ -136,6 +164,7 @@ router.post(
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
+    if (await refuseFlaggedDevice(req, res, userId)) return;
     const challenge = crypto.randomBytes(32).toString("base64url");
     req.session.webauthnChallenge = challenge; // same session slot passkeys.ts uses
     try {
@@ -160,6 +189,7 @@ router.post(
       return;
     }
     delete req.session.webauthnChallenge;
+    if (await refuseFlaggedDevice(req, res, userId)) return;
 
     const parsedBody = RegisterKeyBody.safeParse(req.body);
     if (!parsedBody.success) {

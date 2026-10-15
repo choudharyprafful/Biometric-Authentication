@@ -60,6 +60,10 @@ const LOGIN_RISK_WORDING: Record<LoginRiskCode, string> = {
 import { devAuthLinksEnabled } from "../lib/devLinks";
 import { sendMail, appUrl } from "../lib/mailer";
 import { getClientIp } from "../lib/clientIp";
+import {
+  recordDeviceFindings,
+  reportedDeviceFindings,
+} from "../lib/deviceIntegrity";
 import { checkNewPassword } from "../lib/breachedPasswords";
 
 const router: IRouter = Router();
@@ -690,6 +694,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       .where(eq(biometricKeysTable.userId, user.id)),
   ]);
   const hasPasskey = userPasskeys.length > 0 || userBiometricKeys.length > 0;
+  // A sign-in from a phone that reports it is rooted, jailbroken or an emulator, for security staff.
+  await recordDeviceFindings(
+    req,
+    reportedDeviceFindings(req),
+    user,
+    "Password sign-in",
+  );
 
   if (user.faceEnrolled || hasPasskey) {
     const tempToken = crypto.randomUUID();

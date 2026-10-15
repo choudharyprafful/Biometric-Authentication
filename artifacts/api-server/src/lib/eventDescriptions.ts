@@ -100,6 +100,8 @@ export const EVENT_DESCRIPTIONS: Record<AuditEventType, string> = {
     "Someone asked whether you agree to a file that shows you",
   BYSTANDER_CONSENT_ANSWERED:
     "Answered whether a file that shows you can be used",
+  DEVICE_INTEGRITY_FLAGGED:
+    "The phone app reported that its device may be rooted, jailbroken or an emulator",
 };
 
 export function describeEvent(eventType: string): string {
