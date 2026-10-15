@@ -222,6 +222,21 @@ hardcoded in this CMake/AGP version, independent of the OS setting). The only fi
 fresh-copy the project to a short path (e.g. `C:\dev\secureai\`) before running `expo prebuild` /
 `expo run:android`.
 
+**Update 2026-10-15: `subst` works now.** Since `node_modules` is hoisted (`pnpm-workspace.yaml`), there
+are no symlinks to resolve back to the long path. A release build compiles the C++ as `RelWithDebInfo`,
+whose paths are longer than a debug build's, and from this repository's usual location
+(`C:\RMIT UNI\...\Face-Auth-Merge`) it fails as above. Built from a short drive letter it succeeds:
+
+```powershell
+subst R: "<the repository folder>"
+cd R:\artifacts\mobile\android
+.\gradlew.bat assembleRelease
+subst R: /d
+```
+
+If an earlier attempt failed, delete `node_modules\expo-modules-core\android\.cxx` first: its cache keeps the
+long paths.
+
 ### Blocker 4 — `expo-modules-autolinking@2.0.8` resolves the wrong class path for `expo` itself (fixed — shim in place)
 
 The generated `PackageList.java` does `import expo.core.ExpoModulesPackage;`, but that class doesn't

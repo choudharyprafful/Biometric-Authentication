@@ -31,6 +31,7 @@ import {
   enrollBiometricKey,
   isBiometricSupported,
 } from "../lib/biometricKey";
+import { deviceKeyBlockedReason } from "../lib/deviceIntegrity";
 import { useAuth } from "../context/AuthContext";
 import {
   FaceCapture,
@@ -313,9 +314,10 @@ function SignInMethodsCard() {
             : "Not set up."}
         </Text>
         <Text style={styles.muted}>
-          {supported === false
-            ? "This phone has no biometric set up in its settings."
-            : "Setting it up here replaces any key this app made before on this phone."}
+          {deviceKeyBlockedReason() ??
+            (supported === false
+              ? "This phone has no biometric set up in its settings."
+              : "Setting it up here replaces any key this app made before on this phone.")}
         </Text>
         <Button
           variant="outline"
@@ -328,7 +330,11 @@ function SignInMethodsCard() {
             )
           }
           isLoading={busy === "fingerprint"}
-          disabled={supported !== true || busy !== null}
+          disabled={
+            deviceKeyBlockedReason() !== null ||
+            supported !== true ||
+            busy !== null
+          }
           testID="button-setup-fingerprint"
         >
           Set Up {DEVICE_KEY_NAME} on This Phone

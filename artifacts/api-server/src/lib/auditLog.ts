@@ -84,7 +84,8 @@ export type AuditEventType =
   | "BYSTANDERS_DECLARED"
   | "BYSTANDER_REPORT_RECEIVED"
   | "BYSTANDER_REPORT_PAUSED"
-  | "BYSTANDER_REPORT_RESOLVED";
+  | "BYSTANDER_REPORT_RESOLVED"
+  | "DEVICE_INTEGRITY_FLAGGED";
 
 // Fixed anchor for the first row, so "no previous hash" is a checkable
 // value instead of null.

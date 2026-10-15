@@ -96,6 +96,8 @@ export const EVENT_DESCRIPTIONS: Record<AuditEventType, string> = {
     "Report received from someone who appears in an upload",
   BYSTANDER_REPORT_PAUSED: "File paused while a report about it is reviewed",
   BYSTANDER_REPORT_RESOLVED: "Report about a file closed by staff",
+  DEVICE_INTEGRITY_FLAGGED:
+    "The phone app reported that its device may be rooted, jailbroken or an emulator",
 };
 
 export function describeEvent(eventType: string): string {
