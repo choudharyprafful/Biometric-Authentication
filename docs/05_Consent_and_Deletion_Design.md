@@ -468,11 +468,15 @@ whether an address belongs to an account (docs/04 R-PRIV-10).
    withdrawing the face descriptor only blocks access again if it was the account's only enrolled
    factor. An account with both loses face and keeps working on the passkey alone; an account with only
    face is routed back to `/enroll` until it enrolls something.
-3. Backups are out of scope: this PoC has no backup/restore mechanism, so "does deletion also purge
-   backups" isn't an answerable question here — a real deployment with backups would need an explicit
-   retention/purge policy for them too. Confirmed for the live site on 2026-09-30: the production database
-   has automated backups turned off (`04_Threat_Model_Risk_Assessment.md` R-DP-5, which recommends turning
-   them on; this limit then becomes a retention question for Team 2).
+3. Deletion doesn't reach into backups; they expire instead. Since 2026-10-15 the production database
+   has automated backups (`04_Threat_Model_Risk_Assessment.md` R-DP-5), encrypted like the database and
+   kept for 1 day, the most the AWS Free Tier plan allows (7 days is the launch setting, docs/10). A
+   deleted account's rows stay in them until they expire: up to 2 days, because restoring to any point
+   in the last day needs the daily snapshot taken before it (up to 8 days at 7-day retention). The
+   privacy policy says so, in section 10 from version 2026-10-16. Restoring a backup would also bring
+   deleted accounts back, and the record of those deletions is in the same database, so a restore would
+   have to be followed by repeating them from a list kept outside it (not built). Whether these periods
+   suit Team 2's retention framework is a question for them.
 4. Consent timestamps are evidence of consent, not a legal consent-management system:
    `dataConsentAt`/`biometricConsentAt` support answering "did this user consent, and when" for an audit.
    Which version of the privacy policy each person was shown is now recorded (§7, added 2026-09-26), but

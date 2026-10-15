@@ -63,8 +63,9 @@ primary control, even though both would generically appear on a "protect this" c
    "fine to disclose" — role, timestamps, and subscription plan are still access-controlled (own-data-only
    for regular users), just not additionally encrypted at rest the way Biometric and Financial data are.
    Account-tier fields other than the password (email, name, date of birth, a guardian's email) are not
-   encrypted by the app either, and the production database's disk is not encrypted (R-DP-5), so for
-   those fields access control is the protection.
+   encrypted by the app either. Since 2026-10-15 the production database's disk is encrypted (R-DP-5),
+   which protects them on the disk and in backups but not from anyone who can query the database, so for
+   those fields access control is still the main protection.
 4. This scheme doesn't set retention limits: classification (this document) and retention
    (`05_Consent_and_Deletion_Design.md` §3) are deliberately kept separate — a data category's
    sensitivity tier and how long it should be kept are different questions, and conflating them was how

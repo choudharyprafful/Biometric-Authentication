@@ -108,12 +108,14 @@ All in AWS `us-east-1` (N. Virginia), one CloudFront domain: <https://d2zb1uxt99
   through the same CloudFront domain, so the session and CSRF cookies are same-site (`SameSite=Lax`,
   R-SC-5). CloudFront reaches it over plain HTTP, because the single-instance environment has no HTTPS
   listener. So traffic is encrypted from the browser or phone to CloudFront but not from CloudFront to the
-  API, and the instance also answers HTTP requests sent to it directly (R-SC-6, open). The API believes a forwarded client IP only from CloudFront's published ranges
+  API. Since 2026-10-12 the instance's firewall admits port 80 only from CloudFront, so requests can't
+  bypass it (R-SC-6, partly fixed). The API believes a forwarded client IP only from CloudFront's published ranges
   (`lib/cloudfrontRanges.ts`). ClamAV runs on the same instance (R-DP-2).
-- **Database:** RDS PostgreSQL (`secureai2`). The API connects as the restricted `secureai_app` role over
+- **Database:** RDS PostgreSQL (`secureai3`). The API connects as the restricted `secureai_app` role over
   TLS, checking the server certificate against Amazon's bundle (R-AC-2);
-  `scripts/ops/check-production-db.mjs` re-checks both read-only. The disk is not encrypted and automated
-  backups are off (R-DP-5, open).
+  `scripts/ops/check-production-db.mjs` re-checks both read-only. Since 2026-10-15 the disk is encrypted
+  (KMS, the `aws/rds` key), deletion protection is on, and automated backups are kept for 1 day, the most
+  the AWS Free Tier plan allows (R-DP-5).
 - **Mobile:** built locally (Android APK; iOS needs a Mac), pointed at the live API at build time with
   `EXPO_PUBLIC_API_BASE_URL`. Android release builds pin the CloudFront domain's key, and since 2026-10-07 the iPhone app pins the same CA keys with NSPinnedDomains (R-MOBILE-4).
 
