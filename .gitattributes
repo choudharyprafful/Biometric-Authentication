@@ -1,2 +1,4 @@
 *.bin binary
 *.sh text eol=lf
+# Elastic Beanstalk platform files (nginx configuration, pinned requirements) ship to Linux as they are.
+artifacts/api-server/.platform/** text eol=lf
