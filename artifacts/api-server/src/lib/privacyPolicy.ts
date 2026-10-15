@@ -9,7 +9,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db, securityLogsTable } from "@workspace/db";
 
-export const PRIVACY_POLICY_VERSION = "2026-10-15";
+export const PRIVACY_POLICY_VERSION = "2026-10-16";
 
 export function acknowledgementDetails(
   version: string,

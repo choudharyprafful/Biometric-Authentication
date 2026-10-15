@@ -8,7 +8,8 @@
 // government agencies and to keep what the law requires, with legal holds (docs/08, section 5g);
 // and on 15 October 2026 for Team 2's Bystander Consent Policy: the question about other people in
 // a file, asking people who have an account, the report page, and deleting the files personalisation
-// read; and the automated-decision disclosure Team 2 asked for ahead of APP 1.7 (docs/08, section 5h).
+// read; and the automated-decision disclosure Team 2 asked for ahead of APP 1.7 (docs/08, section 5h);
+// and on 16 October 2026 for the database's backups (docs/08, section 5i).
 // Sections 9 and 14 follow docs/12_Data_Breach_Response_Plan.md: change them together.
 // The version must match PRIVACY_POLICY_VERSION in
 // artifacts/api-server/src/lib/privacyPolicy.ts; scripts/check-privacy-policy-version.mjs checks it
@@ -29,10 +30,10 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: "2026-10-15",
-  effectiveDate: "15 October 2026",
+  version: "2026-10-16",
+  effectiveDate: "16 October 2026",
   status:
-    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID; later that day to set out what we give government agencies and what we keep when the law requires it; and on 15 October 2026 for Team 2's Bystander Consent Policy (other people in your files, and asking people who have an account), to offer deleting the files your topic profile read, and to list the decisions computer programs make (Australian Privacy Principle 1.7). Pending review by Team 2 and a legal adviser; not legal advice.",
+    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID; later that day to set out what we give government agencies and what we keep when the law requires it; and on 15 October 2026 for Team 2's Bystander Consent Policy (other people in your files, and asking people who have an account), to offer deleting the files your topic profile read, and to list the decisions computer programs make (Australian Privacy Principle 1.7); and on 16 October 2026 to say how long backups keep your data. Pending review by Team 2 and a legal adviser; not legal advice.",
   demoNotice:
     "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead, or in the phone app use your fingerprint, Face ID or Touch ID.",
   contact: "privacy@secureai.example",
@@ -366,6 +367,10 @@ export const PRIVACY_POLICY = {
         {
           kind: "p",
           text: "When you delete your account, we delete your profile, face template, passkeys and phone keys, uploads and sessions straight away. Payment records and security records are kept after deletion, with your email, for accountability and fraud prevention.",
+        },
+        {
+          kind: "p",
+          text: "Our database is backed up automatically. The backups are encrypted, are used only to recover from a failure, and are each kept for 1 day, so after you delete your account your data can stay in a backup for up to 2 days, until that backup expires.",
         },
         {
           kind: "p",

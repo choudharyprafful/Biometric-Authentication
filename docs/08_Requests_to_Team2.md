@@ -485,6 +485,22 @@ Team 2 may want to confirm:
 - the withdrawal wording (docs/14 section 4): with no stored model, "nothing remains" is accurate, so the
   "may persist until retraining" caution is not shown.
 
+## 5i. 2026-10-16: backups of the database (privacy policy version 2026-10-16)
+
+Since 2026-10-15 the production database's disk is encrypted and it has automated backups (docs/04
+R-DP-5). The backups are encrypted too, and kept for 1 day, the most the AWS Free Tier plan allows; 7 days
+is the setting for a real launch (docs/10). Deleting an account doesn't reach into the backups: its data
+goes when they expire, up to 2 days later (up to 8 at 7-day retention). This also settles R17 in docs/14,
+which is now a pass.
+
+Privacy policy version 2026-10-16 changes only **section 10**: the database is backed up automatically,
+the backups are encrypted and used only to recover from a failure, and a deleted account's data can stay
+in a backup for up to 2 days. Team 2 may want to confirm:
+
+- that up to 2 days in backups (8 at launch) fits their retention framework;
+- whether the policy should name the period, which means a new version whenever it changes, or only say
+  that backups expire.
+
 ## 6. Week 10: agenda for the final sync with Team 2
 
 Everything still open for Team 2, from the sections above, in one place (issue #7):
