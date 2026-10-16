@@ -1,58 +1,88 @@
 SecureAI release notes
 ======================
 
-Release: main at commit 5c1970f (9 October 2026); live API v26, deployed 7 October 2026 from commit 9b5796e.
+Release: main at commit 44fd09e (16 October 2026); live API v27, deployed 16 October 2026: v26's
+code (commit 9b5796e) plus the HTTPS origin files of R-SC-6.
 Live site: https://d2zb1uxt99m5ks.cloudfront.net
+First issue: 9 October 2026, for main at commit 5c1970f and the live API v26.
 
 This file lists the bugs and issues left in this release. Section 9 of the document
 "SecureAI - Test Planning and Results" lists the same issues with the same IDs; change
 both together. IDs starting R- are rows of the risk register,
 docs/04_Threat_Model_Risk_Assessment.md, which has the full detail of each.
 
-Open issues (7)
+Fixed since 9 October (2)
+-------------------------
+Fixed and live.
+
+R-DP-5: The production database's disk was not encrypted, and it had no automated backups or
+    deletion protection.
+    Fixed: Since 15 October the API uses secureai3, restored from an encrypted copy of a
+    snapshot, with deletion protection and daily backups kept for 1 day (the AWS plan refuses
+    more).
+    Remaining: On 22 October, delete the old unencrypted instance secureai2 (stopped) and the
+    two snapshots made for the switch, after Secrets Manager takes over secureai3's master
+    password.
+
+R-SC-6: CloudFront forwarded requests to the API over plain HTTP, and the API server also
+    accepted direct requests on port 80.
+    Fixed: Since 16 October CloudFront connects to the API over HTTPS only (TLS 1.2 or later,
+    with a Let's Encrypt certificate on the instance). Port 443 admits only CloudFront, and port
+    80 answers only the certificate's renewal check.
+
+Fixed in main, not yet live (7)
+-------------------------------
+The code is in this release and tested. It goes live with the next API deploy, which first needs
+three production database migrations: email verification, bystander reports and bystander
+consent requests (scripts/ops/migrate-*.mjs).
+
+R-AUTH-10: New passwords were not checked against lists of breached passwords.
+    Fixed: Sign-up and both reset paths refuse common passwords, passwords found in Have I Been
+    Pwned (only the first 5 characters of the hash leave the server), and passwords containing
+    the email's name or "SecureAI".
+    Remaining: An existing password is checked only when it is next changed.
+
+R-LOG-6: Audit-log messages contained email addresses, including parents' emails for under-18
+    accounts.
+    Fixed: Messages name the account by id ("user 42"). The email stays in one structured column
+    for filtering, and goes with the entry after 12 months.
+    Remaining: Entries written before the change keep their text, as the log's hash chain must
+    not be edited.
+
+R-PAY-5: Someone could create throwaway accounts to reset the free-tier limits.
+    Fixed: Sign-up emails a 24-hour confirmation link; uploads and payments wait for it.
+    Remaining: A disposable inbox can still receive the link, so each account costs more but is
+    not impossible.
+
+R-SC-8: The API's Content-Security-Policy did not name form-action or base-uri (ZAP, Medium).
+    Fixed: Both are set to 'none'; a ZAP rerun reports no Medium or High alert.
+
+R-PRIV-10: Team 2's Bystander Consent Policy was not implemented: people shown in an upload had
+    no say (was OTH-4).
+    Fixed: The upload asks who else the file shows. Someone with a SecureAI account is asked in
+    their own account, and no feature uses the file until all agree. A public page takes reports
+    from people shown in a file, for a staff queue.
+
+R-PRIV-11: Withdrawing personalisation stopped the profile but left the files it read in
+    storage.
+    Fixed: Withdrawing now offers to delete exactly those files.
+
+R-ML-12: The topic profile read only a to z and 0 to 9, so writing in other languages gave few
+    or no topics.
+    Fixed: Words are found with Unicode word segmentation; a fairness check in CI covers eight
+    synthetic writers.
+    Remaining: Common words are filtered for English only.
+
+Open issues (1)
 ---------------
 Not yet fixed.
-
-R-DP-5: The production database's disk is not encrypted, and it has no automated backups or
-    deletion protection.
-    Impact: A copy of the disk would expose data that the app doesn't encrypt itself; a lost
-    database can't be restored.
-    Plan: Restore an encrypted copy of a snapshot (KMS), then turn on 7-day backups and deletion
-    protection. Needs the project owner's decision, as it replaces the production database.
-
-R-SC-6: CloudFront forwards requests to the API over plain HTTP, and the API server also accepts
-    direct requests on port 80.
-    Impact: Traffic is encrypted from the browser or phone to CloudFront, but not from
-    CloudFront to the API.
-    Plan: A custom domain with a certificate on the API, then an HTTPS-only origin; meanwhile,
-    allow port 80 only from CloudFront's origin-facing addresses.
-
-R-SC-7: CloudFront still accepts TLS 1.0 and 1.1.
-    Impact: Old clients can connect with outdated protocols.
-    Plan: The custom domain from R-SC-6, with an ACM certificate and the TLSv1.2_2021 security
-    policy.
 
 R-AC-6: The production database is still flagged as publicly accessible, although its firewall
     admits only the API.
     Impact: One mistaken firewall rule would expose it to the internet again.
     Plan: Turn public accessibility off and run migrations from inside the network.
 
-R-AUTH-10: New passwords are not checked against lists of breached passwords.
-    Impact: A password already known to attackers can be chosen.
-    Plan: Check new passwords at sign-up and reset against a breached-password list.
-
-R-LOG-6: Audit-log messages contain email addresses, including parents' emails for under-18
-    accounts.
-    Impact: The logs hold more personal information than they need.
-    Plan: Decide: record the account id instead, or accept and record the reason.
-
-R-PRIV-9: Real biometric data was used in testing: the project owner's own face, on their
-    account and one throwaway test account.
-    Impact: A deviation from the brief's dummy-data rule.
-    Plan: Delete the throwaway account, decide whether the owner's account keeps its face
-    template, and test with synthetic images only.
-
-Partly fixed (8)
+Partly fixed (9)
 ----------------
 Fixed in part; the remainder is described.
 
@@ -78,7 +108,8 @@ R-ML-10: Face-matching accuracy and fairness across groups of people have not be
     instead.
     Plan: Measure with a demographically labelled set of consented faces before any real launch.
 
-R-SUPPLY-5: The phone app's build tooling still has 30 dependency advisories (down from 48).
+R-SUPPLY-5: The phone app's build tooling has 42 dependency advisories (re-counted 7 October; 48
+    before the first fixes and 30 just after them, before new advisories were published).
     Impact: Risk in the tools that build the app, not in the code the app runs.
     Plan: Remaining fixes need a newer Expo SDK; upgrade before a real release.
 
@@ -100,7 +131,15 @@ R-MOBILE-4: On iPhone, the sign-in key is an RSA-2048 key in the Keychain, not i
     Plan: Move to a P-256 key in the Secure Enclave, with the server's verification updated to
     match.
 
-Accepted limitations (5)
+R-MOBILE-6: The phone app's checks for a rooted or jailbroken phone run on the phone, which can
+    hide root from them. Phone builds made from main check for root, jailbreak and (in release
+    builds) an emulator, and the API then refuses a new phone key; Android release builds are
+    obfuscated with R8.
+    Impact: A rooted phone that hides it is treated as a normal phone, and the server can't
+    verify what the phone reports.
+    Plan: Play Integrity (Android) and App Attest (iOS), which the server can verify.
+
+Accepted limitations (7)
 ------------------------
 Known and accepted for this proof of concept, with the reason recorded in the risk register.
 
@@ -129,9 +168,22 @@ R-ADV-1: Adversarial images crafted against the face model are detected, not pre
     Impact: A probing pattern raises an alert for staff; the attack itself is not blocked.
     Plan: Passkeys are the backstop; prevention needs anti-spoofing hardware.
 
-Other known issues (4)
+R-SC-7: CloudFront still accepts TLS 1.0 and 1.1 from visitors.
+    Impact: Old clients can connect with outdated protocols; current browsers and phones use TLS
+    1.2 or 1.3. The hop behind CloudFront is TLS 1.2 or later since R-SC-6.
+    Plan: Accepted on 15 October by the project owner, who decided not to buy a domain for the
+    proof of concept. For a launch: a domain with an ACM certificate and the TLSv1.2_2021
+    policy.
+
+R-PRIV-9: Real biometric data was used in testing: the project owner's own face, on their
+    account and one throwaway test account.
+    Impact: A deviation from the brief's dummy-data rule.
+    Plan: Accepted on 12 October by the project owner: it is their own face, given with consent
+    and stored encrypted, and no one else's. Testing since uses synthetic data only.
+
+Other known issues (3)
 ----------------------
-Not risk-register rows.
+Not risk-register rows. OTH-4 is now R-PRIV-10, fixed in main.
 
 OTH-1: A high-severity advisory in build tooling: source-map-js below 1.2.2
     (GHSA-68fv-2mgg-jv7q), reached through @tailwindcss/vite.
@@ -147,9 +199,3 @@ OTH-2: Differential privacy for the behaviour model is built and tested, but swi
 OTH-3: Phone builds made before privacy policy version 2026-10-07.2 cannot acknowledge it.
     Impact: On those builds the policy notice stays until the app is updated.
     Plan: Build and install new phone apps.
-
-OTH-4: Team 2's Bystander Consent Policy (other people shown in uploads) is not implemented in
-    this release; it is in progress.
-    Impact: Uploads are not flagged for the other people they show. Photos, video and audio are
-    not used by any AI feature in any case.
-    Plan: In progress: the people question at upload, a public report page and a staff queue.
