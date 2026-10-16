@@ -12,6 +12,11 @@
  * A new probe needing its own account must raise this ceiling consciously
  * or share an existing probe's account (see probePaymentIdempotencyAndRefund)
  * — going over means the last probes `429` instead of testing anything.
+ *
+ * The anomaly-alert probes read alerts the way staff see them, signed in as
+ * the seeded security analyst (lib/seed.ts), and give that account a test
+ * face like every probe account. The seed only runs on an empty database,
+ * as in CI: point this suite at dev and CI servers, never at production.
  */
 
 import { randomUUID } from "node:crypto";
@@ -808,6 +813,7 @@ async function probeBreachedPasswordOnReset(
 async function probeContentProfileConsentGate(): Promise<{
   session: Session;
   id: number;
+  email: string;
 } | null> {
   const session = await newSession();
   const email = `contentprobe_${Date.now()}@test.com`;
@@ -896,7 +902,7 @@ async function probeContentProfileConsentGate(): Promise<{
     Array.isArray(withdrawBody.keywords) && withdrawBody.keywords.length === 0,
     `keywords.length=${withdrawBody.keywords?.length}`,
   );
-  return { session, id: reg.id };
+  return { session, id: reg.id, email };
 }
 
 // Idempotency and refund abuse reuse the content-profile probe's account
@@ -1038,6 +1044,201 @@ async function probePaymentIdempotencyAndRefund(
   }
 }
 
+// --- Anomaly alerts for staff (docs/10 section 3) ---------------------------------------------
+// The face-verification and upload detectors don't refuse anything themselves; they raise alerts
+// on the security dashboard (lib/securityAlerting.ts). These probes trip each one and read the
+// alert back as staff would. Each sign-in carries its own X-Forwarded-For, which the API believes
+// from loopback, so these sign-ins don't count against the per-IP sign-in limit the rest of the
+// suite shares.
+
+type LoginBody = {
+  requiresFaceVerification?: boolean;
+  tempToken?: string;
+  user?: { id: number; faceEnrolled: boolean };
+};
+
+async function passwordLogin(
+  email: string,
+  password: string,
+  network: Record<string, string>,
+): Promise<{ session: Session; status: number; body: LoginBody | null }> {
+  const session = await newSession();
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+      ...network,
+    },
+    body: JSON.stringify({ email, password }),
+  });
+  mergeSetCookie(session, res);
+  const body = res.status === 200 ? ((await res.json()) as LoginBody) : null;
+  return { session, status: res.status, body };
+}
+
+// A descriptor at an exact distance from enrollFace()'s zero vector.
+function descriptorAtDistance(distance: number): number[] {
+  const descriptor = new Array(128).fill(0);
+  descriptor[0] = distance;
+  return descriptor;
+}
+
+async function faceVerify(
+  session: Session,
+  tempToken: string,
+  descriptor: number[],
+): Promise<Response> {
+  const res = await fetch(`${BASE}/api/auth/face-verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: BASE,
+      "X-CSRF-Token": session.csrf,
+      Cookie: session.cookies,
+    },
+    body: JSON.stringify({ descriptor, tempToken }),
+  });
+  mergeSetCookie(session, res);
+  return res;
+}
+
+// The seeded security analyst (lib/seed.ts). It has no second step until a probe run gives it the
+// zero-vector face; after that, signing in needs that face.
+async function analystSession(): Promise<Session | null> {
+  const login = await passwordLogin(
+    "security_monitoring@prafful.com",
+    "Password123!",
+    { "X-Forwarded-For": "192.0.2.90", "User-Agent": "probe-analyst/1.0" },
+  );
+  const body = login.body;
+  if (!body) return null;
+  if (body.requiresFaceVerification) {
+    if (!body.tempToken) return null;
+    const res = await faceVerify(
+      login.session,
+      body.tempToken,
+      new Array(128).fill(0),
+    );
+    return res.status === 200 ? login.session : null;
+  }
+  if (!body.user) return null;
+  if (!body.user.faceEnrolled) await enrollFace(login.session, body.user.id);
+  return login.session;
+}
+
+async function activeAlertIds(analyst: Session): Promise<string[] | null> {
+  const res = await fetch(`${BASE}/api/security/dashboard`, {
+    headers: { Origin: BASE, Cookie: analyst.cookies },
+  });
+  if (res.status !== 200) return null;
+  const body = (await res.json()) as { activeAlerts?: { id: string }[] };
+  return (body.activeAlerts ?? []).map((a) => a.id);
+}
+
+// lib/uploadAnomalyDetector.ts: 10 or more uploads by one account in 15 minutes. Reuses the
+// content-profile probe's account, which has uploaded one file so far.
+async function probeUploadRateAnomaly(
+  account: { session: Session; id: number } | null,
+  analyst: Session | null,
+): Promise<void> {
+  const name = "Upload anomaly: a burst of uploads raises an alert for staff";
+  if (!account || !analyst) {
+    record(name, false, "setup failed: no probe account or analyst session");
+    return;
+  }
+  const alertId = `upload-rate-spike:${account.id}`;
+  const before = await activeAlertIds(analyst);
+  record(
+    "Upload anomaly: no alert before the burst",
+    before !== null && !before.includes(alertId),
+    before === null ? "dashboard unavailable" : `alerts=${before.length}`,
+  );
+  let stored = 0;
+  for (let i = 0; i < 10; i++) {
+    const res = await fetch(`${BASE}/api/uploads`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: BASE,
+        "X-CSRF-Token": account.session.csrf,
+        Cookie: account.session.cookies,
+      },
+      body: JSON.stringify({
+        fileName: `burst-${i}.txt`,
+        mimeType: "text/plain",
+        dataBase64: Buffer.from(`burst upload ${i}`).toString("base64"),
+        contentSource: "own_work",
+        bystanders: [],
+      }),
+    });
+    if (res.status === 201) stored++;
+  }
+  const after = await activeAlertIds(analyst);
+  record(
+    name,
+    stored === 10 && after !== null && after.includes(alertId),
+    `${stored}/10 stored; alert ${after?.includes(alertId) ? "raised" : "missing"}`,
+  );
+}
+
+// lib/faceVerificationAnomaly.ts: 4 or more failed face checks for one account in 15 minutes, and
+// 4 or more of them clustered just above the match threshold (0.6, within 0.08), the pattern of
+// someone stepping toward it. A sign-in allows 3 face attempts, so this takes two sign-ins.
+async function probeFaceVerificationAnomaly(
+  account: { id: number; email: string } | null,
+  analyst: Session | null,
+): Promise<void> {
+  if (!account || !analyst) {
+    record("Face anomaly setup", false, "no probe account or analyst session");
+    return;
+  }
+  const network = {
+    "X-Forwarded-For": "192.0.2.80",
+    "User-Agent": "probe-face-anomaly/1.0",
+  };
+  let attempts = 0;
+  let refused = 0;
+  for (const round of [[0.62, 0.64, 0.66], [0.63]]) {
+    const login = await passwordLogin(account.email, PROBE_PASSWORD, network);
+    if (!login.body?.requiresFaceVerification || !login.body.tempToken) {
+      record(
+        "Face anomaly setup",
+        false,
+        `sign-in did not ask for the face step (status ${login.status})`,
+      );
+      return;
+    }
+    for (const distance of round) {
+      attempts++;
+      const res = await faceVerify(
+        login.session,
+        login.body.tempToken,
+        descriptorAtDistance(distance),
+      );
+      if (res.status === 401) refused++;
+    }
+  }
+  record(
+    "Face anomaly: scans just outside the match threshold are refused",
+    refused === attempts,
+    `${refused}/${attempts} refused`,
+  );
+  const alerts = await activeAlertIds(analyst);
+  record(
+    "Face anomaly: four failures in 15 minutes raise a failure-spike alert",
+    alerts?.includes(`face-failure-spike:${account.id}`) === true,
+    alerts === null ? "dashboard unavailable" : `alerts: ${alerts.join(", ")}`,
+  );
+  record(
+    "Face anomaly: failures clustered just above the threshold raise a probing alert",
+    alerts?.includes(`face-threshold-probing:${account.id}`) === true,
+    alerts === null ? "dashboard unavailable" : `alerts: ${alerts.join(", ")}`,
+  );
+}
+
 await probeSqlInjection();
 await probeCsrf();
 await probeAuthBypass();
@@ -1051,6 +1252,9 @@ const loginRiskProbeAccount = await probeLoginRiskDetection();
 await probeBreachedPasswordOnReset(loginRiskProbeAccount);
 const contentProbeAccount = await probeContentProfileConsentGate();
 await probePaymentIdempotencyAndRefund(contentProbeAccount);
+const analyst = await analystSession();
+await probeUploadRateAnomaly(contentProbeAccount, analyst);
+await probeFaceVerificationAnomaly(contentProbeAccount, analyst);
 
 const failed = results.filter((r) => !r.pass);
 console.log(
