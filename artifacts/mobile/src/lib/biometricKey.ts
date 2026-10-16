@@ -55,11 +55,28 @@ export async function enrollBiometricKey(deviceName?: string): Promise<void> {
   });
 }
 
+// The server's two answers that mean "this phone can't sign in to this account this way", turned into
+// what the person can do about it. Found on a real phone on 2026-10-16: a key set up for another
+// account failed three times with only "Biometric key verification failed".
+function explainKeyRefusal(err: unknown): never {
+  const status = (err as { status?: number }).status;
+  const message = err instanceof Error ? err.message : "";
+  if (status === 404 && message === "No biometric keys enrolled")
+    throw new Error(
+      `${DEVICE_KEY_NAME} isn't set up for this account yet. Sign in another way, then set it up on this phone under Privacy & Your Data.`,
+    );
+  if (status === 401 && message === "Biometric key verification failed")
+    throw new Error(
+      `The key this phone keeps for ${DEVICE_KEY_PHRASE} isn't registered to this account: it was set up for another account, or this account's key is on another phone. Sign in another way, then set it up on this phone under Privacy & Your Data.`,
+    );
+  throw err;
+}
+
 export async function loginWithBiometricKey(): Promise<{ verified: boolean }> {
   const { challenge } = await request<{ challenge: string }>(
     "/auth/biometric-key/login-options",
     { method: "POST" },
-  );
+  ).catch(explainKeyRefusal);
 
   // A cancelled prompt resolves with success false. A rejection means the key itself can't be used:
   // most often because a fingerprint or face was added to or removed from the phone since it was set
@@ -78,10 +95,10 @@ export async function loginWithBiometricKey(): Promise<{ verified: boolean }> {
   if (!success || !signature)
     throw new Error("Biometric verification was cancelled or failed");
 
-  return request("/auth/biometric-key/login-verify", {
+  return request<{ verified: boolean }>("/auth/biometric-key/login-verify", {
     method: "POST",
     body: { signature },
-  });
+  }).catch(explainKeyRefusal);
 }
 
 // Bootstraps this device onto an account that was enrolled elsewhere (e.g.

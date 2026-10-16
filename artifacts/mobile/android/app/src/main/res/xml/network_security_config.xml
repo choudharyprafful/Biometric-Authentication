@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Certificate pinning for release builds (brief §4/§5.2, R-MOBILE-2 in
-  04_Threat_Model_Risk_Assessment.md). Debug builds are unaffected — cleartext
-  HTTP to localhost during local dev is granted separately, in
-  src/debug/AndroidManifest.xml's usesCleartextTraffic override, needed for
-  the adb-reverse tunnel described in src/config.ts.
+  04_Threat_Model_Risk_Assessment.md). Debug builds use their own copy,
+  src/debug/res/xml/network_security_config.xml, which also allows plain HTTP
+  to localhost for the adb-reverse tunnel described in src/config.ts: with a
+  network security config present, Android ignores the manifest's
+  usesCleartextTraffic. Keep the pins in both files the same.
 
   Pins are REAL, recomputed against the live deployment on 2026-09-18. To
   reproduce, fetch the chain and split it per certificate:
@@ -73,10 +74,10 @@
         </pin-set>
     </domain-config>
 
-    <!-- Everything else (including the local-dev domains in src/config.ts)
-         falls through to the platform default: system trust store, no
-         pinning, cleartext blocked unless a debug-only override says
-         otherwise. Pinning is deliberately scoped to the production API
+    <!-- Everything else falls through to the platform default: system trust
+         store, no pinning, cleartext blocked. In debug builds the local-dev
+         domains in src/config.ts get plain HTTP from the debug copy of this
+         file. Pinning is deliberately scoped to the production API
          domain only — pinning localhost would be both meaningless (no real
          TLS cert exists there) and would break local development. -->
 </network-security-config>
