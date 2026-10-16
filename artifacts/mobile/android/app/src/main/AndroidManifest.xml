@@ -1,16 +1,20 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET"/>
   <!-- Face sign-in only (src/components/FaceCapture.tsx): asked for when the person chooses face. -->
   <uses-permission android:name="android.permission.CAMERA"/>
   <!-- The camera permission otherwise makes a camera a required feature; face sign-in is optional. -->
   <uses-feature android:name="android.hardware.camera" android:required="false"/>
   <uses-feature android:name="android.hardware.camera.front" android:required="false"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <!-- No storage permissions: the upload picker (src/lib/uploads.ts) uses the system's document
+       picker, which grants access to the one file chosen, and every file the app writes goes in
+       its own cache directory. expo-file-system asks for both by default, so they are removed from
+       the merged manifest. Drawing over other apps (SYSTEM_ALERT_WINDOW) is for the development
+       tools only, in src/debug/AndroidManifest.xml. -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -23,18 +27,13 @@
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
     <!-- nosemgrep: java.android.security.exported_activity.exported_activity
-         MainActivity must be exported because it is the Android launcher and deep-link entry point. -->
+         MainActivity must be exported because it is the Android launcher. It takes no deep links:
+         the app reads no incoming URL, so the secureai:// and com.secureai.mobile:// schemes it
+         used to register only let any web page or app open it (removed 2026-10-16, docs/06). -->
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
-      <intent-filter>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="secureai"/>
-        <data android:scheme="com.secureai.mobile"/>
       </intent-filter>
     </activity>
   </application>

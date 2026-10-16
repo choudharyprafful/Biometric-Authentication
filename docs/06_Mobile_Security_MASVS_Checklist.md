@@ -59,9 +59,9 @@ scope).
 | Control                                                                 | Status                         | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Uses platform biometric API correctly (not a custom camera-based check) | Partial (by deliberate design) | The fingerprint option uses `react-native-biometrics`, which wraps Android's own `BiometricPrompt`. Since 2026-10-06 the Face option is a custom camera-based check, the website's face-api.js page in a WebView, because Android can't be asked for face specifically and many phones' face unlock is Class 1, which apps can't use (docs/04 §0, R-AUTH-1)                                                                                                |
-| Minimal permissions requested                                           | Met                            | `AndroidManifest.xml` requests `INTERNET`, `USE_BIOMETRIC`/`USE_FINGERPRINT`, `VIBRATE`, storage permissions for the upload/document-picker feature and, since 2026-10-06, `CAMERA`, asked at run time only when someone chooses face sign-in (cameras are marked not required in the manifest, so a phone without one can still install the app). No contacts, location or SMS permissions anywhere                                                       |
+| Minimal permissions requested                                           | Met                            | `AndroidManifest.xml` requests `INTERNET`, `USE_BIOMETRIC`/`USE_FINGERPRINT`, `VIBRATE` and `CAMERA`, asked at run time only when someone chooses face sign-in (cameras are marked not required, so a phone without one can still install the app). Since 2026-10-16 there are no storage permissions (uploads use the system's document picker), and drawing over other apps is for debug builds only. No contacts, location or SMS permissions anywhere  |
 | WebViews limited to trusted content                                     | Met                            | Added 2026-10-06. The one WebView (`src/components/FaceCapture.tsx`) loads only the site's origin (`originWhitelist` plus `onShouldStartLoadWithRequest`), accepts a message only from that origin and only as 128 finite numbers, has no file access and no bridge beyond react-native-webview's `postMessage`, and isn't incognito (on Android that would delete the app's own session cookie). The page it shows makes no API call (docs/04 R-MOBILE-5) |
-| Deep links validated, not blindly trusted                               | Partial                        | `secureai://` and `com.secureai.mobile://` custom schemes are registered for the device-linking flow (`deviceLink.ts`) but the intent-filter itself doesn't independently verify the link's origin beyond what the app-level linking code checks — acceptable for this PoC's scope (the link only carries a short-lived, single-use device-link code that's re-validated server-side regardless of how it was delivered)                                   |
+| Deep links validated, not blindly trusted                               | Met (2026-10-16)               | The app takes no deep links. It never read an incoming URL, so the `secureai://` and `com.secureai.mobile://` schemes it registered (an Android intent filter and iOS URL types) only let any web page or app open it. Both were removed on 2026-10-16, and on a phone a `secureai://` link now finds no app. Device linking uses a code the person types in, which the server checks                                                                      |
 
 ## MASVS-CODE — code quality & build
 
@@ -112,7 +112,7 @@ carries over. The table above scores the Android build; iOS differs in these row
 | CRYPTO     | 2   | 0       | 0   | 0   |
 | AUTH       | 4   | 1       | 0   | 0   |
 | NETWORK    | 4   | 0       | 0   | 0   |
-| PLATFORM   | 2   | 2       | 0   | 0   |
+| PLATFORM   | 3   | 1       | 0   | 0   |
 | CODE       | 3   | 0       | 0   | 0   |
 | RESILIENCE | 0   | 3       | 0   | 0   |
 | PRIVACY    | 3   | 1       | 0   | 0   |
@@ -120,7 +120,7 @@ carries over. The table above scores the Android build; iOS differs in these row
 RESILIENCE, the one category with no coverage until 2026-10-15, is now partly covered: root, jailbreak
 and emulator checks, R8 obfuscation, and release builds that can't be debugged. It stays Partial because
 checks on the phone can be hidden from and the server can't verify them; Play Integrity and App Attest are
-the launch step (docs/10). Every other category has full or majority coverage. Deep-link origin validation is "mechanism built, one
-input still light" rather than "not attempted"; the other Partial items are one deliberate choice, the
+the launch step (docs/10). Every other category has full or majority coverage. Since 2026-10-16 the app
+takes no deep links at all, and the other Partial items are one deliberate choice, the
 Android face option added on 2026-10-06 (a camera check rather than a key, chosen by the person and
 consented to; docs/04 R-AUTH-1, R-MOBILE-5).
