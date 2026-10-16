@@ -98,7 +98,7 @@ function SystemCard({ system }: { system: AiSystemEntry }) {
           <Row label="Can it be switched off?">{system.switchNote}</Row>
         )}
       </dl>
-      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
         Risk register: {system.riskRefs.join(" · ")}
       </p>
     </Card>
@@ -284,7 +284,7 @@ function ChallengeSection({ systems }: { systems: AiSystemEntry[] }) {
                       <span className="shrink-0">{outcomeBadge(c)}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">{c.message}</p>
-                    <p className="font-mono text-[10px] text-muted-foreground/70">
+                    <p className="font-mono text-[10px] text-muted-foreground/80">
                       Sent {new Date(c.submittedAt).toLocaleString()}
                     </p>
                     {c.status === "open" && (

@@ -99,7 +99,7 @@ export default function Register() {
 
   if (devParentConsentLink) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center">
+      <main className="min-h-[80vh] flex flex-col items-center justify-center">
         <div className="mb-8 flex flex-col items-center">
           <UsersIcon className="w-10 h-10 text-primary mb-4" />
           <h1 className="font-mono text-2xl tracking-widest uppercase text-foreground">
@@ -134,12 +134,12 @@ export default function Register() {
             </Link>
           </div>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center">
+    <main className="min-h-[80vh] flex flex-col items-center justify-center">
       <div className="mb-8 flex flex-col items-center">
         <Shield className="w-10 h-10 text-primary mb-4" />
         <h1 className="font-mono text-2xl tracking-widest uppercase text-foreground">
@@ -306,6 +306,6 @@ export default function Register() {
           </div>
         </form>
       </Card>
-    </div>
+    </main>
   );
 }

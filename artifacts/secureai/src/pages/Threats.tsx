@@ -117,7 +117,7 @@ export default function Threats() {
                 </p>
 
                 {threat.plainSummary && (
-                  <p className="text-xs font-mono text-muted-foreground/70 border-l border-border pl-4">
+                  <p className="text-xs font-mono text-muted-foreground/80 border-l border-border pl-4">
                     <span className="uppercase tracking-widest">
                       Technical detail:
                     </span>{" "}

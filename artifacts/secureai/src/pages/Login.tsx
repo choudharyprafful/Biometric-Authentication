@@ -138,7 +138,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center">
+    <main className="min-h-[80vh] flex flex-col items-center justify-center">
       <div className="mb-8 flex flex-col items-center">
         <div className="bg-primary/10 p-4 border border-primary/30 mb-4 animate-pulse">
           <Shield className="w-12 h-12 text-primary" />
@@ -238,13 +238,19 @@ export default function Login() {
               </div>
             )}
 
-            <div className="text-center pt-2 space-y-2">
-              <Link href="/register">
+            <div className="text-center pt-2 space-y-1">
+              <Link
+                href="/register"
+                className="flex min-h-6 items-center justify-center"
+              >
                 <span className="block text-xs font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider">
                   Request New Clearance (Register)
                 </span>
               </Link>
-              <Link href="/ai">
+              <Link
+                href="/ai"
+                className="flex min-h-6 items-center justify-center"
+              >
                 <span
                   className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
                   data-testid="link-how-we-use-ai"
@@ -252,7 +258,10 @@ export default function Login() {
                   How SecureAI uses AI
                 </span>
               </Link>
-              <Link href="/privacy">
+              <Link
+                href="/privacy"
+                className="flex min-h-6 items-center justify-center"
+              >
                 <span
                   className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
                   data-testid="link-privacy-policy"
@@ -260,7 +269,10 @@ export default function Login() {
                   Privacy Policy
                 </span>
               </Link>
-              <Link href="/report-content">
+              <Link
+                href="/report-content"
+                className="flex min-h-6 items-center justify-center"
+              >
                 <span
                   className="block text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
                   data-testid="link-report-content"
@@ -386,6 +398,6 @@ export default function Login() {
           </div>
         )}
       </Card>
-    </div>
+    </main>
   );
 }

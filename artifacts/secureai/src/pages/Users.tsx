@@ -209,6 +209,7 @@ export default function Users() {
                         onChange={(e) => handleChangeRole(u.id, e.target.value)}
                         disabled={updateMutation.isPending || u.id === user?.id}
                         data-testid={`select-role-${u.id}`}
+                        aria-label={`Role for ${u.name}`}
                         className="bg-input border border-border text-foreground font-mono text-xs uppercase px-2 py-1.5 outline-none focus:border-primary disabled:opacity-50"
                       >
                         <option value="user">User</option>
@@ -223,6 +224,7 @@ export default function Users() {
                       variant="outline"
                       size="sm"
                       title="Send a password reset link"
+                      aria-label={`Send ${u.name} a password reset link`}
                       onClick={() => handleResetPassword(u.id)}
                       disabled={resetPasswordMutation.isPending}
                     >
@@ -232,6 +234,7 @@ export default function Users() {
                       variant="outline"
                       size="sm"
                       title="Clear face + passkey enrollment"
+                      aria-label={`Clear ${u.name}'s face and passkey enrollment`}
                       onClick={() => handleResetMfa(u.id, u.email)}
                       disabled={
                         resetMfaMutation.isPending ||
@@ -256,6 +259,8 @@ export default function Users() {
                       <Button
                         variant="destructive"
                         size="sm"
+                        title="Delete this account"
+                        aria-label={`Delete ${u.name}'s account`}
                         onClick={() => handleDelete(u.id)}
                         disabled={deleteMutation.isPending || u.id === user?.id}
                       >

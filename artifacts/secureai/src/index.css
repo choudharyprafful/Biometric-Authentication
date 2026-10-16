@@ -126,3 +126,14 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* People can pinch-zoom (index.html no longer sets maximum-scale), and iOS Safari also zooms in on a
+   focused field whose text is under 16px. On phone widths, fields use 16px so that doesn't happen.
+   This sits outside @layer so it wins over the text-sm/text-xs utilities on fields. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

@@ -97,7 +97,7 @@ function SuggestedActionCard() {
           <p className="font-mono text-lg text-primary uppercase tracking-wider">
             {data.suggestion.replace(/_/g, " ")}
           </p>
-          <p className="font-mono text-[10px] text-muted-foreground/70 uppercase tracking-wider">
+          <p className="font-mono text-[10px] text-muted-foreground/80 uppercase tracking-wider">
             Seen from {data.distinctUsersSupporting} operators with similar
             activity · model built from {data.modelTrainedFromUsers} consenting
             accounts
@@ -213,7 +213,6 @@ export default function Dashboard() {
             type="button"
             onClick={() => setLocation(stat.href)}
             className="group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={`${stat.action}: ${stat.label}`}
           >
             <Card
               className="relative h-full overflow-hidden border-t-2 transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/60 group-hover:shadow-[0_0_20px_rgba(0,229,255,0.12)]"
@@ -232,7 +231,7 @@ export default function Dashboard() {
                   {stat.value}
                 </p>
                 <p className="mt-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground transition-colors group-hover:text-primary">
-                  {stat.action} →
+                  {stat.action} <span aria-hidden="true">→</span>
                 </p>
               </div>
             </Card>
@@ -304,10 +303,10 @@ export default function Dashboard() {
                       {log.details}
                     </p>
                     <div className="flex gap-3 mt-2">
-                      <span className="font-mono text-[10px] text-muted-foreground/70 uppercase">
+                      <span className="font-mono text-[10px] text-muted-foreground/80 uppercase">
                         ID: {log.userEmail || "UNKNOWN"}
                       </span>
-                      <span className="font-mono text-[10px] text-muted-foreground/70 uppercase">
+                      <span className="font-mono text-[10px] text-muted-foreground/80 uppercase">
                         IP: {log.ipAddress}
                       </span>
                     </div>
@@ -317,7 +316,7 @@ export default function Dashboard() {
                   <span className="font-mono text-xs text-muted-foreground">
                     {format(new Date(log.timestamp), "HH:mm:ss")}
                   </span>
-                  <p className="font-mono text-[10px] text-muted-foreground/50 uppercase">
+                  <p className="font-mono text-[10px] text-muted-foreground/80 uppercase">
                     {format(new Date(log.timestamp), "MMM dd, yyyy")}
                   </p>
                 </div>
