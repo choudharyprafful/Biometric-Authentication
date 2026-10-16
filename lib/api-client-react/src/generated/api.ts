@@ -37,10 +37,12 @@ import type {
   BystanderReportReceipt,
   ChainRepairResult,
   ChainRestoreResult,
+  ConsentAnswerInput,
   ContentProfileResult,
   DataBreach,
   DataExport,
   DeleteUserConfirmation,
+  DeletedFilesResult,
   DeletionAuditEntry,
   ErrorResponse,
   FaceEnrollment,
@@ -50,6 +52,7 @@ import type {
   ForgotPasswordResult,
   GovernmentDisclosure,
   HealthStatus,
+  IncomingConsentRequest,
   LegalHold,
   ListSecurityLogsParams,
   LogChainVerification,
@@ -4499,6 +4502,78 @@ export function useGetContentProfile<TData = Awaited<ReturnType<typeof getConten
 
 
 
+export const getDeleteContentProfileFilesUrl = () => {
+
+
+
+
+  return `/api/users/me/content-profile/files`
+}
+
+/**
+ * Deletes every file the profile would read (this account's own text files that the acceptability matrix and the people rules allow), the same way as deleting each one from the vault. Other files are untouched.
+ * @summary Delete the text files the personalization profile reads, for example when withdrawing consent
+ */
+export const deleteContentProfileFiles = async ( options?: Parameters<typeof customFetch>[1]): Promise<DeletedFilesResult> => {
+
+  return customFetch<DeletedFilesResult>(getDeleteContentProfileFilesUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteContentProfileFilesMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteContentProfileFiles>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteContentProfileFiles>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteContentProfileFiles'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteContentProfileFiles>>, void> = () => {
+
+
+          return  deleteContentProfileFiles(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteContentProfileFilesMutationResult = NonNullable<Awaited<ReturnType<typeof deleteContentProfileFiles>>>
+
+    export type DeleteContentProfileFilesMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete the text files the personalization profile reads, for example when withdrawing consent
+ */
+export const useDeleteContentProfileFiles = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteContentProfileFiles>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteContentProfileFiles>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteContentProfileFilesMutationOptions(options));
+    }
+
 export const getListPaymentsUrl = () => {
 
 
@@ -5383,6 +5458,156 @@ export const useDeclareUploadPeople = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getDeclareUploadPeopleMutationOptions(options));
+    }
+
+export const getListIncomingConsentRequestsUrl = () => {
+
+
+
+
+  return `/api/bystander-consent-requests`
+}
+
+/**
+ * Only requests sent to this account's confirmed email address. Shows who asked and the file's name, type and date, never the file itself.
+ * @summary Requests from other people asking whether this account agrees to a file that shows it
+ */
+export const listIncomingConsentRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<IncomingConsentRequest[]> => {
+
+  return customFetch<IncomingConsentRequest[]>(getListIncomingConsentRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListIncomingConsentRequestsQueryKey = () => {
+    return [
+    `/api/bystander-consent-requests`
+    ] as const;
+    }
+
+
+export const getListIncomingConsentRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listIncomingConsentRequests>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIncomingConsentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListIncomingConsentRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listIncomingConsentRequests>>> = ({ signal }) => listIncomingConsentRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listIncomingConsentRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListIncomingConsentRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listIncomingConsentRequests>>>
+export type ListIncomingConsentRequestsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Requests from other people asking whether this account agrees to a file that shows it
+ */
+
+export function useListIncomingConsentRequests<TData = Awaited<ReturnType<typeof listIncomingConsentRequests>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIncomingConsentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListIncomingConsentRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAnswerConsentRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/bystander-consent-requests/${id}/answer`
+}
+
+/**
+ * @summary Answer, or change the answer to, a request about a file that shows this account
+ */
+export const answerConsentRequest = async (id: number,
+    consentAnswerInput: ConsentAnswerInput, options?: Parameters<typeof customFetch>[1]): Promise<IncomingConsentRequest> => {
+
+  return customFetch<IncomingConsentRequest>(getAnswerConsentRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(consentAnswerInput)
+  }
+);}
+
+
+
+
+
+export const getAnswerConsentRequestMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof answerConsentRequest>>, TError,{id: number;data: BodyType<ConsentAnswerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof answerConsentRequest>>, TError,{id: number;data: BodyType<ConsentAnswerInput>}, TContext> => {
+
+const mutationKey = ['answerConsentRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof answerConsentRequest>>, {id: number;data: BodyType<ConsentAnswerInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  answerConsentRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AnswerConsentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof answerConsentRequest>>>
+    export type AnswerConsentRequestMutationBody = BodyType<ConsentAnswerInput>
+    export type AnswerConsentRequestMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Answer, or change the answer to, a request about a file that shows this account
+ */
+export const useAnswerConsentRequest = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof answerConsentRequest>>, TError,{id: number;data: BodyType<ConsentAnswerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof answerConsentRequest>>,
+        TError,
+        {id: number;data: BodyType<ConsentAnswerInput>},
+        TContext
+      > => {
+      return useMutation(getAnswerConsentRequestMutationOptions(options));
     }
 
 export const getReportContentShowingMeUrl = () => {

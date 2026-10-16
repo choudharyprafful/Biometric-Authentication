@@ -293,5 +293,20 @@
       "CANARY_CONCENTRATION",
       "LOW_SOURCE_DIVERSITY"
     ]
+  },
+  "driftRisk": {
+    "script": "model_drift_risk_model.py",
+    "author": "Yaseen",
+    "riskScore": 25,
+    "level": "MEDIUM",
+    "summary": {
+      "featureDrift": 0.31,
+      "scoreDrift": 0.0,
+      "thresholdShift": 0.05,
+      "populationShift": 0.06
+    },
+    "categories": [
+      "FEATURE_DRIFT"
+    ]
   }
 }

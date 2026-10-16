@@ -8,8 +8,10 @@
 // cannot create roles or databases, owns no table, and is refused CREATE TABLE, DROP of the audit
 // table and ALTER of users. Those three statements run inside a transaction that is always rolled
 // back, so nothing can change even if one were wrongly allowed. Also counts stored values that are
-// not on the current encryption key (R-DP-3). Opens the database firewall for this machine's IP
-// only, and removes that rule again at the end whatever happens.
+// not on the current encryption key (R-DP-3), and checks that the API's DATABASE_URL names the
+// instance below and that its disk is encrypted, with automated backups and deletion protection on
+// (R-DP-5). Opens the database firewall for this machine's IP only, and removes that rule again at
+// the end whatever happens.
 import fs from "node:fs";
 import net from "node:net";
 import { execSync } from "node:child_process";
@@ -22,7 +24,8 @@ const { Client } = require("pg");
 
 const ENV = "secureai-api-env2";
 const APP = "secureai-api";
-const RDS_INSTANCE = "secureai2";
+// The encrypted copy of secureai2 that production has used since 2026-10-15 (docs/04 R-DP-5).
+const RDS_INSTANCE = "secureai3";
 const REGION = "us-east-1";
 
 const aws = (args) =>
@@ -66,9 +69,23 @@ const settings = JSON.parse(
 const env = (name) => settings.find((s) => s.OptionName === name)?.Value;
 const url = new URL(env("DATABASE_URL"));
 const currentKeyId = env("FILE_ENCRYPTION_KEY_ID") || "k1";
-const [, sg] = aws(
-  `rds describe-db-instances --db-instance-identifier ${RDS_INSTANCE} --region ${REGION} --query "DBInstances[0].[Endpoint.Address,VpcSecurityGroups[0].VpcSecurityGroupId]" --output text`,
+const [host, sg, encrypted, backupDays, deletionProtection] = aws(
+  `rds describe-db-instances --db-instance-identifier ${RDS_INSTANCE} --region ${REGION} --query "DBInstances[0].[Endpoint.Address,VpcSecurityGroups[0].VpcSecurityGroupId,StorageEncrypted,BackupRetentionPeriod,DeletionProtection]" --output text`,
 ).split(/\s+/);
+
+console.log(`\nThe database instance, ${RDS_INSTANCE}:`);
+check(
+  "the live API's DATABASE_URL names it",
+  url.hostname === host,
+  url.hostname,
+);
+check("its disk is encrypted", encrypted === "True");
+check(
+  "automated backups are on",
+  Number(backupDays) >= 1,
+  `${backupDays} day(s)`,
+);
+check("deletion protection is on", deletionProtection === "True");
 
 let openedIp = null;
 let client = null;

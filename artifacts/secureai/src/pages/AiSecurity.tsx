@@ -7,6 +7,9 @@ import {
   type AiBehavioralRisk,
   type AiPromptInjectionRisk,
   type AiPoisoningRisk,
+  type AiModelDriftRisk,
+  type TopicFairnessReport,
+  type TopicFairnessResult,
 } from "@workspace/api-client-react";
 import {
   Card,
@@ -25,6 +28,7 @@ import {
   RefreshCw,
   FlaskConical,
   Terminal,
+  Scale,
 } from "lucide-react";
 
 // Output the models produce, shown as text: event names come back with underscores, PoC outputs can be empty.
@@ -543,6 +547,173 @@ function PoisoningRiskCard({ risk }: { risk: AiPoisoningRisk }) {
   );
 }
 
+function DriftRiskCard({ risk }: { risk: AiModelDriftRisk }) {
+  return (
+    <Card className="space-y-5">
+      <h3 className="font-mono font-bold uppercase tracking-widest text-foreground">
+        Model Drift Risk (Synthetic Demo)
+      </h3>
+
+      <p className="text-xs text-muted-foreground">
+        Synthetic demonstration of model drift monitoring. It compares the
+        corpus the model was trained on with the corpus after five new users
+        join with different topics, both after the consent gate: how far the
+        word frequencies moved, how the answers to the same ordinary prompts
+        changed after retraining, how the model's emission threshold behaves,
+        and how the largest account's share changed.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Risk Score
+          </p>
+
+          <p className="font-mono text-2xl">{risk.riskScore}</p>
+
+          <Badge
+            variant={
+              risk.level === "HIGH"
+                ? "destructive"
+                : risk.level === "MEDIUM"
+                  ? "warning"
+                  : "success"
+            }
+          >
+            {risk.level}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Feature Drift
+          </p>
+          <p>{risk.summary.featureDrift}</p>
+        </div>
+
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Score Drift
+          </p>
+          <p>{risk.summary.scoreDrift}</p>
+        </div>
+
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Threshold Shift
+          </p>
+          <p>{risk.summary.thresholdShift}</p>
+        </div>
+
+        <div className="border border-border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Population Shift
+          </p>
+          <p>{risk.summary.populationShift}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+          Categories
+        </p>
+
+        <p className="font-mono text-xs">{risk.categories.join(", ")}</p>
+      </div>
+    </Card>
+  );
+}
+function FairnessCell({ result }: Readonly<{ result: TopicFairnessResult }>) {
+  return (
+    <div className="space-y-0.5">
+      <p className="tabular-nums">
+        {result.wordsRead}% read · {result.topics} topics
+      </p>
+      {result.fragments.length > 0 && (
+        <p className="text-destructive">
+          Broken words: {result.fragments.slice(0, 3).join(", ")}
+          {result.fragments.length > 3 ? "…" : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Team 2's Compliance Test Plan, risk R13: the same diary, written by synthetic people in different
+// languages, through the real topic profile code (the API's lib/topicFairness.ts).
+function FairnessSection({
+  report,
+}: Readonly<{ report: TopicFairnessReport }>) {
+  return (
+    <section className="space-y-4" data-testid="ai-fairness">
+      <div>
+        <h2 className="font-mono font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
+          <Scale className="w-5 h-5 text-primary" /> Fairness spot-check: topic
+          profile
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+          {report.question} Run on every load, through the same code as each
+          person's own profile ({report.model}). "Before" is the word splitter
+          used until 15 Oct 2026, which only understood the letters a–z; this
+          check, from Team 2's test plan (risk R13), is what found it.{" "}
+          {report.summary.consistent} of {report.personas.length} writers now
+          get a consistent profile; {report.summary.degradedBefore} did not
+          before.
+        </p>
+      </div>
+      <Card className="p-0 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Writer</TableHead>
+              <TableHead>Before</TableHead>
+              <TableHead>Now</TableHead>
+              <TableHead>Topics now</TableHead>
+              <TableHead>Result</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {report.personas.map((p) => (
+              <TableRow key={p.id} data-testid={`fairness-${p.id}`}>
+                <TableCell className="text-xs">{p.label}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  <FairnessCell result={p.before} />
+                </TableCell>
+                <TableCell className="text-xs">
+                  <FairnessCell result={p.secureai} />
+                </TableCell>
+                <TableCell
+                  className="text-xs"
+                  lang={p.id === "en-names" ? "en" : p.id}
+                  dir="auto"
+                >
+                  {p.secureai.sample.join(", ")}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      p.verdict === "consistent" ? "success" : "destructive"
+                    }
+                  >
+                    {p.verdict === "consistent" ? "Consistent" : "Degraded"}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+      <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-1 max-w-3xl">
+        {report.limits.map((limit) => (
+          <li key={limit}>{limit}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export default function AiSecurity() {
   const { data, isLoading, isFetching, error, refetch } =
     useGetAiSecurityReport({
@@ -668,6 +839,8 @@ export default function AiSecurity() {
         </div>
       </section>
 
+      <FairnessSection report={data.fairness} />
+
       <section className="space-y-4">
         <div>
           <h2 className="font-mono font-bold uppercase tracking-widest text-foreground flex items-center gap-2">
@@ -682,6 +855,7 @@ export default function AiSecurity() {
           </p>
         </div>
         <BehavioralRiskCard risk={poc.behavioralRisk} />
+        <DriftRiskCard risk={poc.driftRisk} />
         <PromptInjectionRiskCard risk={poc.promptInjectionRisk} />
         <PoisoningRiskCard risk={poc.poisoningRisk} />
         <StarterKitCard kit={poc.starterKit} />

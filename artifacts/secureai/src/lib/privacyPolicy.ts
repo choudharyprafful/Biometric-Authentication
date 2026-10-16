@@ -5,7 +5,11 @@
 // updated on 6 October 2026 for face sign-in in the phone app (docs/08, section 5e); updated on
 // 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID
 // (docs/08, section 5f); and again that day (version 2026-10-07.2) to set out what is given to
-// government agencies and to keep what the law requires, with legal holds (docs/08, section 5g).
+// government agencies and to keep what the law requires, with legal holds (docs/08, section 5g);
+// and on 15 October 2026 for Team 2's Bystander Consent Policy: the question about other people in
+// a file, asking people who have an account, the report page, and deleting the files personalisation
+// read; and the automated-decision disclosure Team 2 asked for ahead of APP 1.7 (docs/08, section 5h);
+// and on 16 October 2026 for the database's backups (docs/08, section 5i).
 // Sections 9 and 14 follow docs/12_Data_Breach_Response_Plan.md: change them together.
 // The version must match PRIVACY_POLICY_VERSION in
 // artifacts/api-server/src/lib/privacyPolicy.ts; scripts/check-privacy-policy-version.mjs checks it
@@ -26,10 +30,10 @@ export interface PolicySection {
 }
 
 export const PRIVACY_POLICY = {
-  version: "2026-10-07.2",
-  effectiveDate: "7 October 2026",
+  version: "2026-10-16",
+  effectiveDate: "16 October 2026",
   status:
-    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID; and later that day to set out what we give government agencies and what we keep when the law requires it. Pending review by Team 2 and a legal adviser; not legal advice.",
+    "Draft. Written by Team 2 (Ethics & Governance) on 23 September 2026. Updated by Team 1: on 26 September 2026 to match how the app works today and to add Team 2's answers on biometric information and challenge response times; on 4 October 2026 for the client's requirements (how long records are kept, requests from government agencies, a readable copy of your data, and data breaches); on 6 October 2026 because the phone app now offers face sign-in too; on 7 October 2026 to explain data breaches in more detail and to name Face ID and Touch ID; later that day to set out what we give government agencies and what we keep when the law requires it; and on 15 October 2026 for Team 2's Bystander Consent Policy (other people in your files, and asking people who have an account), to offer deleting the files your topic profile read, and to list the decisions computer programs make (Australian Privacy Principle 1.7); and on 16 October 2026 to say how long backups keep your data. Pending review by Team 2 and a legal adviser; not legal advice.",
   demoNotice:
     "SecureAI is a student proof of concept. Please use test details rather than your real personal information, and never enter a real card number. If you would rather not give a face scan, set up a passkey instead, or in the phone app use your fingerprint, Face ID or Touch ID.",
   contact: "privacy@secureai.example",
@@ -103,6 +107,12 @@ export const PRIVACY_POLICY = {
               "Storing them for you. Only your own text uploads can build your private topic profile, and only if you opt in",
             ],
             [
+              "Other people in your files",
+              "What you tell us about who else a file shows or names (section 5), and the email address of anyone you ask who has a SecureAI account",
+              "Medium",
+              "Deciding which features may use the file, and asking those people. We never tell you whether an address has an account, and the address is deleted with the file",
+            ],
+            [
               "Your activity",
               'Which types of actions you take in the app (for example "uploaded a file"), never their content',
               "Low",
@@ -173,6 +183,26 @@ export const PRIVACY_POLICY = {
           kind: "p",
           text: "Automated checks also help protect your account: the sign-in risk check, face matching and liveness check at sign-in, and alerts about unusual activity shown to our security staff. Each is described, with its limits and how to challenge it, on [How SecureAI uses AI](/ai).",
         },
+        {
+          kind: "heading",
+          text: "Decisions made by computer programs",
+        },
+        {
+          kind: "p",
+          text: "From 10 December 2026 the Privacy Act requires us to tell you which decisions computer programs make about you, and what information they use (Australian Privacy Principle 1.7). These are the ones that could affect you:",
+        },
+        {
+          kind: "list",
+          items: [
+            "Made entirely by a program: whether a face scan matches your enrolled face, which can refuse that sign-in attempt (it uses the live camera image, on your device, and your stored face template); whether a sign-in, upload or password reset is refused for being tried too often; whether a new password is refused because it is common or has appeared in a data breach; and whether an uploaded file is refused as malware.",
+            "Made by a program, with people able to review it: the sign-in risk check, which can show you a warning and flag the sign-in for our security staff (it uses your own past sign-ins: network address, browser and time); and alerts about unusual activity, where staff decide what to do.",
+            "Which features may use each file you upload, worked out from what you told us about where it came from and who else it shows (sections 5 and 7).",
+          ],
+        },
+        {
+          kind: "p",
+          text: "None of these deletes your account or blocks it for good: a refused attempt can be tried again later, and if a face scan doesn't match you can sign in another way. You can challenge any of these decisions on [How SecureAI uses AI](/ai#challenge).",
+        },
       ],
     },
     {
@@ -185,7 +215,23 @@ export const PRIVACY_POLICY = {
         },
         {
           kind: "p",
-          text: "Photos, video and audio are not used by any AI feature at all, whoever appears in them. We don't automatically scan text for other people's names, so a diary entry you mark as your own work can be read by your private topic profile if you opt in; it is never shared with other accounts.",
+          text: "We also ask whether the file shows or names anyone else, and you can change your answer later. That answer is how we find out: we don't scan your files for faces, voices or names, because doing so would collect more about those people. What each answer means:",
+        },
+        {
+          kind: "list",
+          items: [
+            "Someone under 18: no feature uses the file at all, whatever else you tell us.",
+            "Someone with a SecureAI account: we ask them in their own account whether your topic profile, and anything shared across accounts, may use the file. They see your name and email and the file's name and type, never the file itself. Until they agree, no feature uses it, and if they say no, it isn't used for that. They can change their answer at any time.",
+            "Someone you've told, who doesn't object, someone you can't contact, or someone who has died: the file can be used by your own topic profile only, never by anything shared across accounts. For someone you've told, we keep what you wrote about them, with the date.",
+          ],
+        },
+        {
+          kind: "p",
+          text: "Photos, video and audio are not used by any AI feature at all, whoever appears in them, and SecureAI never copies a voice or a face. A diary entry you mark as your own work can be read by your private topic profile if you opt in; it is never shared with other accounts.",
+        },
+        {
+          kind: "p",
+          text: "If you appear in someone else's upload, you can ask us to review or remove it, without an account, on [Report content that shows you](/report-content). While we review it, no feature uses the file, and we tell the person who uploaded it that a report was received.",
         },
       ],
     },
@@ -199,7 +245,7 @@ export const PRIVACY_POLICY = {
         },
         {
           kind: "p",
-          text: "Content that shows a minor is never used for training or shared personalisation, because photos and video are not used by any AI feature at all. We're tracking Australia's draft Children's Online Privacy Code (proposing protections up to age 15) and will update this section as it develops.",
+          text: "A file you tell us shows or names someone under 18 is not used by any feature, and photos and video are not used by any AI feature at all. We're tracking Australia's draft Children's Online Privacy Code (proposing protections up to age 15) and will update this section as it develops.",
         },
       ],
     },
@@ -324,6 +370,10 @@ export const PRIVACY_POLICY = {
         },
         {
           kind: "p",
+          text: "Our database is backed up automatically. The backups are encrypted, are used only to recover from a failure, and are each kept for 1 day, so after you delete your account your data can stay in a backup for up to 2 days, until that backup expires.",
+        },
+        {
+          kind: "p",
           text: "Expired password-reset and parental-consent links are deleted automatically. The records below are kept for a set time, whether or not you delete your account, and are then deleted automatically:",
         },
         {
@@ -363,7 +413,7 @@ export const PRIVACY_POLICY = {
             "Access and export: download a copy of your data at any time from [Security Settings](/enroll), on the website or the phone app. Choose a readable copy, a page you can open in any web browser, print or save as a PDF, written so you don't need technical knowledge to understand it; or a data file (JSON) that also contains your files, for moving your data to another service. Your face template is described but not included, to avoid creating another copy of it.",
             "Correction: contact us to correct any of your details.",
             "Deletion: delete your whole account in Security Settings, or individual files in the Data Vault, and remove your face template at any time.",
-            "Withdrawing consent: switch off each AI use separately in Security Settings. It applies to the very next request, because both models are rebuilt from current data each time.",
+            "Withdrawing consent: switch off each AI use separately in Security Settings. It applies to the very next request, because both models are rebuilt from current data each time. When you switch off your topic profile, we also offer to delete the text files it read.",
           ],
         },
         {

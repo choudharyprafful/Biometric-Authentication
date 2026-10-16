@@ -12,7 +12,8 @@ const require = createRequire(
 );
 const { Client } = require("pg");
 
-const RDS_INSTANCE = "secureai2";
+// The encrypted copy of secureai2 that production has used since 2026-10-15 (docs/04 R-DP-5).
+const RDS_INSTANCE = "secureai3";
 const DB = "secureai";
 
 export const step = (msg) => console.log(`\n▸ ${msg}`);

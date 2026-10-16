@@ -26,7 +26,8 @@ const { Client } = require("pg");
 // --rehearse runs every SQL step and check against the LOCAL dev database with a throwaway role,
 // touching no firewall and no Elastic Beanstalk, then removes the throwaway role.
 const REHEARSE = process.argv.includes("--rehearse");
-const RDS_INSTANCE = "secureai2";
+// The encrypted copy of secureai2 that production has used since 2026-10-15 (docs/04 R-DP-5).
+const RDS_INSTANCE = "secureai3";
 const PORT = REHEARSE ? 5433 : 5432;
 const DB = "secureai";
 const MASTER = REHEARSE ? "postgres" : "secureaiadmin";

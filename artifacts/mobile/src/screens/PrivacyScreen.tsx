@@ -13,6 +13,7 @@ import * as Sharing from "expo-sharing";
 import {
   acknowledgeBreachNotice,
   acknowledgePrivacyPolicy,
+  deleteContentProfileFiles,
   deleteMyAccount,
   enrollFace,
   exportMyData,
@@ -31,6 +32,8 @@ import {
   enrollBiometricKey,
   isBiometricSupported,
 } from "../lib/biometricKey";
+import { deviceKeyBlockedReason } from "../lib/deviceIntegrity";
+import { listUploads } from "../lib/uploads";
 import { useAuth } from "../context/AuthContext";
 import {
   FaceCapture,
@@ -177,8 +180,14 @@ function PolicyCard({
 
 function ConsentCard() {
   const { user, refetchUser } = useAuth();
-  const [busy, setBusy] = useState<"training" | "content" | null>(null);
+  const [busy, setBusy] = useState<"training" | "content" | "delete" | null>(
+    null,
+  );
   const [error, setError] = useState("");
+  // After personalisation is withdrawn: how many files it read (null while unknown), and the
+  // outcome once the person chooses (Team 2's scenario script, step 7). Same as the web app.
+  const [filesRead, setFilesRead] = useState<number | null>(null);
+  const [deletedCount, setDeletedCount] = useState<number | null>(null);
   if (!user) return null;
 
   const change = async (which: "training" | "content", consent: boolean) => {
@@ -188,8 +197,30 @@ function ConsentCard() {
       if (which === "training") await setTrainingConsent(consent);
       else await setContentPersonalizationConsent(consent);
       await refetchUser();
+      if (which === "content") {
+        setDeletedCount(null);
+        // A file's trainingEligible is the same rule the profile reads by.
+        setFilesRead(
+          consent
+            ? null
+            : (await listUploads()).filter((u) => u.trainingEligible).length,
+        );
+      }
     } catch (err: any) {
       setError(err?.message || "Could not change that. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const deleteFilesRead = async () => {
+    setBusy("delete");
+    setError("");
+    try {
+      setDeletedCount((await deleteContentProfileFiles()).deletedCount);
+      setFilesRead(null);
+    } catch (err: any) {
+      setError(err?.message || "Could not delete the files. Try again.");
     } finally {
       setBusy(null);
     }
@@ -220,6 +251,41 @@ function ConsentCard() {
           personalisation profile that only I can see.
         </CheckRow>
       </View>
+      {filesRead !== null && filesRead > 0 ? (
+        <View style={styles.consents} testID="content-withdrawn-offer">
+          <Text style={styles.body}>
+            Personalisation is off from now on. The topic list was never saved,
+            so nothing it picked up from your writing remains. It read{" "}
+            {filesRead} text file{filesRead === 1 ? "" : "s"} of yours, still in
+            your vault. Delete {filesRead === 1 ? "it" : "them"} too?
+          </Text>
+          <View style={styles.row}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onPress={deleteFilesRead}
+              isLoading={busy === "delete"}
+              style={styles.flex}
+              testID="delete-profile-files"
+            >
+              {`Delete ${filesRead} file${filesRead === 1 ? "" : "s"}`}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={() => setFilesRead(null)}
+              style={styles.flex}
+            >
+              {`Keep ${filesRead === 1 ? "it" : "them"}`}
+            </Button>
+          </View>
+        </View>
+      ) : null}
+      {deletedCount !== null ? (
+        <Text style={styles.done}>
+          Deleted {deletedCount} file{deletedCount === 1 ? "" : "s"}.
+        </Text>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </Card>
   );
@@ -313,9 +379,10 @@ function SignInMethodsCard() {
             : "Not set up."}
         </Text>
         <Text style={styles.muted}>
-          {supported === false
-            ? "This phone has no biometric set up in its settings."
-            : "Setting it up here replaces any key this app made before on this phone."}
+          {deviceKeyBlockedReason() ??
+            (supported === false
+              ? "This phone has no biometric set up in its settings."
+              : "Setting it up here replaces any key this app made before on this phone.")}
         </Text>
         <Button
           variant="outline"
@@ -328,7 +395,11 @@ function SignInMethodsCard() {
             )
           }
           isLoading={busy === "fingerprint"}
-          disabled={supported !== true || busy !== null}
+          disabled={
+            deviceKeyBlockedReason() !== null ||
+            supported !== true ||
+            busy !== null
+          }
           testID="button-setup-fingerprint"
         >
           Set Up {DEVICE_KEY_NAME} on This Phone

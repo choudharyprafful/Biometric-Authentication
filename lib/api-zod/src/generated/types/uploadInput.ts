@@ -25,7 +25,7 @@ export interface UploadInput {
   contentSource?: UploadInputContentSource;
   /**
      * Who else the file shows or names (empty for no one else). Optional for older phone apps, which store it as never asked.
-     * @maxItems 4
+     * @maxItems 5
      */
   bystanders?: BystanderKind[];
   /**
@@ -34,4 +34,10 @@ export interface UploadInput {
      * @nullable
      */
   bystanderStatement?: string | null;
+  /**
+     * Required with "account"; the email address of each person in it who has a SecureAI account. They are asked directly, and each use waits for their answer. The uploader is never told whether an address has an account.
+     * @maxItems 5
+     * @items.maxLength 254
+     */
+  consentRequestEmails?: string[];
 }

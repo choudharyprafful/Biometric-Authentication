@@ -13,15 +13,30 @@ import {
   listUploads,
   getUpload,
   deleteUpload,
-  pickAndUploadFile,
+  pickFile,
+  uploadPickedFile,
+  declareUploadPeople,
   downloadAndShare,
   base64ToUtf8,
+  mediaKind,
   CONTENT_SOURCE_OPTIONS,
+  MEDIA_NOTICE,
   type ContentSource,
+  type PickedFile,
   type UploadMeta,
   type UploadContent,
 } from "../lib/uploads";
 import { Card, Button, Badge, Centered } from "../components/ui";
+import {
+  NO_ANSWER,
+  PeopleQuestion,
+  answerFrom,
+  peopleSummary,
+  requestStatus,
+  toRequest,
+  type PeopleAnswer,
+} from "../components/PeopleInFile";
+import { ConsentRequestsInbox } from "../components/ConsentRequestsInbox";
 import { colors, fonts } from "../theme";
 
 function formatSize(bytes: number): string {
@@ -43,6 +58,13 @@ export function UploadsScreen() {
   // personalization consent. The server treats an absent field as
   // "unspecified" and excludes it from training either way.
   const [contentSource, setContentSource] = useState<ContentSource>("own_work");
+  // Asked afresh for every upload (Team 2's Bystander Consent Policy): no default answer.
+  const [people, setPeople] = useState<PeopleAnswer>(NO_ANSWER);
+  const peopleRequest = toRequest(people);
+  // A voice recording or video waiting while its notice is read.
+  const [pendingMedia, setPendingMedia] = useState<PickedFile | null>(null);
+  const [editingPeopleId, setEditingPeopleId] = useState<number | null>(null);
+  const [editPeople, setEditPeople] = useState<PeopleAnswer>(NO_ANSWER);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -58,16 +80,53 @@ export function UploadsScreen() {
     refresh();
   }, [refresh]);
 
-  const handlePick = async () => {
-    setError("");
+  const upload = async (file: PickedFile) => {
+    setPendingMedia(null);
+    if (!peopleRequest) {
+      setError("Say whether the file shows or names anyone else.");
+      return;
+    }
     setUploading(true);
     try {
-      const result = await pickAndUploadFile(contentSource);
-      if (result) refresh();
+      await uploadPickedFile(file, contentSource, peopleRequest);
+      setPeople(NO_ANSWER);
+      refresh();
     } catch (err: any) {
       setError(err?.message || "Upload failed.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePick = async () => {
+    setError("");
+    if (!peopleRequest) {
+      setError("Say whether the file shows or names anyone else.");
+      return;
+    }
+    try {
+      const file = await pickFile();
+      if (!file) return;
+      if (mediaKind(file.mimeType)) setPendingMedia(file);
+      else await upload(file);
+    } catch (err: any) {
+      setError(err?.message || "Upload failed.");
+    }
+  };
+
+  const savePeople = async (id: number) => {
+    const request = toRequest(editPeople);
+    if (!request) return;
+    setBusyId(id);
+    setError("");
+    try {
+      await declareUploadPeople(id, request);
+      setEditingPeopleId(null);
+      refresh();
+    } catch (err: any) {
+      setError(err?.message || "Could not save who the file shows.");
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -116,6 +175,8 @@ export function UploadsScreen() {
         the uploader — not even an admin can read them.
       </Text>
 
+      <ConsentRequestsInbox />
+
       {/* Provenance picker. Chips rather than a Picker component so no new
           native dependency is pulled in for five options, and so every choice
           is visible at once instead of hidden behind a dropdown — the whole
@@ -149,13 +210,51 @@ export function UploadsScreen() {
         </Text>
       )}
 
-      <Button
-        onPress={handlePick}
-        isLoading={uploading}
-        style={{ marginBottom: 20 }}
-      >
-        Upload File
-      </Button>
+      <PeopleQuestion
+        value={people}
+        onChange={setPeople}
+        testIdPrefix="upload"
+      />
+
+      {pendingMedia ? (
+        <Card style={styles.noticeCard} testID="media-notice">
+          <Text style={styles.noticeTitle}>
+            {MEDIA_NOTICE[mediaKind(pendingMedia.mimeType) ?? "audio"].title}:{" "}
+            {pendingMedia.name}
+          </Text>
+          <Text style={styles.noticeText}>
+            {MEDIA_NOTICE[mediaKind(pendingMedia.mimeType) ?? "audio"].text}
+          </Text>
+          <View style={styles.actionsRow}>
+            <Button
+              size="sm"
+              onPress={() => void upload(pendingMedia)}
+              isLoading={uploading}
+              style={{ flexGrow: 1 }}
+              testID="media-upload"
+            >
+              Upload it
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onPress={() => setPendingMedia(null)}
+              style={{ flexGrow: 1 }}
+            >
+              Cancel
+            </Button>
+          </View>
+        </Card>
+      ) : (
+        <Button
+          onPress={handlePick}
+          isLoading={uploading}
+          disabled={!peopleRequest}
+          style={{ marginBottom: 20 }}
+        >
+          Upload File
+        </Button>
+      )}
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -179,6 +278,24 @@ export function UploadsScreen() {
                     {formatSize(u.sizeBytes)} ·{" "}
                     {new Date(u.createdAt).toLocaleDateString()}
                   </Text>
+                  {peopleSummary(u.bystanders) ? (
+                    <Text
+                      style={styles.fileMeta}
+                      testID={`upload-people-${u.id}`}
+                    >
+                      {peopleSummary(u.bystanders)}
+                    </Text>
+                  ) : null}
+                  {u.pausedForReviewAt ? (
+                    <Text style={styles.pausedText}>
+                      Paused: someone in it asked us to review it
+                    </Text>
+                  ) : null}
+                  {(u.consentRequests ?? []).map((r) => (
+                    <Text key={r.email} style={styles.fileMeta}>
+                      Asked {r.email}: {requestStatus(r)}
+                    </Text>
+                  ))}
                 </View>
                 <View style={{ alignItems: "flex-end", gap: 4 }}>
                   <Badge tone="outline">{u.fileType}</Badge>
@@ -213,6 +330,25 @@ export function UploadsScreen() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="outline"
+                  onPress={() => {
+                    setEditingPeopleId(u.id);
+                    setEditPeople(
+                      answerFrom(
+                        u.bystanders,
+                        u.bystanderStatement,
+                        u.consentRequests,
+                      ),
+                    );
+                  }}
+                  disabled={busy}
+                  style={{ flexGrow: 1 }}
+                  testID={`upload-people-edit-${u.id}`}
+                >
+                  People
+                </Button>
+                <Button
+                  size="sm"
                   variant="destructive"
                   onPress={() => handleDelete(u)}
                   disabled={busy}
@@ -221,6 +357,34 @@ export function UploadsScreen() {
                   Delete
                 </Button>
               </View>
+              {editingPeopleId === u.id ? (
+                <View style={styles.editPeople}>
+                  <PeopleQuestion
+                    value={editPeople}
+                    onChange={setEditPeople}
+                    testIdPrefix={`edit-${u.id}`}
+                  />
+                  <View style={styles.actionsRow}>
+                    <Button
+                      size="sm"
+                      onPress={() => void savePeople(u.id)}
+                      isLoading={busy}
+                      disabled={!toRequest(editPeople)}
+                      style={{ flexGrow: 1 }}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onPress={() => setEditingPeopleId(null)}
+                      style={{ flexGrow: 1 }}
+                    >
+                      Cancel
+                    </Button>
+                  </View>
+                </View>
+              ) : null}
             </Card>
           );
         })
@@ -346,6 +510,26 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   actionsRow: { flexDirection: "row", gap: 6 },
+  editPeople: { marginTop: 12 },
+  pausedText: {
+    fontFamily: fonts.mono,
+    color: colors.warning,
+    fontSize: 9,
+    marginTop: 2,
+  },
+  noticeCard: { marginBottom: 20, gap: 10 },
+  noticeTitle: {
+    fontFamily: fonts.mono,
+    color: colors.foreground,
+    fontSize: 11,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  noticeText: {
+    color: colors.mutedForeground,
+    fontSize: 12,
+    lineHeight: 18,
+  },
   previewContainer: { flex: 1, backgroundColor: colors.background },
   previewHeader: {
     flexDirection: "row",

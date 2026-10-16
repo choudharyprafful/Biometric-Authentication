@@ -42,8 +42,22 @@ export interface ReadableExportInput {
     sizeBytes: number;
     declaredSource: string;
     otherPeople: string[] | null;
+    peopleAsked: {
+      email: string;
+      topicProfile: boolean | null;
+      sharedTraining: boolean | null;
+      answeredAt: string | null;
+    }[];
     pausedForReviewSince: string | null;
     uploadedAt: string | null;
+  }[];
+  /** This account's answers about files other people say show it. */
+  answersGiven: {
+    askedBy: string;
+    fileName: string;
+    topicProfile: boolean;
+    sharedTraining: boolean;
+    answeredAt: string | null;
   }[];
   payments: {
     amount: number;
@@ -183,6 +197,7 @@ const CATEGORY_WORDS: Record<string, string> = {
 const PEOPLE_WORDS: Record<string, string> = {
   minor: "someone under 18",
   deceased: "someone who has died",
+  account: "someone with a SecureAI account, asked in their account",
   reachable: "someone you told, who doesn't object",
   unreachable: "someone you can't contact",
 };
@@ -359,12 +374,33 @@ export function renderReadableExport(input: ReadableExportInput): string {
               : sentenceCase(
                   u.otherPeople.map((k) => PEOPLE_WORDS[k] ?? k).join(", "),
                 )) +
+            u.peopleAsked
+              .map(
+                (r) =>
+                  `. Asked ${r.email}: ${
+                    r.answeredAt === null
+                      ? "no answer yet"
+                      : `topic profile ${r.topicProfile ? "yes" : "no"}, shared ${r.sharedTraining ? "yes" : "no"}`
+                  }`,
+              )
+              .join("") +
             (u.pausedForReviewSince
               ? `. Paused since ${when(u.pausedForReviewSince)}: someone in it asked us to review it`
               : ""),
         ),
       ]),
       "You haven't uploaded any files.",
+    )}</section>`,
+    `<section id="answers"><h2>Files other people say show you</h2><p>Your answers when someone asked whether their file showing you could be used. You can change them in the Data Vault.</p>${table(
+      ["Asked by", "File", "Their topic profile", "Shared", "Answered"],
+      input.answersGiven.map((r) => [
+        esc(r.askedBy),
+        esc(r.fileName),
+        esc(r.topicProfile ? "Yes" : "No"),
+        esc(r.sharedTraining ? "Yes" : "No"),
+        esc(when(r.answeredAt)),
+      ]),
+      "No one has asked you about a file.",
     )}</section>`,
     `<section id="payments"><h2>Your payments</h2><p>Payments in this proof of concept are simulated: no real card was charged.</p>${table(
       ["Date", "What for", "Amount", "Result", "Refunded"],
@@ -435,7 +471,7 @@ export function renderReadableExport(input: ReadableExportInput): string {
 <p class="note">To keep a copy, save this page, or use your browser's Print option and choose "Save as PDF". If anything here looks wrong, you can change your name in Security Settings, or contact us about anything else.</p>
 <nav aria-label="Contents"><ul>
 <li><a href="#about">About you</a></li><li><a href="#choices">Your choices</a></li><li><a href="#sign-in">How you sign in</a></li>
-<li><a href="#files">Your files</a></li><li><a href="#payments">Your payments</a></li><li><a href="#activity">Security activity</a></li>
+<li><a href="#files">Your files</a></li><li><a href="#answers">Files that show you</a></li><li><a href="#payments">Your payments</a></li><li><a href="#activity">Security activity</a></li>
 <li><a href="#breaches">Data breach notices</a></li><li><a href="#disclosures">Government agencies</a></li><li><a href="#policy">Privacy policy</a></li><li><a href="#keeping">How long we keep it</a></li>
 </ul></nav>
 ${sections.join("\n")}

@@ -4,6 +4,7 @@ import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
 import { requestRateLimit } from "../middlewares/requestRateLimit";
 import { runLiveModelValidation } from "../lib/aiSecurityValidation";
+import { runTopicFairnessCheck } from "../lib/topicFairness";
 // Written by artifacts/ai-model/ai_security_report.py from the team's Python PoCs; CI fails if it is stale.
 import pocReport from "../lib/aiPocReport.json";
 
@@ -23,6 +24,7 @@ router.get("/ai-security/report", reportRateLimit, (_req, res): void => {
     GetAiSecurityReportResponse.parse({
       live: runLiveModelValidation(),
       poc: pocReport,
+      fairness: runTopicFairnessCheck(),
     }),
   );
 });

@@ -38,6 +38,7 @@ Built as a student deliverable for **Team 1 (Technical Security)**, per the cour
 | [11 — Responsible AI Governance](docs/11_Responsible_AI_Governance.md)                     | The AI system register and Team 2's 20 Responsible AI elements, element by element                |
 | [12 — Data Breach Response Plan](docs/12_Data_Breach_Response_Plan.md)                     | Breach register, deadlines and notification, requests from government agencies                    |
 | [13 — Security Features](docs/13_Security_Features.md)                                     | All 86 security features: what each does, how it is built, and where the code is                  |
+| [14 — Team 2 Test Readiness](docs/14_Team2_Test_Readiness.md)                              | Each of Team 2's tests: what the app does, how to show it, and the expected result                |
 | [Team 1 Technical Scope](docs/Team1_Technical_Scope.pdf)                                   | The assignment brief these documents answer                                                       |
 
 ### The brief's seven deliverables
@@ -233,7 +234,7 @@ For the mobile app, see [`artifacts/mobile/README.md`](artifacts/mobile/README.m
 | `node scripts/check-privacy-policy-version.mjs`           | Fails if the privacy policy version differs between the web text, the mobile app and the API (runs in CI)                                                                                                                                               |
 | `node scripts/ops/check-production-db.mjs`                | Read-only production check: the app's database role has no more rights than it needs, and every encrypted value is on the current key                                                                                                                   |
 
-Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards). Database changes go first, through the migration scripts in `scripts/ops/` (`migrate-*.mjs`; the API on `main` needs all of them, most recently `migrate-bystander-reports.mjs` and `migrate-email-verification.mjs`). Each asks for the RDS master password, can be rehearsed on a throwaway local database with `--rehearse`, and is safe to run twice.
+Deployment is by `scripts/ops/package-api.mjs` (API bundle for Elastic Beanstalk) and `scripts/ops/deploy-web.mjs` (web app to Amplify, applying the page security headers from `scripts/ops/web-security-headers.mjs` and checking them afterwards). Database changes go first, through the migration scripts in `scripts/ops/` (`migrate-*.mjs`; the API on `main` needs all of them, most recently `migrate-email-verification.mjs`, then `migrate-bystander-reports.mjs`, then `migrate-bystander-consent-requests.mjs`, in that order). Each asks for the RDS master password, can be rehearsed on a throwaway local database with `--rehearse`, and is safe to run twice.
 
 ## Contributing
 

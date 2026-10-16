@@ -24,6 +24,7 @@ import pathlib
 import sys
 import behavioral_risk_model as brm
 import data_poisoning_risk_model as dpr
+import model_drift_risk_model as mdr
 
 sys.dont_write_bytecode = True
 
@@ -48,6 +49,16 @@ def console_of(fn):
     return buf.getvalue()
 
 
+def ordinary_prompts():
+    """The first three words of each benign sentence, once each: the 8 ordinary prompts."""
+    prompts = []
+    for s in ms.BENIGN:
+        p = " ".join(s.split()[:3])
+        if p not in prompts:
+            prompts.append(p)
+    return prompts
+
+
 def starter_kit():
     records = ms.generate_corpus()
     with contextlib.redirect_stdout(io.StringIO()):  # consent_gate prints each block; the console capture below keeps that
@@ -58,11 +69,7 @@ def starter_kit():
     retrained = ms.train(remaining, dedup=True)
     
     # Prediction coverage on ordinary prompts only; refusing the attack prompts is the defence working.
-    benign_prompts = []
-    for s in ms.BENIGN:
-        p = " ".join(s.split()[:3])
-        if p not in benign_prompts:
-            benign_prompts.append(p)
+    benign_prompts = ordinary_prompts()
     
     vulnerable_coverage = sum(1 for p in benign_prompts if ms.generate(vulnerable, p, 8).strip())
     hardened_coverage = sum(1 for p in benign_prompts if ms.generate(hardened, p, 8).strip())
@@ -277,6 +284,112 @@ def poisoning_risk():
     }
 
 
+# Drift is change over time: the corpus the model was trained on against the corpus it would be
+# retrained on later. The later batch is five new users writing about different topics.
+LATER_BATCH_TEXTS = [
+    "the payment service records a refund for the monthly plan",
+    "the payment service records a new subscription each week",
+    "the upload scanner reports a clean file for the user",
+    "the upload scanner reports a blocked file for review",
+    "the payment service records a declined card for the user",
+    "the upload scanner reports steady volume across the day",
+]
+LATER_USERS = 5
+
+
+def later_batch():
+    return [
+        ms.make_record(
+            f"user-{10 + i:02d}",
+            LATER_BATCH_TEXTS[(2 * i + k) % len(LATER_BATCH_TEXTS)],
+        )
+        for i in range(LATER_USERS)
+        for k in range(2)
+    ]
+
+
+def word_shares(records):
+    counts = {}
+    for r in records:
+        for w in r["text"].lower().split():
+            counts[w] = counts.get(w, 0) + 1
+    total = sum(counts.values())
+    return {w: n / total for w, n in counts.items()}
+
+
+def prediction_coverage(model, prompts):
+    return sum(1 for p in prompts if ms.generate(model, p, 8).strip()) / len(prompts)
+
+
+def emission_rate(model):
+    """Share of word contexts whose most likely next word clears the MIN_COUNT emission threshold."""
+    contexts = model["counts"].values()
+    return sum(1 for c in contexts if max(c.values()) >= ms.MIN_COUNT) / len(contexts)
+
+
+def drift_risk():
+    corpus = ms.generate_corpus()
+
+    # Both snapshots pass the consent gate, so the gate itself is not measured as drift.
+    with contextlib.redirect_stdout(io.StringIO()):
+        then, _ = ms.consent_gate(corpus)
+        now, _ = ms.consent_gate(corpus + later_batch())
+
+    model_then = ms.train(then, dedup=True)
+    model_now = ms.train(now, dedup=True)
+    prompts = ordinary_prompts()
+
+    # Total variation distance between the two word distributions, 0 to 1.
+    shares_then, shares_now = word_shares(then), word_shares(now)
+    feature_drift = 0.5 * sum(
+        abs(shares_then.get(w, 0) - shares_now.get(w, 0))
+        for w in set(shares_then) | set(shares_now)
+    )
+
+    # How much the model's answers to the same ordinary prompts change after retraining.
+    score_drift = abs(
+        prediction_coverage(model_now, prompts)
+        - prediction_coverage(model_then, prompts)
+    )
+
+    threshold_shift = abs(emission_rate(model_now) - emission_rate(model_then))
+
+    population_shift = abs(
+        corpus_metrics(now)["single_user_ratio"]
+        - corpus_metrics(then)["single_user_ratio"]
+    )
+
+    summary = {
+        "featureDrift": round(feature_drift, 2),
+        "scoreDrift": round(score_drift, 2),
+        "thresholdShift": round(threshold_shift, 2),
+        "populationShift": round(population_shift, 2),
+    }
+
+    score = mdr.calculate_risk(
+        feature_drift=summary["featureDrift"],
+        score_drift=summary["scoreDrift"],
+        threshold_shift=summary["thresholdShift"],
+        population_shift=summary["populationShift"],
+    )
+
+    categories = mdr.categorize(
+        feature_drift=summary["featureDrift"],
+        score_drift=summary["scoreDrift"],
+        threshold_shift=summary["thresholdShift"],
+        population_shift=summary["populationShift"],
+    )
+
+    return {
+        "script": "model_drift_risk_model.py",
+        "author": "Yaseen",
+        "riskScore": score,
+        "level": mdr.classify(score, categories),
+        "summary": summary,
+        "categories": categories,
+    }
+
+
 def build():
     return {
         "generator": "artifacts/ai-model/ai_security_report.py",
@@ -285,6 +398,7 @@ def build():
         "behavioralRisk": behavioral_risk(),
         "promptInjectionRisk": prompt_injection_risk(),
         "poisoningRisk": poisoning_risk(),
+        "driftRisk": drift_risk(),
     }
 
 def main():

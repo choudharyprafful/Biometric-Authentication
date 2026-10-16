@@ -6,6 +6,7 @@ import {
   isBiometricSupported,
 } from "../lib/biometricKey";
 import { enrollFace } from "../lib/api";
+import { deviceKeyBlockedReason } from "../lib/deviceIntegrity";
 import { useAuth } from "../context/AuthContext";
 import {
   Card,
@@ -39,6 +40,8 @@ export function EnrollScreen() {
   const [faceOpen, setFaceOpen] = useState(false);
   const [busy, setBusy] = useState<"fingerprint" | "face" | null>(null);
   const [error, setError] = useState("");
+  // A rooted or jailbroken phone, or an emulator, can't be trusted to protect a new key.
+  const keyBlocked = deviceKeyBlockedReason();
 
   useEffect(() => {
     isBiometricSupported()
@@ -98,16 +101,19 @@ export function EnrollScreen() {
         <View style={styles.methods}>
           <MethodOption
             title={DEVICE_KEY_NAME}
-            recommended
+            recommended={keyBlocked === null}
             detail={
-              supported === false
+              keyBlocked ??
+              (supported === false
                 ? Platform.OS === "ios"
                   ? "This iPhone has no Face ID or Touch ID set up. Add it in Settings, or choose a face scan."
                   : "This phone has no fingerprint set up. Add one in the phone's settings, or choose face."
-                : "Unlocks a key stored securely on this phone. The key signs a challenge from the server: your biometric never leaves the phone, and the server never sees it."
+                : "Unlocks a key stored securely on this phone. The key signs a challenge from the server: your biometric never leaves the phone, and the server never sees it.")
             }
             onPress={handleFingerprint}
-            disabled={supported !== true || busy !== null}
+            disabled={
+              keyBlocked !== null || supported !== true || busy !== null
+            }
             isLoading={busy === "fingerprint"}
             testID="button-enroll-fingerprint"
           />

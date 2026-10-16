@@ -52,6 +52,8 @@ jobs:
       - run: pnpm --filter @workspace/api-server run verify:dp
       # Data provenance: which uploads may feed which model (Team 2's acceptability matrix).
       - run: pnpm --filter @workspace/api-server run verify:provenance
+      # Fairness spot-check of the topic profile across writers in eight languages (Team 2 risk R13).
+      - run: pnpm --filter @workspace/api-server run verify:fairness
       # The deploy hook that installs ClamAV on the API instance.
       - run: shellcheck artifacts/api-server/.platform/hooks/prebuild/10_clamav.sh
       # The privacy policy text and the version the API records must match.

@@ -7,7 +7,7 @@
  */
 
 /**
- * minor = someone under 18; deceased = someone who has died; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
+ * minor = someone under 18; deceased = someone who has died; account = someone with their own SecureAI account, who is asked directly; reachable = someone the uploader has told, who doesn't object; unreachable = someone they can't contact
  */
 export type BystanderKind = typeof BystanderKind[keyof typeof BystanderKind];
 
@@ -15,6 +15,7 @@ export type BystanderKind = typeof BystanderKind[keyof typeof BystanderKind];
 export const BystanderKind = {
   minor: 'minor',
   deceased: 'deceased',
+  account: 'account',
   reachable: 'reachable',
   unreachable: 'unreachable',
 } as const;

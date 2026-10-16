@@ -9,6 +9,11 @@ When this was written, Team 2's policy documents didn't exist yet. The design be
 assumptions it makes about that policy, so they can be checked rather than silently baked in. Team 2's
 documents have since arrived (`08_Requests_to_Team2.md` §5b and §5c, and the Acceptability Matrix in
 `09_Team2_Data_Source_Acceptability_Matrix.md`); where one confirmed an assumption, the section says so.
+Their final documents (October 2026) were checked against every section on 2026-10-15
+(`08_Requests_to_Team2.md` §0 and §6a): the consent, deletion and retention design matches what they
+decided, with two differences they are asked to confirm. Consent to AI use is per account rather than per
+upload type (docs/14 section 3), and "delete my AI profile" is defined by Team 1 because their report leaves
+it open (§3.7, §9.3).
 Every open question below (and elsewhere in these docs) that's actually Team 2's call to make is collected
 in one place, organized against Team 2's own deliverables, in `08_Requests_to_Team2.md`. Its §6 is the
 agenda for the final sync.
@@ -432,6 +437,24 @@ meaningfully higher than the term spread across all three, isolating and confirm
 not just that the feature still produces output. Consent model, scope (text-only), and deletion behaviour
 are all unchanged by this — only the ranking mathematics improved.
 
+### 5d. Withdrawing personalisation, and the files it read (added 2026-10-15)
+
+Withdrawing the topic profile's consent stops it on the next request, in one click, as before. Team 2's
+Weeks 3-4 framework (section 7) also expects the stored entries to go, so the app then offers to delete
+the text files the profile read: `DELETE /users/me/content-profile/files` (Security Settings on the web,
+Privacy & Your Data in the phone app). It deletes exactly the files `profileFilesCondition` lets the profile
+read, keeping legal-hold copies as every deletion does (§8). The profile itself was never stored, so there
+is nothing further to unlearn (docs/04 R-PRIV-11).
+
+### 5e. People in a file who have an account (added 2026-10-15)
+
+Team 2's Bystander Consent Policy, section 4, first row: someone in a file who has their own account is
+asked directly (`lib/bystanderConsent.ts`, table `bystander_consent_requests`). They answer the uploader's
+topic profile and shared training separately, and can change either answer at any time; no feature uses the
+file until every such person has agreed to that use. Deleting the file deletes its requests; deleting the
+answering account deletes its answers, which leaves the file unused again. The uploader is never told
+whether an address belongs to an account (docs/04 R-PRIV-10).
+
 ## 6. Honest limits (per the brief's "design an approach and be honest about its limits" instruction)
 
 1. No model to un-learn from — in the live app: the web/API application itself still doesn't train a
@@ -445,11 +468,15 @@ are all unchanged by this — only the ranking mathematics improved.
    withdrawing the face descriptor only blocks access again if it was the account's only enrolled
    factor. An account with both loses face and keeps working on the passkey alone; an account with only
    face is routed back to `/enroll` until it enrolls something.
-3. Backups are out of scope: this PoC has no backup/restore mechanism, so "does deletion also purge
-   backups" isn't an answerable question here — a real deployment with backups would need an explicit
-   retention/purge policy for them too. Confirmed for the live site on 2026-09-30: the production database
-   has automated backups turned off (`04_Threat_Model_Risk_Assessment.md` R-DP-5, which recommends turning
-   them on; this limit then becomes a retention question for Team 2).
+3. Deletion doesn't reach into backups; they expire instead. Since 2026-10-15 the production database
+   has automated backups (`04_Threat_Model_Risk_Assessment.md` R-DP-5), encrypted like the database and
+   kept for 1 day, the most the AWS Free Tier plan allows (7 days is the launch setting, docs/10). A
+   deleted account's rows stay in them until they expire: up to 2 days, because restoring to any point
+   in the last day needs the daily snapshot taken before it (up to 8 days at 7-day retention). The
+   privacy policy says so, in section 10 from version 2026-10-16. Restoring a backup would also bring
+   deleted accounts back, and the record of those deletions is in the same database, so a restore would
+   have to be followed by repeating them from a list kept outside it (not built). Whether these periods
+   suit Team 2's retention framework is a question for them.
 4. Consent timestamps are evidence of consent, not a legal consent-management system:
    `dataConsentAt`/`biometricConsentAt` support answering "did this user consent, and when" for an audit.
    Which version of the privacy policy each person was shown is now recorded (§7, added 2026-09-26), but
