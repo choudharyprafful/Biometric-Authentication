@@ -31,7 +31,7 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center">
+    <main className="min-h-[80vh] flex flex-col items-center justify-center">
       <div className="mb-8 flex flex-col items-center">
         <div className="bg-primary/10 p-4 border border-primary/30 mb-4">
           <MailCheck className="w-12 h-12 text-primary" />
@@ -86,6 +86,6 @@ export default function VerifyEmail() {
           </div>
         )}
       </Card>
-    </div>
+    </main>
   );
 }

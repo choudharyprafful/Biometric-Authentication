@@ -348,7 +348,7 @@ export function FaceCamera({
           whether it's working as intended vs. needs recalibrating. */}
       {isCameraReady && hasFace && !blinkConfirmed && earDebug && (
         <p
-          className="mt-2 text-[9px] font-mono text-muted-foreground/60 text-center"
+          className="mt-2 text-[9px] font-mono text-muted-foreground/80 text-center"
           data-testid="text-ear-debug"
         >
           EAR {earDebug.ear.toFixed(3)} · baseline{" "}

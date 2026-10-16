@@ -40,7 +40,7 @@ export default function AppFace() {
 
   if (!bridge) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <main className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
         <ScanFace className="w-10 h-10 text-primary" />
         <h1 className="font-mono text-lg uppercase tracking-widest">
           Face check for the phone app
@@ -55,12 +55,12 @@ export default function AppFace() {
         >
           Go to sign-in
         </Link>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-5 p-4">
+    <main className="min-h-screen flex flex-col items-center justify-center gap-5 p-4">
       <div className="text-center space-y-2 max-w-sm">
         <p className="text-xs font-mono text-muted-foreground">
           Hold the phone at eye level, in even light, and blink once. The scan
@@ -81,6 +81,6 @@ export default function AppFace() {
       ) : (
         <FaceCamera autoCapture isVerifying onCapture={handleCapture} />
       )}
-    </div>
+    </main>
   );
 }

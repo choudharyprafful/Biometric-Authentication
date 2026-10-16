@@ -105,7 +105,7 @@ export function Badge({
       "border-transparent bg-primary/20 text-primary border border-primary/50",
     secondary: "border-transparent bg-secondary text-secondary-foreground",
     destructive:
-      "border-transparent bg-destructive/20 text-destructive border border-destructive/50",
+      "border-transparent bg-destructive/20 text-red-400 border border-destructive/50",
     outline: "text-foreground border border-border",
     success:
       "border-transparent bg-green-500/20 text-green-400 border border-green-500/50",

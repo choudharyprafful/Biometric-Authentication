@@ -163,7 +163,7 @@ function FeatureCard({
         aria-controls={howId}
         onClick={() => setOpen((o) => !o)}
         data-testid={`feature-${number}-how-toggle`}
-        className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
+        className="flex min-h-6 items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
       >
         <ChevronRight
           className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-90" : ""}`}
