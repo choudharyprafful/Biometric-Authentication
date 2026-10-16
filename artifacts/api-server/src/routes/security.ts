@@ -28,6 +28,7 @@ import {
   RepairLogChainResponse,
   RestoreLogChainResponse,
   ListDeletionAuditResponse,
+  GetSecurityControlsResponse,
 } from "@workspace/api-zod";
 import { requireMfaEnrolled } from "../middlewares/requireMfaEnrolled";
 import { requireParentConsent } from "../middlewares/requireParentConsent";
@@ -39,6 +40,8 @@ import {
 } from "../lib/auditLog";
 import { computeActiveAlerts } from "../lib/securityAlerting";
 import { getClientIp } from "../lib/clientIp";
+import { buildSecurityControlsReport } from "../lib/securityControls";
+import { requestRateLimit } from "../middlewares/requestRateLimit";
 
 const router: IRouter = Router();
 // Path-scoped: every router is mounted without a prefix, so an unscoped gate here would also run on requests meant for routers mounted after this one.
@@ -50,6 +53,44 @@ function canSeeAuditLogs(role: string | undefined): boolean {
 }
 
 // computeActiveAlerts() lives in lib/securityAlerting.ts, shared with the background push-notification job, so there's one detection implementation rather than a dashboard copy and a job copy that could silently drift apart.
+// The Security Center: every backend control's live state, for staff (lib/securityControls.ts). It
+// re-verifies the whole audit chain, so it is rate-limited like the other staff tools.
+const securityControlsRateLimit = requestRateLimit(
+  "security-controls",
+  30,
+  5 * 60 * 1000,
+);
+router.get(
+  "/security/controls",
+  securityControlsRateLimit,
+  async (req, res): Promise<void> => {
+    const userId = req.session.userId as number;
+    const [sessionUser] = await db
+      .select({ role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId));
+    if (!canSeeAuditLogs(sessionUser?.role)) {
+      res
+        .status(403)
+        .json({ error: "Security analysts and administrators only" });
+      return;
+    }
+    // The headers app.ts has already set on this response, shown as evidence.
+    const header = (name: string) => {
+      const value = res.getHeader(name);
+      return value === undefined ? null : String(value);
+    };
+    const report = await buildSecurityControlsReport({
+      "Content-Security-Policy": header("Content-Security-Policy"),
+      "X-Frame-Options": header("X-Frame-Options"),
+      "X-Content-Type-Options": header("X-Content-Type-Options"),
+      "Referrer-Policy": header("Referrer-Policy"),
+      "Strict-Transport-Security": header("Strict-Transport-Security"),
+    });
+    res.json(GetSecurityControlsResponse.parse(report));
+  },
+);
+
 router.get("/security/dashboard", async (req, res): Promise<void> => {
   const userId = req.session.userId as number;
   const [sessionUser] = await db

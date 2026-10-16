@@ -231,6 +231,52 @@ export interface DeleteUserConfirmation {
   password?: string;
 }
 
+/**
+ * on = working; partial = working with a limit on this server (for example no ClamAV, so signature checks only); off = switched off or failing
+ */
+export type SecurityControlStatus = typeof SecurityControlStatus[keyof typeof SecurityControlStatus];
+
+
+export const SecurityControlStatus = {
+  on: 'on',
+  partial: 'partial',
+  off: 'off',
+} as const;
+
+export interface SecurityControlEvidence {
+  label: string;
+  value: string;
+}
+
+export interface SecurityControl {
+  id: string;
+  name: string;
+  /** on = working; partial = working with a limit on this server (for example no ClamAV, so signature checks only); off = switched off or failing */
+  status: SecurityControlStatus;
+  /** What the backend does, in plain language */
+  summary: string;
+  /** Live values from this server and its database */
+  evidence: SecurityControlEvidence[];
+  /**
+     * The page in the app where it shows, if any
+     * @nullable
+     */
+  where: string | null;
+  /** @nullable */
+  whereLabel: string | null;
+}
+
+export interface SecurityControlSection {
+  id: string;
+  title: string;
+  controls: SecurityControl[];
+}
+
+export interface SecurityControlsReport {
+  generatedAt: string;
+  sections: SecurityControlSection[];
+}
+
 export interface SecurityLog {
   id: number;
   /** @nullable */

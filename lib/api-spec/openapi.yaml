@@ -601,6 +601,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /security/controls:
+    get:
+      operationId: getSecurityControls
+      tags: [security]
+      summary: The Security Center — every backend control's live state, with evidence
+      description: Security analysts and administrators only. Only states, counts, limits and header values; no keys, passwords, addresses or tokens. Re-verifies the audit chain, so it is rate-limited (30 per 5 minutes).
+      responses:
+        "200":
+          description: One section per area, each listing its controls
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityControlsReport"
+        "403":
+          description: Not a security analyst or administrator, or no second factor set up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /security/dashboard:
     get:
       operationId: getSecurityDashboard
@@ -2522,6 +2542,65 @@ components:
       properties:
         password:
           description: Required when deleting your own account (step-up re-authentication); ignored for admin-driven deletion of a different account
+          type: string
+
+    SecurityControlsReport:
+      type: object
+      required: [generatedAt, sections]
+      properties:
+        generatedAt:
+          type: string
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityControlSection"
+
+    SecurityControlSection:
+      type: object
+      required: [id, title, controls]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        controls:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityControl"
+
+    SecurityControl:
+      type: object
+      required: [id, name, status, summary, evidence, where, whereLabel]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          description: on = working; partial = working with a limit on this server (for example no ClamAV, so signature checks only); off = switched off or failing
+          type: string
+          enum: [on, partial, off]
+        summary:
+          description: What the backend does, in plain language
+          type: string
+        evidence:
+          description: Live values from this server and its database
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityControlEvidence"
+        where:
+          description: The page in the app where it shows, if any
+          type: ["string", "null"]
+        whereLabel:
+          type: ["string", "null"]
+
+    SecurityControlEvidence:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+        value:
           type: string
 
     SecurityDashboard:

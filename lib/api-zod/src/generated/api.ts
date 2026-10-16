@@ -532,6 +532,31 @@ export const StaffResetPasswordResponse = zod.object({
 
 
 /**
+ * Security analysts and administrators only. Only states, counts, limits and header values; no keys, passwords, addresses or tokens. Re-verifies the audit chain, so it is rate-limited (30 per 5 minutes).
+ * @summary The Security Center — every backend control's live state, with evidence
+ */
+export const GetSecurityControlsResponse = zod.object({
+  "generatedAt": zod.string(),
+  "sections": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "controls": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "status": zod.enum(['on', 'partial', 'off']).describe('on = working; partial = working with a limit on this server (for example no ClamAV, so signature checks only); off = switched off or failing'),
+  "summary": zod.string().describe('What the backend does, in plain language'),
+  "evidence": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).describe('Live values from this server and its database'),
+  "where": zod.string().nullable().describe('The page in the app where it shows, if any'),
+  "whereLabel": zod.string().nullable()
+}))
+}))
+})
+
+
+/**
  * @summary Get security dashboard statistics
  */
 export const GetSecurityDashboardResponse = zod.object({

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import {
   useListSecurityLogs,
@@ -432,7 +432,10 @@ const EVENT_TYPES = [
 export default function SecurityLogs() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [eventType, setEventType] = useState("");
+  const search = useSearch();
+  const [eventType, setEventType] = useState(
+    () => new URLSearchParams(search).get("eventType") ?? "",
+  );
   const [userEmail, setUserEmail] = useState("");
   const [ipAddress, setIpAddress] = useState("");
   const [fromDate, setFromDate] = useState("");
