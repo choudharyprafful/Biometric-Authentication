@@ -104,12 +104,13 @@ All in AWS `us-east-1` (N. Virginia), one CloudFront domain: <https://d2zb1uxt99
   defined once in `scripts/ops/web-security-headers.mjs` and applied by `scripts/ops/deploy-web.mjs`,
   which also refuses a build that loads fonts from elsewhere and checks the live headers after deploying
   (R-SC-4). Fonts are self-hosted.
-- **API:** Elastic Beanstalk (`secureai-api-env2`, Node.js 24 on Amazon Linux 2023, API v26), reached
+- **API:** Elastic Beanstalk (`secureai-api-env2`, Node.js 24 on Amazon Linux 2023, API v27), reached
   through the same CloudFront domain, so the session and CSRF cookies are same-site (`SameSite=Lax`,
-  R-SC-5). CloudFront reaches it over plain HTTP, because the single-instance environment has no HTTPS
-  listener. So traffic is encrypted from the browser or phone to CloudFront but not from CloudFront to the
-  API. Since 2026-10-12 the instance's firewall admits port 80 only from CloudFront, so requests can't
-  bypass it (R-SC-6, partly fixed). The API believes a forwarded client IP only from CloudFront's published ranges
+  R-SC-5). Since 2026-10-16 traffic is encrypted all the way: CloudFront reaches the API only over HTTPS
+  (TLS 1.2 or 1.3), on a port the instance's firewall opens to CloudFront alone, with a Let's Encrypt
+  certificate for the environment's own hostname that renews itself (`artifacts/api-server/.platform`).
+  Port 80 answers only Let's Encrypt's check, so nothing can reach the API around CloudFront (R-SC-6).
+  The API believes a forwarded client IP only from CloudFront's published ranges
   (`lib/cloudfrontRanges.ts`). ClamAV runs on the same instance (R-DP-2).
 - **Database:** RDS PostgreSQL (`secureai3`). The API connects as the restricted `secureai_app` role over
   TLS, checking the server certificate against Amazon's bundle (R-AC-2);
