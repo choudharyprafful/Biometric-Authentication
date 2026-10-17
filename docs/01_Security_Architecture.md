@@ -104,7 +104,7 @@ All in AWS `us-east-1` (N. Virginia), one CloudFront domain: <https://d2zb1uxt99
   defined once in `scripts/ops/web-security-headers.mjs` and applied by `scripts/ops/deploy-web.mjs`,
   which also refuses a build that loads fonts from elsewhere and checks the live headers after deploying
   (R-SC-4). Fonts are self-hosted.
-- **API:** Elastic Beanstalk (`secureai-api-env2`, Node.js 24 on Amazon Linux 2023, API v27), reached
+- **API:** Elastic Beanstalk (`secureai-api-env2`, Node.js 24 on Amazon Linux 2023, API v28), reached
   through the same CloudFront domain, so the session and CSRF cookies are same-site (`SameSite=Lax`,
   R-SC-5). Since 2026-10-16 traffic is encrypted all the way: CloudFront reaches the API only over HTTPS
   (TLS 1.2 or 1.3), on a port the instance's firewall opens to CloudFront alone, with a Let's Encrypt

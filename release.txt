@@ -1,8 +1,8 @@
 SecureAI release notes
 ======================
 
-Release: main at commit 44fd09e (16 October 2026); live API v27, deployed 16 October 2026: v26's
-code (commit 9b5796e) plus the HTTPS origin files of R-SC-6.
+Release: main at commit 5b3c9ba (16 October 2026); live as API v28 and the web app, deployed
+17 October 2026 from that commit.
 Live site: https://d2zb1uxt99m5ks.cloudfront.net
 First issue: 9 October 2026, for main at commit 5c1970f and the live API v26.
 
@@ -30,11 +30,11 @@ R-SC-6: CloudFront forwarded requests to the API over plain HTTP, and the API se
     with a Let's Encrypt certificate on the instance). Port 443 admits only CloudFront, and port
     80 answers only the certificate's renewal check.
 
-Fixed in main, not yet live (7)
--------------------------------
-The code is in this release and tested. It goes live with the next API deploy, which first needs
-three production database migrations: email verification, bystander reports and bystander
-consent requests (scripts/ops/migrate-*.mjs).
+Live with API v28 (7)
+---------------------
+Fixed in this release's code, and live since 17 October 2026 (API v28), after three production
+database migrations: email verification, bystander reports and bystander consent requests
+(scripts/ops/migrate-*.mjs).
 
 R-AUTH-10: New passwords were not checked against lists of breached passwords.
     Fixed: Sign-up and both reset paths refuse common passwords, passwords found in Have I Been
@@ -183,7 +183,7 @@ R-PRIV-9: Real biometric data was used in testing: the project owner's own face,
 
 Other known issues (3)
 ----------------------
-Not risk-register rows. OTH-4 is now R-PRIV-10, fixed in main.
+Not risk-register rows. OTH-4 is now R-PRIV-10, fixed and live.
 
 OTH-1: A high-severity advisory in build tooling: source-map-js below 1.2.2
     (GHSA-68fv-2mgg-jv7q), reached through @tailwindcss/vite.
