@@ -73,14 +73,20 @@ R-ML-12: The topic profile read only a to z and 0 to 9, so writing in other lang
     synthetic writers.
     Remaining: Common words are filtered for English only.
 
-Open issues (1)
+Open issues (2)
 ---------------
-Not yet fixed.
+Not yet fixed. OTH-5 is not a risk-register row.
 
 R-AC-6: The production database is still flagged as publicly accessible, although its firewall
     admits only the API.
     Impact: One mistaken firewall rule would expose it to the internet again.
     Plan: Turn public accessibility off and run migrations from inside the network.
+
+OTH-5: In the one test of the iPhone app on a physical iPhone, Face ID verification did not work.
+    The device, iOS version and build were not recorded.
+    Impact: Face ID sign-in on iPhone is unverified on real hardware. The iPhone app is built, run
+    and checked for certificate pinning in the iPhone Simulator in CI (ios.yml).
+    Plan: Reproduce on the same device and build, record the details and find the cause.
 
 Partly fixed (9)
 ----------------
@@ -183,7 +189,7 @@ R-PRIV-9: Real biometric data was used in testing: the project owner's own face,
 
 Other known issues (3)
 ----------------------
-Not risk-register rows. OTH-4 is now R-PRIV-10, fixed and live.
+Not risk-register rows. OTH-4 is now R-PRIV-10, fixed and live; OTH-5 is under Open issues.
 
 OTH-1: A high-severity advisory in build tooling: source-map-js below 1.2.2
     (GHSA-68fv-2mgg-jv7q), reached through @tailwindcss/vite.
